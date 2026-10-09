@@ -1,0 +1,58 @@
+id,name,class,provenance,vertices_or_resolution,notes
+0,600-cell,exact polytope,canonical coordinates,120,720 edges / 1200 triangular faces
+1,600-cell hyperplane slice,exact derived,face-plane intersection,dynamic,topology from exact 600-cell faces
+2,Gyroid,numerical implicit,marching tetrahedra,25^3,TPMS
+3,Schwarz P,numerical implicit,marching tetrahedra,25^3,TPMS
+4,Schwarz D,numerical implicit,marching tetrahedra,24^3,TPMS
+5,Neovius,numerical implicit,marching tetrahedra,24^3,TPMS
+6,Hopf fibres,parametric,S3 stereographic projection,42x112,fibre family
+7,Boy surface,parametric,analytic immersion,84x44,self-intersecting RP2 immersion
+8,Superformula,parametric,Gielis-style radial formula,96x48,morphable
+9,120-cell,exact dual incidence,dual of generated 600-cell,600,1200 edges
+10,Clifford torus,parametric,S3 stereographic projection,56x30,4D torus
+11,Hyperbolic ball,visualization,Poincare-ball radial construction,7 shells,not a canonical honeycomb
+12,Quaternion Julia,numerical visualization,quaternion escape metric,24^3,axis-neighbour boundary lattice visualization
+13,Lissajous knot,parametric,analytic curve,1800,closed wire
+14,Lorenz attractor,numerical trajectory,RK-like Euler trajectory,14000,chaotic curve
+15,Discovered object,deterministic procedural,seeded harmonic radial field,88x44,seed serialized
+16,Mobius strip,parametric,non-orientable strip,160x20,one-sided surface
+17,Klein bottle,parametric,immersed closed non-orientable surface,120x48,self-intersection
+18,Enneper surface,parametric,minimal surface,80x36,analytic polynomial parameterization
+19,Helicoid,parametric,minimal ruled surface,96x32,helical sheet
+20,Catenoid,parametric,minimal surface,96x32,surface of revolution
+21,Dini surface,parametric,negative-curvature surface,120x32,twisted pseudosphere
+22,Pseudosphere,parametric,tractricoid,120x32,negative Gaussian curvature
+23,Roman surface,parametric,Steiner surface immersion,96x48,projective-plane immersion
+24,Cross-cap,parametric,projective-plane immersion,96x48,self-intersecting
+25,Torus knot,parametric,closed knot,1800,3/7 default
+26,Viviani curve,parametric,sphere-cylinder intersection,1400,figure-eight-like spatial curve
+27,Spherical spiral,parametric,spherical spiral,1800,13 turns
+28,Hypotrochoid knot,parametric,spatial roulette,1800,morphable
+29,Duffing attractor,numerical trajectory,forced nonlinear oscillator,18000,chaotic
+30,Rossler attractor,numerical trajectory,Rossler system,18000,chaotic
+31,Thomas attractor,numerical trajectory,Thomas cyclic system,18000,chaotic
+32,Sierpinski tetrahedron,recursive fractal,tetrahedral subdivision,depth 5,6144 leaf edges before overlap
+33,Heart algebraic,numerical implicit,marching tetrahedra,25^3,algebraic heart
+34,Barth sextic-like,numerical implicit,icosahedral-inspired sextic field,25^3,visualization not canonical Barth sextic
+35,Tanglecube,numerical implicit,quartic field,25^3,morphable iso family
+36,Chmutov-like,numerical implicit,Chebyshev-inspired field,25^3,visualization not canonical Chmutov surface
+37,Cayley cubic,numerical implicit,cubic field,25^3,nodal cubic visualization
+38,Kummer-like,numerical implicit,quartic nodal-inspired field,25^3,visualization not canonical Kummer quartic
+39,Goursat surface,numerical implicit,quartic field,25^3,algebraic surface
+40,Blob lattice,numerical implicit,periodic trigonometric field,25^3,morphable lattice
+41,Unknown supercage crown,procedural lab port,unknown_wireframe_lab_v4_49_objects,56x30,curated supercage radial wire object
+42,Unknown knot-bundle reactor,procedural lab port,unknown_wireframe_lab_v4_49_objects,curve bundle,ported knot reactor family
+43,Unknown phyllotaxis vortex,procedural lab port,unknown_wireframe_lab_v4_49_objects,spiral arms,ported golden-angle wire vortex
+44,Unknown ruled singularity fan,procedural lab port,unknown_wireframe_lab_v4_49_objects,ruled surface,ported ruled hyperbolic fan
+45,Unknown prime-lobed lantern,procedural lab port,unknown_wireframe_lab_v4_49_objects,ring cage,ported star/lantern cage
+46,Unknown aperiodic orbit nest,procedural lab port,unknown_wireframe_lab_v4_49_objects,curve bundle,ported aperiodic knot bundle
+47,Unknown superformula organism,procedural lab port,unknown_wireframe_lab_v4_49_objects,radial wire shell,ported organism-like supercage
+48,Unknown knot lattice 13,procedural lab port,unknown_wireframe_lab_v4_49_objects,curve bundle,ported higher-order knot lattice
+49,Unknown golden spiral skeleton,procedural lab port,unknown_wireframe_lab_v4_49_objects,spiral arms,ported golden spiral skeleton
+50,Unknown twisted ruled shell,procedural lab port,unknown_wireframe_lab_v4_49_objects,ruled surface,ported twisted ruled shell
+51,Geodesic dome,showpiece,icosphere subdivision,triangle lattice,breathing bump
+52,Tube trefoil,showpiece,parametric knot swept tube,ring/longitudinal wires,Frenet-style frame
+53,DNA helix,showpiece,double helix,rungs,animated twist
+54,Atom orbits,showpiece,nucleus + 3 electron rings,rings + octahedra,orbiting electrons
+55,Wave terrain,showpiece,height-field grid,wire ocean,animated ripples
+56,Platonic compound,showpiece,icosahedron + dodecahedron + stella octangula,compound,pulsing inner cube pair
