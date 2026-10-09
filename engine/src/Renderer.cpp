@@ -5,6 +5,8 @@
 #include <GLFW/glfw3.h>
 #ifdef __APPLE__
 #include <OpenGL/gl3.h>
+#elif defined(_WIN32)
+#include "GLWin32.hpp"
 #else
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES 1
