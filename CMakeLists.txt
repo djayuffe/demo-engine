@@ -67,8 +67,8 @@ option(IW_BUILD_TESTS "Build the engine and wireframe-demo tests" ON)
 option(IW_WARNINGS_AS_ERRORS "Treat project warnings as errors" OFF)
 function(iw_warnings target)
  if(MSVC)
-  # C4244/C4267 (implicit int/size_t/double narrowing) are intentional throughout the geometry code.
-  target_compile_options(${target} PRIVATE /W4 /wd4244 /wd4267 $<$<BOOL:${IW_WARNINGS_AS_ERRORS}>:/WX>)
+  # C4244/C4267 (narrowing) and C4456-8 (shadowing) are intentional/benign throughout the geometry code and tests.
+  target_compile_options(${target} PRIVATE /W4 /wd4244 /wd4267 /wd4456 /wd4457 /wd4458 $<$<BOOL:${IW_WARNINGS_AS_ERRORS}>:/WX>)
  else()
   target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic $<$<BOOL:${IW_WARNINGS_AS_ERRORS}>:-Werror>)
  endif()
