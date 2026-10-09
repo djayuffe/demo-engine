@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 - CI and build fixes
+- Fixed a parallel-build race: engine shaders are now copied once by a shared `de_shaders` target instead of by every demo.
+- Fixed a misleading-indentation error (GCC `-Werror`) and the vendored `stb_image_write` `sprintf` deprecation (Apple clang `-Werror`).
+- MSVC warnings C4244/C4267 (intentional narrowing) silenced.
+- Windows is documented as unsupported: the renderer needs an OpenGL function loader. The Windows CI job, which never built, was removed.
+- CI is green on macOS 15 and Ubuntu 24.04.
+
 ## 1.0.0 - Initial engine release
 Extracted from [Impossible Wireframe](https://github.com/djayuffe/wireframe-scroller) v4.34.
 
