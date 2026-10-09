@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0 - Windows support
+- In-tree OpenGL 4.1 function loader for Windows (`GLWin32.hpp/.cpp`): declares exactly the functions and constants the renderer uses and fills them via `glfwGetProcAddress`. Other platforms are unchanged.
+- MSVC definitions (`NOMINMAX`, `WIN32_LEAN_AND_MEAN`, `_CRT_SECURE_NO_WARNINGS`) and warning policy; Windows CI job restored.
+- Verification: the same loader and build changes pass build + tests on macOS, Linux and Windows in the public wireframe-scroller CI. This repo's CI could not start jobs (GitHub billing limit), and nothing has been run on physical Windows hardware yet.
+
 ## 1.0.1 - CI and build fixes
 - Fixed a parallel-build race: engine shaders are now copied once by a shared `de_shaders` target instead of by every demo.
 - Fixed a misleading-indentation error (GCC `-Werror`) and the vendored `stb_image_write` `sprintf` deprecation (Apple clang `-Werror`).

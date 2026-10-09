@@ -2,7 +2,7 @@
 
 ![Impossible Wireframe: 600-cell over the UBER logo](docs/screenshots/1-logo-hold-600cell.jpg)
 
-**A real-time wireframe demoscene in C++20 and OpenGL 4.1 Core** for macOS and Linux. It renders 57 mathematically unusual objects, from exact 4D polychora to minimal surfaces, strange attractors and procedurally discovered shapes. A CPU effect engine warps them, an HDR post pass composites them over a timed logo show and a procedural art background, and a tracker module drives the motion.
+**A real-time wireframe demoscene in C++20 and OpenGL 4.1 Core** for macOS, Linux and Windows. It renders 57 mathematically unusual objects, from exact 4D polychora to minimal surfaces, strange attractors and procedurally discovered shapes. A CPU effect engine warps them, an HDR post pass composites them over a timed logo show and a procedural art background, and a tracker module drives the motion.
 
 Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Demo version: **v5.0** (engine v1.0; the demo's v4.x history is in the original repository).
 Topics: `wireframe` `demoscene` `opengl` `glfw` `cpp20` `4d-geometry` `procedural-geometry` `shaders` `libopenmpt` `tracker-music` `creative-coding` `macos`
@@ -146,7 +146,7 @@ From the repository root: `make run` (see the [root README](../../README.md#buil
 - every effect recipe (scenes 0, 1, 2, 5, 11, 26 and every 8th, times all recipes) for mesh validity;
 - timeline beat and bar math, the `--window` parser, the scroller code strip and shader conventions.
 
-GitHub Actions (`.github/workflows/ci.yml`) builds and tests on macOS 15 and Ubuntu 24.04 for every push. Windows is not supported yet (no OpenGL loader).
+GitHub Actions (`.github/workflows/ci.yml`) builds and tests on macOS 15, Ubuntu 24.04 and Windows 2022 for every push.
 
 ## Layout
 | Path | Contents |

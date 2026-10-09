@@ -2,11 +2,11 @@
 
 ![The wireframe demo, running on the engine](docs/wireframe-demo.jpg)
 
-**A small, generic engine for real-time wireframe demos** in C++20 and OpenGL 4.1 Core (macOS and Linux). You write a class that produces a wire mesh every frame; the engine supplies everything else: window and GL context, an HDR render target with additive line blending, a post-processing chain, tracker-music playback with band analysis, tempo sync, a timed logo show, a beat-synced pixel-font ticker, screenshots and a full command line.
+**A small, generic engine for real-time wireframe demos** in C++20 and OpenGL 4.1 Core (macOS, Linux and Windows). You write a class that produces a wire mesh every frame; the engine supplies everything else: window and GL context, an HDR render target with additive line blending, a post-processing chain, tracker-music playback with band analysis, tempo sync, a timed logo show, a beat-synced pixel-font ticker, screenshots and a full command line.
 
 It was extracted from the [Impossible Wireframe](https://github.com/djayuffe/wireframe-scroller) demo, which is now just the first demo built on it.
 
-Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.0.1.
+Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.1.0.
 
 **Contents:** [Why](#why) | [Quick start](#quick-start) | [What the engine provides](#what-the-engine-provides) | [Writing a demo](#writing-a-demo) | [Demos in this repository](#demos-in-this-repository) | [Build](#build) | [Tests and CI](#tests-and-ci) | [Repository layout](#repository-layout) | [Roadmap](#roadmap)
 
@@ -134,7 +134,7 @@ same commands (or `make`).
 If OpenGL/GLFW are absent, CMake still builds `iw_geometry` and `geometry_tests`, allowing headless CI validation.
 
 ## Tests and CI
-`make test` builds and runs `geometry_tests` (about 8 s): canonical polytope counts, validity of every wireframe scene and every effect recipe, timeline math, window parsing, scroller buffer limits and shader conventions. Targets compile with `-Wall -Wextra -Wpedantic -Werror` (`/W4 /WX` on MSVC) when `IW_WARNINGS_AS_ERRORS=ON`. GitHub Actions builds and tests on macOS 15 and Ubuntu 24.04. Windows is not supported yet: the renderer relies on `GL_GLEXT_PROTOTYPES`, which does not exist on Windows, so it would need an OpenGL loader (glad or `glfwGetProcAddress`) first.
+`make test` builds and runs `geometry_tests` (about 8 s): canonical polytope counts, validity of every wireframe scene and every effect recipe, timeline math, window parsing, scroller buffer limits and shader conventions. Targets compile with `-Wall -Wextra -Wpedantic -Werror` (`/W4 /WX` on MSVC) when `IW_WARNINGS_AS_ERRORS=ON`. GitHub Actions builds and tests on macOS 15, Ubuntu 24.04 and Windows 2022. On Windows an in-tree OpenGL loader (`engine/include/GLWin32.hpp`) fetches the GL 4.1 functions through `glfwGetProcAddress`, because `opengl32.dll` only exports GL 1.1. The identical loader builds and passes tests in the public [wireframe-scroller](https://github.com/djayuffe/wireframe-scroller) CI; this private repo's own CI is currently blocked by the GitHub account's billing limit, and the engine has not been run on a physical Windows machine yet.
 
 ## Repository layout
 | Path | Contents |
@@ -148,7 +148,7 @@ If OpenGL/GLFW are absent, CMake still builds `iw_geometry` and `geometry_tests`
 | `docs/` | Guides and README images |
 
 ## Roadmap
-- Windows support via an OpenGL function loader.
+- Run and verify on physical Windows hardware.
 - Per-demo shader overrides beyond `Config::shaderDir` (partial post chains).
 - Mesh colours and per-edge attributes.
 - Multiple meshes and instancing per frame.
