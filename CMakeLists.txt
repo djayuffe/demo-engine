@@ -67,7 +67,8 @@ option(IW_BUILD_TESTS "Build the engine and wireframe-demo tests" ON)
 option(IW_WARNINGS_AS_ERRORS "Treat project warnings as errors" OFF)
 function(iw_warnings target)
  if(MSVC)
-  target_compile_options(${target} PRIVATE /W4 $<$<BOOL:${IW_WARNINGS_AS_ERRORS}>:/WX>)
+  # C4244/C4267 (implicit int/size_t/double narrowing) are intentional throughout the geometry code.
+  target_compile_options(${target} PRIVATE /W4 /wd4244 /wd4267 $<$<BOOL:${IW_WARNINGS_AS_ERRORS}>:/WX>)
  else()
   target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic $<$<BOOL:${IW_WARNINGS_AS_ERRORS}>:-Werror>)
  endif()
@@ -202,15 +203,19 @@ if(OpenGL_FOUND AND glfw3_FOUND)
  endif()
  iw_warnings(de_engine)
 
- # Every demo links de_engine and gets the engine shaders copied beside its binary
- # (rm -rf first so a deleted shader does not linger in the build dir).
+ # Engine shaders are copied ONCE, next to the binaries, by a shared target every demo depends on
+ # (a per-demo post-build copy raced when demos built in parallel). rm -rf first so a deleted
+ # shader does not linger in the build dir.
+ add_custom_target(de_shaders ALL
+  COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:de_engine>/shaders
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/engine/shaders $<TARGET_FILE_DIR:de_engine>/shaders
+  COMMENT "Copying engine shaders")
+ add_dependencies(de_shaders de_engine)
  function(de_add_demo name)
   add_executable(${name} ${ARGN})
   target_link_libraries(${name} PRIVATE de_engine)
+  add_dependencies(${name} de_shaders)
   iw_warnings(${name})
-  add_custom_command(TARGET ${name} POST_BUILD
-   COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:${name}>/shaders
-   COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/engine/shaders $<TARGET_FILE_DIR:${name}>/shaders)
  endfunction()
 
  de_add_demo(impossible_wireframe demos/wireframe/src/main.cpp)
