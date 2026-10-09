@@ -37,7 +37,7 @@ jobs:
             git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
             & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
           }
-          & "$env:VCPKG_ROOT\vcpkg.exe" install glfw sdl2 libopenmpt --triplet x64-windows
+          & "$env:VCPKG_ROOT\vcpkg.exe" install glfw3 sdl2 libopenmpt --triplet x64-windows
       - name: Configure
         shell: pwsh
         run: |

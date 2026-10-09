@@ -111,8 +111,13 @@ Mesh3 platonicCompound(float t){
   // dual dodecahedron: face centres, joined across shared edges
   std::vector<uint32_t> dv;std::vector<V3> dc;
   for(auto&f:I.f){V3 c=norm(add3(add3(I.v[f[0]],I.v[f[1]]),I.v[f[2]]));dc.push_back(c);dv.push_back(B.add(spin(mul(c,R*.82f))));}
-  for(size_t a=0;a<I.f.size();++a)for(size_t b=a+1;b<I.f.size();++b){int shared=0;
-    for(auto x:I.f[a])for(auto y:I.f[b])if(x==y)++shared;if(shared==2)B.edge(dv[a],dv[b]);}
+  for(size_t a=0;a<I.f.size();++a){
+    for(size_t b=a+1;b<I.f.size();++b){
+      int shared=0;
+      for(auto x:I.f[a])for(auto y:I.f[b])if(x==y)++shared;
+      if(shared==2)B.edge(dv[a],dv[b]);
+    }
+  }
   // inscribed cube-pair (stella octangula) pulsing in and out
   float s=.62f+.1f*std::sin(t*1.3f);uint32_t cv[8];int k=0;
   for(int x=-1;x<=1;x+=2)for(int y=-1;y<=1;y+=2)for(int z=-1;z<=1;z+=2)cv[k++]=B.add(spin({x*s,y*s,z*s}));
