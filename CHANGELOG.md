@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0 - Golden glimmer and golden orbits
+- Engine: `Frame::wireStyle` and `Renderer::setWireStyle`. Style 1, golden glimmer, draws wires additively without depth test (point and orbit clouds accumulate light), twinkles each dash in gold with a sweeping shimmer band, and makes the post pass add gold horizontal-plus-vertical glints, tint the light rays gold, quiet the art background and switch off warps, colour grading and the rainbow tint.
+- Wireframe demo: scenes 57 Golden Galaxy and 58 Golden Cliff, ports of GALAXY.COM (de Jong attractor) and CLIFF.COM (Clifford attractor) from uber256-lab with the original constants, start points and parameter morph. 59 scenes in total.
+
 ## 1.2.0 - Unknown effects
 - 16 new effects (64-79): Hopf rotation, Klein fold, hyperbolic drift, Thomas flow, galactic disk, harmonic bloom, FCC crystal snap, tendril growth, shell cage, barbed wire, torus attractor, Moebius map, soliton wave, quaternion square, Lissajous satellites, spectral harmonics.
 - 6 new recipes (24-29). `effectCount()` is now 80 and `recipeCount()` 30; the procedural mutation draws from all of them.
