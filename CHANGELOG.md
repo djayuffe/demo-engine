@@ -2,6 +2,7 @@
 
 ## Unreleased
 - `AudioPlayer` plays `.wav` files through SDL (decoded once, converted to float stereo, looped), with the same band analysis and music clock as modules. `--music file.wav` used to be rejected by libopenmpt.
+- The music clock is now total played time, not the position in the track, so the show keeps going when a track loops instead of restarting its scene sequence and logo show (a 30 s loop never got past scene 8).
 
 ## 1.3.0 - Golden glimmer and golden orbits
 - Engine: `Frame::wireStyle` and `Renderer::setWireStyle`. Style 1, golden glimmer, draws wires additively without depth test (point and orbit clouds accumulate light), twinkles each dash in gold with a sweeping shimmer band, and makes the post pass add gold horizontal-plus-vertical glints, tint the light rays gold, quiet the art background and switch off warps, colour grading and the rainbow tint.

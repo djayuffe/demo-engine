@@ -104,6 +104,7 @@ void AudioPlayer::close() {
   }
   pcm_.clear();
   pcmPos_ = 0;
+  playedFrames_ = 0;
   seconds_.store(0.0);
   level_.store(0.0f);
   bass_.store(0.0f); mid_.store(0.0f); treble_.store(0.0f);
@@ -145,7 +146,8 @@ void AudioPlayer::render(float* out, int frames) {
       if (++pcmPos_ >= total) pcmPos_ = 0;
     }
     analyze(out, frames * 2);
-    seconds_.store(double(pcmPos_) / double(rate_));
+    playedFrames_ += uint64_t(frames);
+    seconds_.store(double(playedFrames_) / double(rate_));
     return;
   }
   if (!module_) {
@@ -166,7 +168,8 @@ void AudioPlayer::render(float* out, int frames) {
     std::fill(out + got * 2, out + frames * 2, 0.0f);
   }
   analyze(out, static_cast<int>(got * 2));
-  seconds_.store(openmpt_module_get_position_seconds(module_));
+  playedFrames_ += uint64_t(frames);
+  seconds_.store(double(playedFrames_) / double(rate_));
   order_.store(int(openmpt_module_get_current_order(module_)));
   pattern_.store(int(openmpt_module_get_current_pattern(module_)));
   row_.store(int(openmpt_module_get_current_row(module_)));

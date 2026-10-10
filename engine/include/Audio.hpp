@@ -41,6 +41,9 @@ private:
   // converted once to float stereo at the device rate and looped from memory.
   std::vector<float> pcm_;
   size_t pcmPos_{};   // in frames
+  // Frames handed to the device since open(). The music clock is played time, not the position in
+  // the track: it keeps counting when a track loops, so the show does not restart with every loop.
+  uint64_t playedFrames_{};
   SDL_AudioDeviceID device_{};
   int rate_{48000};
   std::atomic<double> seconds_{};
