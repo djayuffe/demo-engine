@@ -1,6 +1,8 @@
 #include "Audio.hpp"
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <string>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -18,11 +20,22 @@ bool AudioPlayer::open(const std::filesystem::path& path) {
     return false;
   }
   std::vector<char> data((std::istreambuf_iterator<char>(file)), {});
-  module_ = openmpt_module_create_from_memory2(
-      data.data(), data.size(), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+  // Tracker modules go to libopenmpt; anything it rejects is tried as a WAV through SDL. The
+  // ext check keeps libopenmpt from logging a spurious error for an obvious .wav.
+  std::string ext = path.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
+  if (ext != ".wav")
+    module_ = openmpt_module_create_from_memory2(
+        data.data(), data.size(), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+  SDL_AudioSpec wavSpec{};
+  Uint8* wavBuf = nullptr;
+  Uint32 wavLen = 0;
   if (!module_) {
-    std::cerr << "libopenmpt rejected: " << path << '\n';
-    return false;
+    SDL_RWops* rw = SDL_RWFromConstMem(data.data(), int(data.size()));
+    if (!rw || !SDL_LoadWAV_RW(rw, 1, &wavSpec, &wavBuf, &wavLen)) {
+      std::cerr << "Not a tracker module or WAV file: " << path << '\n';
+      return false;
+    }
   }
   SDL_AudioSpec want{}, got{};
   want.freq = rate_;
@@ -43,6 +56,34 @@ bool AudioPlayer::open(const std::filesystem::path& path) {
     return false;
   }
   rate_ = got.freq;
+  if (wavBuf) {
+    SDL_AudioCVT cvt;
+    if (SDL_BuildAudioCVT(&cvt, wavSpec.format, wavSpec.channels, wavSpec.freq, AUDIO_F32SYS, 2, rate_) < 0) {
+      std::cerr << "SDL_BuildAudioCVT: " << SDL_GetError() << '\n';
+      SDL_FreeWAV(wavBuf);
+      close();
+      return false;
+    }
+    std::vector<Uint8> work(size_t(wavLen) * size_t(std::max(1, cvt.len_mult)));
+    std::copy(wavBuf, wavBuf + wavLen, work.begin());
+    SDL_FreeWAV(wavBuf);
+    cvt.len = int(wavLen);
+    cvt.buf = work.data();
+    if (cvt.needed && SDL_ConvertAudio(&cvt) < 0) {
+      std::cerr << "SDL_ConvertAudio: " << SDL_GetError() << '\n';
+      close();
+      return false;
+    }
+    const size_t bytes = cvt.needed ? size_t(cvt.len_cvt) : size_t(wavLen);
+    pcm_.assign(reinterpret_cast<const float*>(work.data()), reinterpret_cast<const float*>(work.data()) + bytes / sizeof(float));
+    pcm_.resize(pcm_.size() & ~size_t(1));   // whole stereo frames only
+    pcmPos_ = 0;
+    if (pcm_.empty()) {
+      std::cerr << "WAV file has no samples: " << path << '\n';
+      close();
+      return false;
+    }
+  }
   SDL_PauseAudioDevice(device_, 0);
   return true;
 #else
@@ -61,6 +102,8 @@ void AudioPlayer::close() {
     openmpt_module_destroy(module_);
     module_ = nullptr;
   }
+  pcm_.clear();
+  pcmPos_ = 0;
   seconds_.store(0.0);
   level_.store(0.0f);
   bass_.store(0.0f); mid_.store(0.0f); treble_.store(0.0f);
@@ -71,7 +114,7 @@ void AudioPlayer::close() {
 MusicState AudioPlayer::state() const {
   MusicState s{};
 #if defined(IW_HAS_AUDIO)
-  s.active = module_ != nullptr;
+  s.active = module_ != nullptr || !pcm_.empty();
   s.seconds = seconds_.load();
   s.level = level_.load();
   s.bass = bass_.load();
@@ -93,6 +136,18 @@ void AudioPlayer::callback(void* userdata, Uint8* stream, int len) {
 }
 
 void AudioPlayer::render(float* out, int frames) {
+  if (!pcm_.empty()) {
+    // WAV: copy from the decoded buffer, wrapping at the end so the track loops seamlessly.
+    const size_t total = pcm_.size() / 2;
+    for (int f = 0; f < frames; ++f) {
+      out[2 * f] = pcm_[2 * pcmPos_];
+      out[2 * f + 1] = pcm_[2 * pcmPos_ + 1];
+      if (++pcmPos_ >= total) pcmPos_ = 0;
+    }
+    analyze(out, frames * 2);
+    seconds_.store(double(pcmPos_) / double(rate_));
+    return;
+  }
   if (!module_) {
     std::fill(out, out + frames * 2, 0.0f);
     return;
@@ -110,6 +165,16 @@ void AudioPlayer::render(float* out, int frames) {
   if (got < static_cast<size_t>(frames)) {
     std::fill(out + got * 2, out + frames * 2, 0.0f);
   }
+  analyze(out, static_cast<int>(got * 2));
+  seconds_.store(openmpt_module_get_position_seconds(module_));
+  order_.store(int(openmpt_module_get_current_order(module_)));
+  pattern_.store(int(openmpt_module_get_current_pattern(module_)));
+  row_.store(int(openmpt_module_get_current_row(module_)));
+  tempo_.store(int(std::lround(openmpt_module_get_current_tempo2(module_))));
+  speed_.store(int(openmpt_module_get_current_speed(module_)));
+}
+
+void AudioPlayer::analyze(const float* out, int valid) {
   double sum = 0.0;
   float bSum=0,mSum=0,tSum=0;
   // Zero-phase-ish 3-band split via simple one-pole IIR (stable, no aliasing
@@ -121,7 +186,6 @@ void AudioPlayer::render(float* out, int frames) {
   const float aB=.021f, aM=.14f, aT=.5f;  // 1-pole lowpass alphas
   // lpB_/lpM_/lpT_ are persistent member state (not per-call locals) so the
   // one-pole filters stay warm across the ~37 render() calls/second.
-  const int valid = static_cast<int>(got * 2);
   for (int i = 0; i < valid; ++i) {
     float s=out[i];
     sum += double(s) * double(s);
@@ -135,11 +199,5 @@ void AudioPlayer::render(float* out, int frames) {
   bass_.store(std::clamp(bSum/float(N)*6.0f,0.f,1.f));
   mid_.store(std::clamp(mSum/float(N)*6.0f,0.f,1.f));
   treble_.store(std::clamp(tSum/float(N)*6.0f,0.f,1.f));
-  seconds_.store(openmpt_module_get_position_seconds(module_));
-  order_.store(int(openmpt_module_get_current_order(module_)));
-  pattern_.store(int(openmpt_module_get_current_pattern(module_)));
-  row_.store(int(openmpt_module_get_current_row(module_)));
-  tempo_.store(int(std::lround(openmpt_module_get_current_tempo2(module_))));
-  speed_.store(int(openmpt_module_get_current_speed(module_)));
 }
 #endif

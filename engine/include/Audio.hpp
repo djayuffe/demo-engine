@@ -1,6 +1,7 @@
 #pragma once
 #include <atomic>
 #include <filesystem>
+#include <vector>
 #include <cstdint>
 
 #if defined(IW_HAS_AUDIO)
@@ -34,7 +35,12 @@ private:
 #if defined(IW_HAS_AUDIO)
   static void callback(void* userdata, Uint8* stream, int len);
   void render(float* out,int frames);
+  void analyze(const float* out,int validSamples);   // level + bass/mid/treble from the rendered block
   openmpt_module* module_{};
+  // Plain PCM (WAV) tracks: libopenmpt only reads tracker modules, so a .wav is decoded by SDL,
+  // converted once to float stereo at the device rate and looped from memory.
+  std::vector<float> pcm_;
+  size_t pcmPos_{};   // in frames
   SDL_AudioDeviceID device_{};
   int rate_{48000};
   std::atomic<double> seconds_{};

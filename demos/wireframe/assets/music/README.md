@@ -24,6 +24,8 @@ Run:
 ./build/impossible_wireframe --music assets/music/wireframe_pulse.wav --bpm 128
 ```
 
+Tracker modules (`.mod .xm .it .s3m` ...) play through libopenmpt; `.wav` files are decoded by SDL, converted to float stereo at the device rate and looped. (Before this, the `.wav` was silently rejected by libopenmpt and the demo fell back to the BPM clock.)
+
 `Wireframe Pulse` was synthesized from a small Python script (square-lead bass,
 32-note two-octave lead over a 4-chord Am/F/G/Em loop, and a noise-hat layer)
 and is looped to the demo's length. It is provided as a public-domain (CC0)
