@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0 - Unknown effects
+- 16 new effects (64-79): Hopf rotation, Klein fold, hyperbolic drift, Thomas flow, galactic disk, harmonic bloom, FCC crystal snap, tendril growth, shell cage, barbed wire, torus attractor, Moebius map, soliton wave, quaternion square, Lissajous satellites, spectral harmonics.
+- 6 new recipes (24-29). `effectCount()` is now 80 and `recipeCount()` 30; the procedural mutation draws from all of them.
+- Tests: distinct effect names, and every new effect must change a mesh.
+
 ## 1.1.0 - Windows support
 - In-tree OpenGL 4.1 function loader for Windows (`GLWin32.hpp/.cpp`): declares exactly the functions and constants the renderer uses and fills them via `glfwGetProcAddress`. Other platforms are unchanged.
 - MSVC definitions (`NOMINMAX`, `WIN32_LEAN_AND_MEAN`, `_CRT_SECURE_NO_WARNINGS`) and warning policy; Windows CI job restored.

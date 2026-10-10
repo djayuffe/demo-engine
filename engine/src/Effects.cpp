@@ -75,13 +75,24 @@ bool meshOK(const Mesh3& m) {
   for (const Edge& ed : m.e) if (ed.a >= m.v.size() || ed.b >= m.v.size() || ed.a == ed.b) return false;
   return true;
 }
+
+// ---- helpers for the "unknown" effects (64-79) -------------------------------------------------
+float meanRadius(const Mesh3& m, V3 C) { double r = 0; for (auto p : m.v) r += vlen(vsub(p, C)); return m.v.empty() ? 1.f : std::max(.2f, float(r / double(m.v.size()))); }
+float maxRadius(const Mesh3& m, V3 C) { float r = .2f; for (auto p : m.v) r = std::max(r, vlen(vsub(p, C))); return r; }
+V3 vlerp(V3 a, V3 b, float u) { return vadd(a, vmul(vsub(b, a), u)); }
+V3 rotAxis(V3 p, V3 k, float a) {   // Rodrigues rotation of p about unit axis k
+  float co = cosf(a), si = sinf(a);
+  return vadd(vadd(vmul(p, co), vmul(vcross(k, p), si)), vmul(k, vdot(k, p) * (1 - co)));
+}
+// Polar angle theta (from +y) and azimuth phi of a direction.
+void sphAngles(V3 x, float& th, float& ph) { float r = std::max(1e-6f, vlen(x)); th = acosf(clampf(x.y / r, -1, 1)); ph = atan2f(x.z, x.x); }
 }  // namespace
 
 std::string_view effectName(int id) {
-  static const char* n[] = {"None", "Twist", "Bend", "Taper", "Pulse", "Ripple", "Noise Warp", "Quantize", "Mirror Fold", "Sphericalize", "Cubify", "Inversion", "Vortex", "Shear Wave", "Radial Wave", "Axis Permute", "Mobius Phase", "Kaleidoscope", "Polar Quantize", "Breathing Shell", "Pinch", "Explode", "Implode", "Shatter", "Edge Pulse", "Scan Slice", "Venetian Slice", "Checker Cull", "Radial Cull", "Depth Cull", "Phase Cull", "Echo Copies", "Orbit Copies", "Recursive Copies", "Trail Copies", "Time Shear", "Dual Bridge", "Nearest Bridge", "Centroid Spokes", "Constellation", "Edge Subdivide", "Edge Fracture", "Edge Braid", "Edge Lightning", "Gravity Lens", "Black Hole Ring", "Wormhole Pair", "Event Horizon", "Caustic Fold", "Projective Singularity", "Hyper Perspective", "Fisheye 3D", "Stereo Split", "Chromatic Geometry", "Audio Radial", "Audio Twist", "Audio Bands", "Beat Shatter", "Bass Breath", "Treble Noise", "Spectral Rings", "Flow Advection", "Curl Warp", "Domain Warp"};
+  static const char* n[] = {"None", "Twist", "Bend", "Taper", "Pulse", "Ripple", "Noise Warp", "Quantize", "Mirror Fold", "Sphericalize", "Cubify", "Inversion", "Vortex", "Shear Wave", "Radial Wave", "Axis Permute", "Mobius Phase", "Kaleidoscope", "Polar Quantize", "Breathing Shell", "Pinch", "Explode", "Implode", "Shatter", "Edge Pulse", "Scan Slice", "Venetian Slice", "Checker Cull", "Radial Cull", "Depth Cull", "Phase Cull", "Echo Copies", "Orbit Copies", "Recursive Copies", "Trail Copies", "Time Shear", "Dual Bridge", "Nearest Bridge", "Centroid Spokes", "Constellation", "Edge Subdivide", "Edge Fracture", "Edge Braid", "Edge Lightning", "Gravity Lens", "Black Hole Ring", "Wormhole Pair", "Event Horizon", "Caustic Fold", "Projective Singularity", "Hyper Perspective", "Fisheye 3D", "Stereo Split", "Chromatic Geometry", "Audio Radial", "Audio Twist", "Audio Bands", "Beat Shatter", "Bass Breath", "Treble Noise", "Spectral Rings", "Flow Advection", "Curl Warp", "Domain Warp", "Hopf Rotation", "Klein Fold", "Hyperbolic Drift", "Thomas Flow", "Galactic Disk", "Harmonic Bloom", "FCC Crystal Snap", "Tendril Growth", "Shell Cage", "Barbed Wire", "Torus Attractor", "Mobius Map", "Soliton Wave", "Quaternion Square", "Lissajous Satellites", "Spectral Harmonics"};
   return n[wrap(id, effectCount())];
 }
-int effectCount() { return 64; }
+int effectCount() { return 80; }
 
 bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
   if (m.v.empty()) return false;
@@ -155,6 +166,140 @@ bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
   case 61: mapv(m, [&](V3 p, size_t) { V3 v{sinf(p.y + t) - cosf(p.z), sinf(p.z - t) - cosf(p.x), sinf(p.x + t) - cosf(p.y)}; return vadd(p, vmul(v, A * .12f)); }); break;
   case 62: mapv(m, [&](V3 p, size_t) { V3 v{cosf(p.y) - sinf(p.z), cosf(p.z) - sinf(p.x), cosf(p.x) - sinf(p.y)}; return vadd(p, vmul(v, A * .16f)); }); break;
   case 63: mapv(m, [&](V3 p, size_t) { p.x += A * .2f * sinf(p.y * 2 + sinf(p.z * 3 + t)); p.y += A * .2f * sinf(p.z * 2 + sinf(p.x * 3 - t)); p.z += A * .2f * sinf(p.x * 2 + sinf(p.y * 3 + t)); return p; }); break;
+
+  // ---- 64-79: "unknown" effects ------------------------------------------------------------------
+  case 64: {  // Hopf rotation: lift to S3 by inverse stereographic projection, rotate isoclinically in
+              // the (x,y) and (z,w) planes (which moves points along Hopf fibres), project back to R3.
+    float r0 = meanRadius(m, C), a = A * .9f * sinf(t * .35f) + t * .25f, co = cosf(a), si = sinf(a);
+    mapv(m, [&](V3 p, size_t) {
+      V3 u = vmul(q(p), 1.f / r0); float u2 = vdot(u, u), d = 1 + u2;
+      float x1 = 2 * u.x / d, x2 = 2 * u.y / d, x3 = 2 * u.z / d, x4 = (u2 - 1) / d;
+      float y1 = x1 * co - x2 * si, y2 = x1 * si + x2 * co, y3 = x3 * co - x4 * si, y4 = x3 * si + x4 * co;
+      float den = std::max(.08f, 1 - y4); V3 o{y1 / den, y2 / den, y3 / den};
+      float ol = vlen(o); if (ol > 4) o = vmul(o, 4 / ol);
+      return vadd(C, vmul(o, r0)); });
+  } break;
+  case 65: {  // Klein fold: the +x half twists by up to pi about the x axis, a smooth non-orientable seam
+    float r0 = meanRadius(m, C);
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p); float s = clampf(.5f + .5f * x.x / r0, 0, 1); s = s * s * (3 - 2 * s);
+      float a = A * PI * s * (.5f + .5f * sinf(t * .6f)), co = cosf(a), si = sinf(a);
+      return vadd(C, V3{x.x, x.y * co - x.z * si, x.y * si + x.z * co}); });
+  } break;
+  case 66: {  // Hyperbolic drift: a Moebius translation of the Poincare ball (gyrovector addition a (+) x)
+    float R = maxRadius(m, C) * 1.05f, al = clampf(.45f * fabsf(A), 0, .8f);
+    V3 a{al * cosf(t * .5f), al * .35f * sinf(t * .8f), al * sinf(t * .5f)};
+    float a2 = vdot(a, a);
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = vmul(q(p), 1.f / R); float ax = vdot(a, x), x2 = vdot(x, x);
+      float den = std::max(1e-4f, 1 + 2 * ax + a2 * x2);
+      V3 o = vmul(vadd(vmul(a, 1 + 2 * ax + x2), vmul(x, 1 - a2)), 1.f / den);
+      return vadd(C, vmul(o, R)); });
+  } break;
+  case 67: {  // Thomas flow: advect vertices through the bounded cyclically symmetric Thomas attractor field
+    float r0 = meanRadius(m, C), k = 2.2f / r0, dt = .06f * clampf(A, -2, 2);
+    mapv(m, [&](V3 p, size_t) {
+      V3 u = vmul(q(p), k);
+      for (int i = 0; i < 6; i++) { V3 f{sinf(u.y) - .208f * u.x, sinf(u.z) - .208f * u.y, sinf(u.x) - .208f * u.z}; u = vadd(u, vmul(f, dt)); }
+      return vadd(C, vmul(u, 1.f / k)); });
+  } break;
+  case 68: {  // Galactic disk: Keplerian shear (omega ~ r^-1.5), disk flattening and a two-arm density wave
+    float r0 = meanRadius(m, C);
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = vmul(q(p), 1.f / r0); float r = std::max(.05f, hyp(x));
+      float a = A * .8f / powf(r + .3f, 1.5f) + t * .3f / powf(r + .3f, 1.5f), co = cosf(a), si = sinf(a);
+      V3 o{x.x * co - x.z * si, x.y * (1 - .6f * clampf(fabsf(A), 0, 1)), x.x * si + x.z * co};
+      float arm = 1 + .12f * A * cosf(2 * atan2f(o.z, o.x) - 3 * logf(r + .1f) + t);
+      o.x *= arm; o.z *= arm;
+      return vadd(C, vmul(o, r0)); });
+  } break;
+  case 69: {  // Harmonic bloom: radial displacement by a breathing spherical-harmonic-like pattern
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p); float th, ph; sphAngles(x, th, ph);
+      float f = sinf(3 * th) * cosf(4 * ph + t * .9f) + .5f * cosf(2 * th - t * .4f) * sinf(5 * ph - t);
+      return vadd(C, vmul(x, 1 + A * .18f * f)); });
+  } break;
+  case 70: {  // FCC crystal snap: pull vertices toward the nearest face-centred-cubic lattice point
+    float h = .32f, u = clampf(fabsf(A), 0, 1) * (.55f + .35f * sinf(t * .7f));
+    mapv(m, [&](V3 p, size_t) {
+      V3 g = vmul(q(p), 1.f / h); float r[3] = {std::round(g.x), std::round(g.y), std::round(g.z)}, e[3] = {g.x - r[0], g.y - r[1], g.z - r[2]};
+      if ((int(r[0]) + int(r[1]) + int(r[2])) & 1) {   // odd parity is not on the FCC lattice: re-round the worst axis
+        int k = 0; for (int i = 1; i < 3; i++) if (fabsf(e[i]) > fabsf(e[k])) k = i;
+        r[k] += e[k] >= 0 ? 1.f : -1.f; }
+      return vlerp(p, vadd(C, vmul(V3{r[0], r[1], r[2]}, h)), u); });
+  } break;
+  case 71: {  // Tendril growth: curling chains sprout outward from a sample of vertices (new geometry)
+    unsigned n = (unsigned)m.v.size(), stride = std::max(1u, n / 48u); float len = .07f * (.4f + fabsf(A));
+    for (unsigned i = 0; i < n && m.e.size() < 60000; i += stride) {
+      V3 p = m.v[i], d = vnorm(q(p)); if (vlen(d) < .5f) d = V3{0, 1, 0};
+      unsigned prev = i; float ph = float(hash32(c.seed + i) & 1023) * .01f;
+      for (int k = 1; k <= 10; k++) {
+        float fk = float(k);
+        V3 curl{sinf(fk * .7f + t * 1.3f + ph), cosf(fk * .9f - t + ph), sinf(fk * .5f + t * .8f - ph)};
+        d = vnorm(vadd(d, vmul(curl, .35f)));
+        p = vadd(p, vmul(d, len * (1 - .06f * fk)));
+        unsigned cur = (unsigned)m.v.size(); m.v.push_back(p); m.e.push_back({prev, cur}); prev = cur;
+      }
+    }
+  } break;
+  case 72: {  // Shell cage: a counter-rotating outer shell tied to the core by struts
+    if (m.v.size() > 8000 || m.e.size() > 25000) break;
+    unsigned n = (unsigned)m.v.size(); size_t ne = m.e.size(); float a = .35f * sinf(t * .5f) + .15f * A, sc = 1.22f + .06f * sinf(t);
+    for (unsigned i = 0; i < n; i++) { V3 x = q(m.v[i]); float co = cosf(a), si = sinf(a); m.v.push_back(vadd(C, vmul(V3{x.x * co - x.z * si, x.y, x.x * si + x.z * co}, sc))); }
+    for (size_t k = 0; k < ne; k++) m.e.push_back({m.e[k].a + n, m.e[k].b + n});
+    for (unsigned i = 0; i < n; i += 3) m.e.push_back({i, i + n});
+  } break;
+  case 73: {  // Barbed wire: short spinning crossbars at edge midpoints
+    size_t ne = m.e.size(), stride = std::max<size_t>(1, ne / 3000); float len = .035f + .05f * fabsf(A);
+    for (size_t k = 0; k < ne; k += stride) {
+      V3 a = m.v[m.e[k].a], b = m.v[m.e[k].b], d = vnorm(vsub(b, a)); if (vlen(d) < .5f) continue;
+      V3 pr = vnorm(vcross(d, fabsf(d.y) < .9f ? V3{0, 1, 0} : V3{1, 0, 0}));
+      pr = rotAxis(pr, d, t * 2.f + float(k) * .37f);
+      V3 mid = vmul(vadd(a, b), .5f); unsigned base = (unsigned)m.v.size();
+      m.v.push_back(vadd(mid, vmul(pr, len))); m.v.push_back(vsub(mid, vmul(pr, len))); m.e.push_back({base, base + 1});
+    }
+  } break;
+  case 74: {  // Torus attractor: vertices are pulled onto a ring torus around the y axis, breathing
+    float r0 = meanRadius(m, C), R = .9f * r0, rr = .3f * r0, u = clampf(fabsf(A) * .6f, 0, 1) * (.5f + .5f * sinf(t * .7f));
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p); float h = hyp(x); V3 ring = h > 1e-5f ? V3{x.x / h * R, 0, x.z / h * R} : V3{R, 0, 0};
+      V3 dir = vnorm(vsub(x, ring)); if (vlen(dir) < .5f) dir = V3{0, 1, 0};
+      return vlerp(p, vadd(C, vadd(ring, vmul(dir, rr))), u); });
+  } break;
+  case 75: {  // Mobius map: the (radial, height) offset from a ring rotates by theta/2 around it
+    float r0 = meanRadius(m, C), R = .8f * r0;
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p); float th = atan2f(x.z, x.x), dr = hyp(x) - R, dy = x.y, a = A * .5f * th + t * .2f * A, co = cosf(a), si = sinf(a);
+      float nr = R + dr * co - dy * si, ny = dr * si + dy * co;
+      return vadd(C, V3{nr * cosf(th), ny, nr * sinf(th)}); });
+  } break;
+  case 76: {  // Soliton wave: a sech-shaped breather packet travels across the object
+    float r0 = maxRadius(m, C), front = fmodf(t * .6f, 2.6f) * r0 - 1.3f * r0, w = 3.2f / r0;
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p); float s = 1.f / coshf(clampf((x.x - front) * w, -20, 20));
+      x.y += A * .35f * r0 * s * cosf(x.z * 6 / r0 + t * 4);
+      x.z += A * .15f * r0 * s;
+      return vadd(C, x); });
+  } break;
+  case 77: {  // Quaternion square: treat (x, y, z) as w + yi + zj and square it, which doubles angles
+    float r0 = meanRadius(m, C), u = clampf(fabsf(A) * .5f, 0, 1) * (.6f + .4f * sinf(t * .5f));
+    mapv(m, [&](V3 p, size_t) {
+      V3 v = vmul(q(p), 1.f / r0); float l = std::max(.15f, vlen(v));
+      V3 sq{v.x * v.x - v.y * v.y - v.z * v.z, 2 * v.x * v.y, 2 * v.x * v.z};
+      return vlerp(p, vadd(C, vmul(sq, r0 / l)), u); });
+  } break;
+  case 78: {  // Lissajous satellites: three small copies orbit on a 3:4:5 Lissajous knot
+    if (m.v.size() > 15000) break;
+    Mesh3 x = m; float r0 = maxRadius(m, C) * 1.25f;
+    for (int k = 0; k < 3; k++) { float sp = t * .25f + float(k) * 2.094f;
+      copyInto(m, x, vadd(C, V3{r0 * sinf(3 * sp), r0 * .7f * sinf(4 * sp + 1), r0 * sinf(5 * sp)}), .2f + .05f * fabsf(A), t + float(k)); }
+  } break;
+  case 79: {  // Spectral harmonics: bass, mid and treble each drive a harmonic band of radial displacement
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p); float th, ph; sphAngles(x, th, ph);
+      float f = c.bass * cosf(2 * th) * sinf(2 * ph + t) + c.mid * cosf(4 * th) * sinf(5 * ph - t * 1.3f) + c.treble * cosf(7 * th) * sinf(9 * ph + t * 2);
+      return vadd(C, vmul(x, 1 + A * .22f * f)); });
+  } break;
   }
   sanitize(m);
   if (m.e.empty()) m = std::move(original);
@@ -190,13 +335,19 @@ EffectRecipe recipe(int id) {
   case 20: set("Dual Singularity", {S(36, .65f, 1, 0, 0, true), S(47, .75f), S(50, .5f), S(34, .25f)}); break;
   case 21: set("Wireframe Supernova", {S(21, .65f), S(43, .5f), S(32, .5f), S(19, .35f)}); break;
   case 22: set("Quasicrystal Ghost", {S(63, .7f), S(34, .6f), S(17, .55f), S(27, .45f)}); break;
-  default: set("Dimensional Infection", {S(61, .55f), S(16, .5f), S(42, .45f), S(50, .4f), S(32, .3f)}); break;
+  case 23: set("Dimensional Infection", {S(61, .55f), S(16, .5f), S(42, .45f), S(50, .4f), S(32, .3f)}); break;
+  case 24: set("Hopf Fibration Storm", {S(64, .9f), S(73, .6f), S(14, .3f)}); break;
+  case 25: set("Hyperbolic Drift", {S(66, 1), S(75, .6f), S(41, .4f)}); break;
+  case 26: set("Keplerian Galaxy", {S(68, .9f), S(71, .7f), S(5, .2f)}); break;
+  case 27: set("Barbed Crystal", {S(70, .9f), S(73, .8f), S(65, .5f)}); break;
+  case 28: set("Soliton Garden", {S(76, 1), S(69, .6f), S(71, .5f)}); break;
+  default: set("Quaternion Bloom", {S(77, .8f), S(79, 1), S(72, .6f), S(78, .5f)}); break;
   }
   return r;
 }
-int recipeCount() { return 24; }
+int recipeCount() { return 30; }
 std::string_view recipeName(int id) {
-  static const char* names[] = {"Raw","Singularity Bloom","Impossible Cathedral","Quantum Shatter","Hyper Echo","Wormhole Lattice","Spectral Organism","Topology Storm","Recursive Reactor","Kaleido Collapse","Black Star","Interference Bridge","Crystal Fracture","Mobius Lightning","Event Scanner","Dark Matter Flower","Projective Failure","Recursive Constellation","Alien Transmission","Fractal Orbit","Dual Singularity","Wireframe Supernova","Quasicrystal Ghost","Dimensional Infection"};
+  static const char* names[] = {"Raw","Singularity Bloom","Impossible Cathedral","Quantum Shatter","Hyper Echo","Wormhole Lattice","Spectral Organism","Topology Storm","Recursive Reactor","Kaleido Collapse","Black Star","Interference Bridge","Crystal Fracture","Mobius Lightning","Event Scanner","Dark Matter Flower","Projective Failure","Recursive Constellation","Alien Transmission","Fractal Orbit","Dual Singularity","Wireframe Supernova","Quasicrystal Ghost","Dimensional Infection","Hopf Fibration Storm","Hyperbolic Drift","Keplerian Galaxy","Barbed Crystal","Soliton Garden","Quaternion Bloom"};
   return names[wrap(id, recipeCount())];
 }
 

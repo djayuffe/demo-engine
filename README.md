@@ -6,7 +6,7 @@
 
 It was extracted from the [Impossible Wireframe](https://github.com/djayuffe/wireframe-scroller) demo, which is now just the first demo built on it.
 
-Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.1.0.
+Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.2.0.
 
 **Contents:** [Why](#why) | [Quick start](#quick-start) | [What the engine provides](#what-the-engine-provides) | [Writing a demo](#writing-a-demo) | [Demos in this repository](#demos-in-this-repository) | [Build](#build) | [Tests and CI](#tests-and-ci) | [Repository layout](#repository-layout) | [Roadmap](#roadmap)
 
@@ -32,7 +32,7 @@ make run                                  # the full wireframe demo
 | **Audio** | libopenmpt module playback through SDL2, bass/mid/treble band split, level, row/pattern; falls back to a BPM clock | `engine/src/Audio.cpp` |
 | **Timeline** | Beat, bar, phase and pulse from seconds and BPM | `engine/src/Timeline.cpp` |
 | **Ticker** | Beat-synced 5x7 pixel-font band, toggled with T | `engine/src/TextScroller.cpp`, `shaders/scroller.frag` |
-| **Effects library** | 64 CPU vertex warpers, 24 curated recipes, deterministic mutation, edge sanitiser with restore-on-failure | `engine/src/Effects.cpp` |
+| **Effects library** | 80 CPU vertex warpers (including 16 "unknown" 4D, hyperbolic, attractor and growth effects), 30 curated recipes, deterministic mutation, edge sanitiser with restore-on-failure | `engine/src/Effects.cpp` |
 | **Geometry kit** | `Mesh3`/`Polytope4`, cube, sphere, torus, 4D polytopes and projection, validation | `engine/src/Geometry.cpp` |
 | **Input** | Per-frame key state with rising-edge `pressed()` | `de::Input` |
 | **CLI** | `--bpm --music --logos --window --fullscreen --quality --no-post --no-ticker --screenshot --frames --version --help`, extendable by the demo | `Engine.cpp` |

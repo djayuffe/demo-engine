@@ -171,16 +171,24 @@ int main(){
      Image im;req(Image::loadFromFile(logos[0],im),"logo decodes");
      req(im.w==1920&&im.h==1080,"logo 1920x1080");
      req(im.rgba.size()==(size_t)1920*1080*4,"logo rgba size");}}
-   // Effect system: the lab's 64 CPU warpers + 24 recipes must be deterministic,
+   // Effect system: 80 CPU warpers + 30 recipes must be deterministic,
    // finite, and fail-safe (never return an empty/invalid mesh).
    {
-      req(effectCount()==64,"effectCount 64");
-      req(recipeCount()==24,"recipeCount 24");
+      req(effectCount()==80,"effectCount 80");
+      req(recipeCount()==30,"recipeCount 30");
       // recipeName must agree with recipe().name (regression: recipeName used
       // to return a string_view into a destroyed temporary).
       for(int i=0;i<recipeCount();i++)req(recipeName(i)==recipe(i).name,"recipeName matches recipe");
       req(recipeName(0)=="Raw"&&recipeName(23)=="Dimensional Infection","recipeName endpoints");
-      req(recipeName(24)==recipeName(0),"recipeName wraps");
+      req(recipeName(29)=="Quaternion Bloom","recipeName last");
+      req(recipeName(30)==recipeName(0),"recipeName wraps");
+      // every effect has a distinct, non-empty name
+      { std::set<std::string> names; for(int i=0;i<effectCount();i++){auto n=std::string(effectName(i));req(!n.empty(),"effect name non-empty");names.insert(n);} req(names.size()==size_t(effectCount()),"effect names distinct"); }
+      // the unknown effects (64-79) must actually change a torus (no silent no-ops)
+      for(int id=64;id<80;++id){ auto a=geo::torus(24,8),b=a; EffectContext ec; ec.time=1.7f; ec.amount=1.f; ec.seed=5u; ec.bass=ec.mid=ec.treble=.6f; ec.beat=.5f;
+        applyEffect(b,id,ec,nullptr); bool changed=a.v.size()!=b.v.size()||a.e.size()!=b.e.size();
+        for(size_t i=0;i<a.v.size()&&!changed;i++)changed=std::fabs(a.v[i].x-b.v[i].x)+std::fabs(a.v[i].y-b.v[i].y)+std::fabs(a.v[i].z-b.v[i].z)>1e-4f;
+        req(changed,"unknown effect changes the mesh"); }
      // every single effect on a torus at several (time, amount) phases stays valid
      for(int id=0;id<effectCount();++id){
        EffectContext ec; ec.amount=1.0f; ec.seed=7u;

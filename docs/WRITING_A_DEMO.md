@@ -66,7 +66,7 @@ std::string usage() const override { return "  --level N       Start on level N\
 ```
 
 ## 5. Using the effects library
-`#include "Effects.hpp"` gives 64 warpers and 24 recipes:
+`#include "Effects.hpp"` gives 80 warpers and 30 recipes:
 ```cpp
 EffectContext ec; ec.time = float(f.time); ec.beat = f.sync.pulse; ec.amount = 1.f + .6f * f.sync.pulse;
 ec.bass = f.music.bass; ec.mid = f.music.mid; ec.treble = f.music.treble; ec.seed = 1234;

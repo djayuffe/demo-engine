@@ -87,3 +87,28 @@ Clean, readable 3D objects added in v4.34. They skip the procedural mutation ove
 - **Atom orbits** - geodesic nucleus, three tilted electron rings and octahedral electrons.
 - **Wave terrain** - rippling wire ocean (radial wave plus a cross-wave), tilted toward the camera.
 - **Platonic compound** - icosahedron, its dual dodecahedron and a pulsing stella octangula.
+
+## Unknown effects (64-79)
+
+Added in engine 1.2 / Impossible Wireframe v4.36. Each is deterministic, finite and fail-safe like the rest, and each is tested to actually change a mesh.
+
+| Id | Name | What it does |
+|---|---|---|
+| 64 | Hopf Rotation | Lifts the mesh onto the 3-sphere by inverse stereographic projection, rotates isoclinically (moving points along Hopf fibres) and projects back |
+| 65 | Klein Fold | The +x half twists by up to pi about the x axis with a smooth seam, a non-orientable fold |
+| 66 | Hyperbolic Drift | Moebius translation of the Poincare ball (gyrovector addition); the mesh crowds toward a moving ideal point |
+| 67 | Thomas Flow | Advects vertices through the bounded Thomas attractor field |
+| 68 | Galactic Disk | Keplerian shear (angular speed ~ r^-1.5), disk flattening and a two-arm logarithmic density wave |
+| 69 | Harmonic Bloom | Radial displacement by a breathing spherical-harmonic-like pattern |
+| 70 | FCC Crystal Snap | Pulls vertices toward the nearest face-centred-cubic lattice point |
+| 71 | Tendril Growth | New geometry: curling 10-segment tendrils sprout outward from up to 48 vertices |
+| 72 | Shell Cage | New geometry: a counter-rotating outer copy tied to the core by struts (skipped on very large meshes) |
+| 73 | Barbed Wire | New geometry: spinning crossbars at edge midpoints (at most about 3000) |
+| 74 | Torus Attractor | Pulls vertices onto a ring torus around the y axis, breathing |
+| 75 | Mobius Map | The radial and height offset from a ring rotates by theta/2 around it |
+| 76 | Soliton Wave | A sech-shaped breather packet travels across the object |
+| 77 | Quaternion Square | Treats each point as a quaternion w + yi + zj and squares it, doubling angles |
+| 78 | Lissajous Satellites | Three small copies orbit on a 3:4:5 Lissajous knot |
+| 79 | Spectral Harmonics | Bass, mid and treble each drive their own harmonic band of radial displacement |
+
+New recipes: 24 Hopf Fibration Storm (64, 73, 14), 25 Hyperbolic Drift (66, 75, 41), 26 Keplerian Galaxy (68, 71, 5), 27 Barbed Crystal (70, 73, 65), 28 Soliton Garden (76, 69, 71), 29 Quaternion Bloom (77, 79, 72, 78). The procedural mutation draws from all 80 effects.

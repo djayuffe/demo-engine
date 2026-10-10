@@ -28,7 +28,7 @@ public:
   }
   std::string usage() const override {
     return "  --scene N       Start on scene N in manual mode (0-56; Space returns to auto)\n"
-           "  --recipe N      Start in recipe mode with curated recipe N (0-23)\n"
+           "  --recipe N      Start in recipe mode with curated recipe N (0-29)\n"
            "Keys: Left/Right cycle scenes, Space back to auto, R recipe mode,\n"
            "      Up/Down cycle recipe, P re-roll mutation\n";
   }

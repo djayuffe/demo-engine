@@ -67,7 +67,7 @@ Windows only exports OpenGL 1.1 from `opengl32.dll`, so `GLWin32.hpp` declares t
 `AudioPlayer` renders a tracker module through libopenmpt in the SDL2 callback, splits the mix with one-pole IIR filters into bass (<350 Hz), mid and treble (>3 kHz), and publishes level, bands, order, pattern, row, tempo and speed through atomics read by the render thread. Without SDL2 and libopenmpt (`IW_HAS_AUDIO` undefined) the engine runs on `Timeline`, a pure function from seconds and BPM to beat, bar, phase and pulse.
 
 ## Effects library (`engine/src/Effects.cpp`)
-`applyEffect(mesh, id, ctx, secondary)` runs one of 64 vertex warpers. An `EffectRecipe` chains up to six `EffectStage`s; `recipe(id)` gives 24 curated ones and `mutateRecipe(seed, depth)` derives deterministic procedural ones. `applyRecipe` restores the mesh if any stage yields an empty or invalid result, and edge growth is capped at 50 000. Demos opt in; the engine itself never calls it.
+`applyEffect(mesh, id, ctx, secondary)` runs one of 80 vertex warpers. An `EffectRecipe` chains up to six `EffectStage`s; `recipe(id)` gives 30 curated ones and `mutateRecipe(seed, depth)` derives deterministic procedural ones. `applyRecipe` restores the mesh if any stage yields an empty or invalid result, and edge growth is capped at 50 000. Demos opt in; the engine itself never calls it.
 
 ## Build system
 `CMakeLists.txt` defines the targets above and the `de_add_demo(name sources...)` function, which links `de_engine` and copies the shaders next to the binary. Audio is optional and detected automatically. The `Makefile` wraps CMake with a stamp file so a changed toolchain triggers reconfiguration. Platform workarounds (macOS SDK pinning, `.tbd` stub avoidance, GLFW static-link fallback) are documented inline.
