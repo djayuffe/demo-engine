@@ -6,7 +6,7 @@
 
 It was extracted from the [Impossible Wireframe](https://github.com/djayuffe/wireframe-scroller) demo, which is now just the first demo built on it.
 
-Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.2.0.
+Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.3.0.
 
 **Contents:** [Why](#why) | [Quick start](#quick-start) | [What the engine provides](#what-the-engine-provides) | [Writing a demo](#writing-a-demo) | [Demos in this repository](#demos-in-this-repository) | [Build](#build) | [Tests and CI](#tests-and-ci) | [Repository layout](#repository-layout) | [Roadmap](#roadmap)
 
@@ -34,6 +34,7 @@ make run                                  # the full wireframe demo
 | **Ticker** | Beat-synced 5x7 pixel-font band, toggled with T | `engine/src/TextScroller.cpp`, `shaders/scroller.frag` |
 | **Effects library** | 80 CPU vertex warpers (including 16 "unknown" 4D, hyperbolic, attractor and growth effects), 30 curated recipes, deterministic mutation, edge sanitiser with restore-on-failure | `engine/src/Effects.cpp` |
 | **Geometry kit** | `Mesh3`/`Polytope4`, cube, sphere, torus, 4D polytopes and projection, validation | `engine/src/Geometry.cpp` |
+| **Wire styles** | `Frame::wireStyle`: 0 = electric palette, 1 = golden glimmer (additive point-cloud accumulation, gold twinkle and cross glints, warps and grading off) | `wire.frag`, `post.frag` |
 | **Input** | Per-frame key state with rising-edge `pressed()` | `de::Input` |
 | **CLI** | `--bpm --music --logos --window --fullscreen --quality --no-post --no-ticker --screenshot --frames --version --help`, extendable by the demo | `Engine.cpp` |
 | **Asset search** | Config-relative paths resolved from the CWD, the executable directory and every ancestor | `Engine.cpp` |
@@ -67,7 +68,7 @@ This exact code is `demos/ripple/main.cpp`. Register a demo with one line in `CM
 |---|---|---|
 | [`demos/hello`](demos/hello/main.cpp) | `hello_demo` | The minimum: a tumbling cube-in-cube with the ticker, FX off. About 40 lines |
 | [`demos/ripple`](demos/ripple/main.cpp) | `ripple_demo` | The README example above, compiled as a real demo so the docs cannot drift |
-| [`demos/wireframe`](demos/wireframe/README.md) | `impossible_wireframe` | The flagship: 57 mathematical objects, effect recipes, logo show, art background. Uses almost every engine feature |
+| [`demos/wireframe`](demos/wireframe/README.md) | `impossible_wireframe` | The flagship: 57 mathematical objects, effect recipes, logo show, art background. Uses almost every engine feature, including the golden glimmer orbit clouds ported from uber256-lab |
 
 ![Hello demo](docs/hello-demo.jpg)
 

@@ -124,4 +124,45 @@ Mesh3 platonicCompound(float t){
   for(int a=0;a<8;++a)for(int b=a+1;b<8;++b){int d=((a^b)&1)+(((a^b)>>1)&1)+(((a^b)>>2)&1);if(d==1)B.edge(cv[a],cv[b]);}
   return B.m;
 }
+
+Mesh3 goldenOrbit(OrbitMap kind,float t,float yaw,unsigned n){
+  n=std::clamp(n,1000u,40000u);
+  const bool dj=kind==OrbitMap::DeJong;
+  // Constants from uber256-lab src/galaxy.asm and src/cliff.asm.
+  const float a0=dj?1.4f:-1.4f,b=dj?-2.3f:1.6f,c=dj?2.4f:1.0f,d0=dj?-2.1f:.7f;
+  // The originals nudge a and d by 0.0006 (GALAXY) / 0.0004 (CLIFF) per ~70 Hz frame, forever.
+  // Same initial speed here, but bounded (a sine around the start) so the show never drifts into noise.
+  const float rate=dj?.042f:.028f,amp=.35f;
+  Builder B;
+  for(int pass=0;pass<2;++pass){             // pass 1 is a sparser, older "ghost" orbit: the fading trail
+    const float tt=t-1.6f*float(pass),drift=amp*std::sin(rate*tt/amp),a=a0+drift,d=d0+drift;
+    auto F=[&](float x,float y,float& ox,float& oy){
+      if(dj){ox=std::sin(a*y)-std::cos(b*x);oy=std::sin(c*x)-std::cos(d*y);}
+      else  {ox=std::sin(a*y)+c*std::cos(a*x);oy=std::sin(b*x)+d*std::cos(b*y);}
+    };
+    // GALAXY starts at (1,1), CLIFF at (0,1), as the x87 stack is primed in the .asm sources.
+    float x=dj?1.f:0.f,y=1.f,z=0.f,ux=1.f,uy=0.f;
+    const unsigned count=pass?n/3:n,warm=64;
+    const float eps=1e-3f,len=.024f;
+    for(unsigned k=0;k<count+warm;++k){
+      float nx,ny,sx,sy;
+      F(x,y,nx,ny);
+      F(x+eps*ux,y+eps*uy,sx,sy);           // track a neighbour: its direction converges to the unstable
+      float dx=sx-nx,dy=sy-ny,L=std::hypot(dx,dy);   // direction, i.e. along the visible filaments
+      if(L>1e-9f){ux=dx/L;uy=dy/L;}
+      z=.55f*std::sin(1.7f*x-1.1f*y+z);       // bounded companion coordinate: thickness, no feedback into x,y
+      x=nx;y=ny;
+      if(k<warm)continue;
+      V3 p{x,y,z},h{ux*len*.5f,uy*len*.5f,0.f};
+      uint32_t i0=B.add(sub(p,h)),i1=B.add(add3(p,h));B.edge(i0,i1);
+      if(pass==0&&k%61==0){                  // a few four-point glints for the glimmer
+        V3 q{-uy*len*.8f,ux*len*.8f,0.f},w{0.f,0.f,len*.8f};
+        uint32_t j0=B.add(sub(p,q)),j1=B.add(add3(p,q)),j2=B.add(sub(p,w)),j3=B.add(add3(p,w));
+        B.edge(j0,j1);B.edge(j2,j3);
+      }
+    }
+  }
+  if(yaw!=0.f)for(auto& p:B.m.v)p=rotY(p,yaw);
+  return B.m;
+}
 }

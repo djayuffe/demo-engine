@@ -60,7 +60,7 @@ bool Renderer::createGl(const std::string&dir){
   program_=linkProgram(vs,fs,error_);
   if(!program_)return false;
   uMVP_=glGetUniformLocation(program_,"uMVP");uTime_=glGetUniformLocation(program_,"uTime");
-  uColor_=glGetUniformLocation(program_,"uColor");uGain_=glGetUniformLocation(program_,"uGain");uMusicLevel_=glGetUniformLocation(program_,"uMusicLevel");
+  uColor_=glGetUniformLocation(program_,"uColor");uGain_=glGetUniformLocation(program_,"uGain");uStyle_=glGetUniformLocation(program_,"uStyle");uMusicLevel_=glGetUniformLocation(program_,"uMusicLevel");
   glGenVertexArrays(1,&vao_);glGenBuffers(1,&vbo_);glGenBuffers(1,&ebo_);
   if(!initPost(dir))return false;
   // Non-fatal extras: scroller, logo background, traveling objects. A missing
@@ -145,7 +145,7 @@ bool Renderer::initScroller(const std::string&dir){std::string vs=readText(dir+"
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D,0);
     return true;}
-bool Renderer::initPost(const std::string&dir){std::string vs=readText(dir+"/post.vert"),fs=readText(dir+"/post.frag");if(vs.empty()||fs.empty()){error_="cannot read post shaders from "+dir;return false;}postProgram_=linkProgram(vs,fs,error_);if(!postProgram_)return false;uPostScene_=glGetUniformLocation(postProgram_,"uScene");uPostTime_=glGetUniformLocation(postProgram_,"uTime");uPostResolution_=glGetUniformLocation(postProgram_,"uResolution");uPostMusic_=glGetUniformLocation(postProgram_,"uMusicLevel");uPostBpm_=glGetUniformLocation(postProgram_,"uBpm");uPostBypass_=glGetUniformLocation(postProgram_,"uBypass");uPostHasLogo_=glGetUniformLocation(postProgram_,"uHasLogo");uPostLogoVis_=glGetUniformLocation(postProgram_,"uLogoVis");uPostFx_=glGetUniformLocation(postProgram_,"uFxAmount");setupFullscreenVao(postVao_,postVbo_);glUseProgram(postProgram_);if(uPostScene_>=0)glUniform1i(uPostScene_,0);return true;}
+bool Renderer::initPost(const std::string&dir){std::string vs=readText(dir+"/post.vert"),fs=readText(dir+"/post.frag");if(vs.empty()||fs.empty()){error_="cannot read post shaders from "+dir;return false;}postProgram_=linkProgram(vs,fs,error_);if(!postProgram_)return false;uPostScene_=glGetUniformLocation(postProgram_,"uScene");uPostTime_=glGetUniformLocation(postProgram_,"uTime");uPostResolution_=glGetUniformLocation(postProgram_,"uResolution");uPostMusic_=glGetUniformLocation(postProgram_,"uMusicLevel");uPostBpm_=glGetUniformLocation(postProgram_,"uBpm");uPostBypass_=glGetUniformLocation(postProgram_,"uBypass");uPostHasLogo_=glGetUniformLocation(postProgram_,"uHasLogo");uPostLogoVis_=glGetUniformLocation(postProgram_,"uLogoVis");uPostFx_=glGetUniformLocation(postProgram_,"uFxAmount");uPostGold_=glGetUniformLocation(postProgram_,"uGold");setupFullscreenVao(postVao_,postVbo_);glUseProgram(postProgram_);if(uPostScene_>=0)glUniform1i(uPostScene_,0);return true;}
 bool Renderer::resizeHdr(int width,int height){
   // Apply the render scale: the HDR target (and everything rendered into it —
   // the 3D wireframe, travelers, and the post/FX pass) runs at a fraction of
@@ -203,8 +203,9 @@ bool Renderer::draw(float t,int width,int height,float aspect,int sceneIndex,flo
      // 1) Logo backdrop (full-screen, opaque, no depth).
      drawBackground(t,hdrW_,hdrH_,sceneIndex,ml,true);
     // 2) Wireframe additive over the logo.
-    glEnable(GL_DEPTH_TEST);
+    if(wireStyle_==1)glDisable(GL_DEPTH_TEST);else glEnable(GL_DEPTH_TEST);   // golden clouds accumulate, no occlusion
      glUseProgram(program_);
+     if(uStyle_>=0)glUniform1i(uStyle_,wireStyle_);
      glUniformMatrix4fv(uMVP_,1,GL_FALSE,M);
      if(uTime_>=0)glUniform1f(uTime_,t);
      if(uMusicLevel_>=0)glUniform1f(uMusicLevel_,ml);
@@ -221,7 +222,7 @@ bool Renderer::draw(float t,int width,int height,float aspect,int sceneIndex,flo
   // No logo: capture the wireframe into the HDR buffer (on a black clear). The
   // post/FX pass is deferred to finishLogoFrame() so the travelers (drawn next)
   // are captured too and get the same post-processing as in logo mode.
-   glBindFramebuffer(GL_FRAMEBUFFER,hdrFbo_);glViewport(0,0,hdrW_,hdrH_);glClearColor(0,0,0,1);glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glEnable(GL_DEPTH_TEST);glUseProgram(program_);glUniformMatrix4fv(uMVP_,1,GL_FALSE,M);if(uTime_>=0)glUniform1f(uTime_,t);if(uMusicLevel_>=0)glUniform1f(uMusicLevel_,ml);glUniform3f(uColor_,1.2f+.75f*ml,1.55f+.35f*ml,2.1f+1.1f*ml);if(uGain_>=0)glUniform1f(uGain_,wireGainFor(edgeCount_));glLineWidth(std::max(1.f,lineWidth+ml*.75f));glEnable(GL_BLEND);glBlendFunc(GL_ONE,GL_ONE);glBlendEquation(GL_FUNC_ADD);glBindVertexArray(vao_);glDrawElements(GL_LINES,edgeCount_,GL_UNSIGNED_INT,nullptr);glDisable(GL_BLEND);glDisable(GL_DEPTH_TEST);
+   glBindFramebuffer(GL_FRAMEBUFFER,hdrFbo_);glViewport(0,0,hdrW_,hdrH_);glClearColor(0,0,0,1);glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);if(wireStyle_==1)glDisable(GL_DEPTH_TEST);else glEnable(GL_DEPTH_TEST);glUseProgram(program_);if(uStyle_>=0)glUniform1i(uStyle_,wireStyle_);glUniformMatrix4fv(uMVP_,1,GL_FALSE,M);if(uTime_>=0)glUniform1f(uTime_,t);if(uMusicLevel_>=0)glUniform1f(uMusicLevel_,ml);glUniform3f(uColor_,1.2f+.75f*ml,1.55f+.35f*ml,2.1f+1.1f*ml);if(uGain_>=0)glUniform1f(uGain_,wireGainFor(edgeCount_));glLineWidth(std::max(1.f,lineWidth+ml*.75f));glEnable(GL_BLEND);glBlendFunc(GL_ONE,GL_ONE);glBlendEquation(GL_FUNC_ADD);glBindVertexArray(vao_);glDrawElements(GL_LINES,edgeCount_,GL_UNSIGNED_INT,nullptr);glDisable(GL_BLEND);glDisable(GL_DEPTH_TEST);
    logoCapturePending_=true;
    return true;}
 bool Renderer::loadLogos(const std::string&dir){
@@ -396,6 +397,7 @@ bool Renderer::finishLogoFrame(float time,int width,int height,int sceneIndex,fl
   if(uPostHasLogo_>=0)glUniform1f(uPostHasLogo_,hasLogos_?1.f:0.f);
   if(uPostLogoVis_>=0)glUniform1f(uPostLogoVis_,logoVis_);
   if(uPostFx_>=0)glUniform1f(uPostFx_,fxAmount_);
+  if(uPostGold_>=0)glUniform1f(uPostGold_,wireStyle_==1?1.f:0.f);
   glBindVertexArray(postVao_);
   glDrawArrays(GL_TRIANGLES,0,3);
   return true;

@@ -2,7 +2,7 @@
 
 ![Impossible Wireframe: 600-cell over the UBER logo](docs/screenshots/1-logo-hold-600cell.jpg)
 
-**A real-time wireframe demoscene in C++20 and OpenGL 4.1 Core** for macOS, Linux and Windows. It renders 57 mathematically unusual objects, from exact 4D polychora to minimal surfaces, strange attractors and procedurally discovered shapes. A CPU effect engine warps them, an HDR post pass composites them over a timed logo show and a procedural art background, and a tracker module drives the motion.
+**A real-time wireframe demoscene in C++20 and OpenGL 4.1 Core** for macOS, Linux and Windows. It renders 59 mathematically unusual objects, from exact 4D polychora to minimal surfaces, strange attractors and procedurally discovered shapes. A CPU effect engine warps them, an HDR post pass composites them over a timed logo show and a procedural art background, and a tracker module drives the motion.
 
 Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Demo version: **v5.0** (engine v1.0; the demo's v4.x history is in the original repository).
 Topics: `wireframe` `demoscene` `opengl` `glfw` `cpp20` `4d-geometry` `procedural-geometry` `shaders` `libopenmpt` `tracker-music` `creative-coding` `macos`
@@ -24,7 +24,7 @@ The window opens on the logo show; press Right to step through scenes, T to togg
 ## Feature guide
 Each feature below is a separate, independently degradable layer. If a shader fails to compile or the logo pack is missing, the app drops that layer instead of crashing.
 
-### 1. Scenes: 57 wireframe objects
+### 1. Scenes: 59 wireframe objects
 | Ids | Family | What it is |
 |---|---|---|
 | 0, 1, 9 | 4D polychora | Exact 600-cell projection, exact 600-cell face-plane slice, and the dual-derived 120-cell projection, all rotated in 4D and projected to 3D |
@@ -37,6 +37,7 @@ Each feature below is a separate, independently degradable layer. If a shader fa
 | 32-40 | Fractal and algebraic | Sierpinski tetrahedron, heart, Barth-like, tanglecube, Chmutov-like, Cayley cubic, Kummer-like, Goursat, blob lattice |
 | 41-50 | "Unknown lab" ports | Ten procedural wire objects (supercage crown, knot-bundle reactor, phyllotaxis vortex, ruled singularity fan, prime-lobed lantern, aperiodic orbit nest, superformula organism, knot lattice, golden spiral skeleton, twisted ruled shell) |
 | 51-56 | **Showpieces** | Geodesic dome, tube trefoil, DNA helix, atom orbits, wave terrain, Platonic compound. Clean, readable objects with a periodic "Pure form" window |
+| 57-58 | **Golden orbits** | Ported from [uber256-lab](https://github.com/djayuffe/uber256-lab): GALAXY (de Jong attractor) and CLIFF (Clifford attractor) as glowing 3D orbit clouds with a golden glimmer. Never warped in auto mode; their own parameters morph |
 
 Expensive scenes are cached and rebuilt only at their own update rate (for example the 600-cell at 60 Hz, the discovered object at 1/8 Hz), not at the display refresh. `data/object_catalog.csv` records provenance for every object. Select a scene with Left/Right or `--scene N`; Space returns to automatic beat and bar sequencing.
 
@@ -69,6 +70,18 @@ When the logo is away, the post shader fades in a living procedural background. 
 - **Kaleidoscope rose rings**: 8-way mirrored interference.
 - **Orbit-trap Julia fractal**, **op-art moire** and **Turing spots**: surface in slow waves.
 - **3D metaball organism**: a raymarched cluster of five metaballs that melt into each other, breathe with the music and are lit with diffuse, fresnel and specular shading plus a volumetric halo.
+
+### 4b. Golden orbits (GALAXY and CLIFF from uber256-lab)
+Scenes 57 and 58 port the two strange-attractor intros from [uber256-lab](https://github.com/djayuffe/uber256-lab) (205 and 210 byte DOS programs):
+- **The maps are the originals**: de Jong `x' = sin(a y) - cos(b x), y' = sin(c x) - cos(d y)` with a=1.4, b=-2.3, c=2.4, d=-2.1, and Clifford `x' = sin(a y) + c cos(a x), y' = sin(b x) + d cos(b y)` with a=-1.4, b=1.6, c=1.0, d=0.7, from the same starting points. A bounded companion coordinate `z` gives the cloud depth without touching x and y, so seen face-on it is the original picture.
+- **Hits become light**: each of about 14,000 orbit points is a short dash aligned with the attractor's filaments (found by tracking a neighbouring orbit, which converges to the unstable direction). Additive blending with depth testing off means dense regions glow, like the original's "brightness = number of hits".
+- **Morph and trail**: a and d drift with the originals' speed (0.0006 and 0.0004 per frame at about 70 Hz), bounded by a sine so the shape never decays into noise. A sparser orbit from 1.6 s earlier is the fading trail.
+- **Golden glimmer**: gold dashes in two shades, each twinkling on its own phase, a shimmer band sweeping across the cloud, scattered four-point glints, and gold horizontal-plus-vertical streaks in the post pass. Screen warps, colour grading and the rainbow tint are switched off for these scenes, and the art background is dimmed.
+- **Facing the camera**: the clouds are flat-ish, so the scene cancels the renderer's constant spin and keeps a gentle sway instead.
+
+![Golden orbits](docs/screenshots/18-golden-orbits.jpg)
+
+*Golden Galaxy at 6 s (spray of arcs), during a logo hold, and at 36 s (closed into shells); Golden Cliff over a logo card.*
 
 ### 5. Wild shader events and colour grading
 During black breaks, every 6 seconds one warp takes the screen with a smooth envelope: **swirl**, **radial ripples**, **kaleidoscope fold**, **mosaic crunch**, **datamosh block shift**, **liquid wobble** or **mirror horizon**. On top: continuous **hue drift**, **solarize** flashes on the downbeat and **neon posterize** bursts. All of it fades out when a logo is on screen so the picture is never smeared.
@@ -127,7 +140,7 @@ SDL2 and libopenmpt play a bundled public-domain MOD (Drozerix, *Silicon Dancer*
 ### Command line
 | Option | Meaning |
 |---|---|
-| `--scene N` | Start on scene N (0-56) in manual mode |
+| `--scene N` | Start on scene N (0-58) in manual mode |
 | `--recipe N` | Start in recipe mode with curated recipe N (0-29) |
 | `--bpm N` | Tempo, default 132; also syncs the post-pass beat pulse |
 | `--music PATH` | Play a tracker module or wav |
@@ -147,7 +160,7 @@ From the repository root: `make run` (see the [root README](../../README.md#buil
 ## Tests and CI
 `make test` builds and runs `geometry_tests` (about 8 s). Project targets compile with `-Wall -Wextra -Wpedantic -Werror` (`/W4 /WX` on MSVC). The suite checks:
 - canonical V/E/F counts for the tesseract, 16-cell, 24-cell and 600-cell, and V/E for the 120-cell;
-- every procedural family and all 57 scenes for finite vertices, valid indices, no self or duplicate edges;
+- every procedural family and all 59 scenes for finite vertices, valid indices, no self or duplicate edges;
 - every effect recipe (scenes 0, 1, 2, 5, 11, 26 and every 8th, times all recipes) for mesh validity;
 - timeline beat and bar math, the `--window` parser, the scroller code strip and shader conventions.
 

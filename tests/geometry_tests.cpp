@@ -32,7 +32,7 @@ int main(){
   req(geo::noveltyScore(geo::discoveredObject(1,24,12))>0,"novelty finite positive");
   Timeline tl(120);auto s=tl.sample(.5);req(s.beatIndex==1&&std::fabs(s.beatPhase)<.001f,"timeline beat");req(s.barIndex==0&&s.barPhase>.24f&&s.barPhase<.26f,"timeline bar");
   // B18: scene-table consistency
-  { SceneSystem ss;req(ss.count()==57,"scene count 57");
+  { SceneSystem ss;req(ss.count()==59,"scene count 59");
     for(int i=0;i<ss.count();++i){auto&si=ss.info(i);req(si.id==i,"scene id==index");req(!si.name.empty(),"scene name non-empty");
       req(si.dynamic?si.updateHz>0:true,"scene updateHz sane");
       const auto&m=ss.mesh(i,0.0,42);req(!m.v.empty(),"scene mesh non-empty");

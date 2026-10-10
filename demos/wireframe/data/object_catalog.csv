@@ -56,3 +56,5 @@ id,name,class,provenance,vertices_or_resolution,notes
 54,Atom orbits,showpiece,nucleus + 3 electron rings,rings + octahedra,orbiting electrons
 55,Wave terrain,showpiece,height-field grid,wire ocean,animated ripples
 56,Platonic compound,showpiece,icosahedron + dodecahedron + stella octangula,compound,pulsing inner cube pair
+57,Golden Galaxy,uber256-lab port,de Jong map (GALAXY.COM constants) + bounded z companion,orbit dashes,golden glimmer
+58,Golden Cliff,uber256-lab port,Clifford map (CLIFF.COM constants) + bounded z companion,orbit dashes,golden glimmer

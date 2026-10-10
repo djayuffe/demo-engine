@@ -112,3 +112,12 @@ Added in engine 1.2 / Impossible Wireframe v4.36. Each is deterministic, finite 
 | 79 | Spectral Harmonics | Bass, mid and treble each drive their own harmonic band of radial displacement |
 
 New recipes: 24 Hopf Fibration Storm (64, 73, 14), 25 Hyperbolic Drift (66, 75, 41), 26 Keplerian Galaxy (68, 71, 5), 27 Barbed Crystal (70, 73, 65), 28 Soliton Garden (76, 69, 71), 29 Quaternion Bloom (77, 79, 72, 78). The procedural mutation draws from all 80 effects.
+
+## Golden orbit scenes (57-58)
+
+Ports of GALAXY.COM and CLIFF.COM from [uber256-lab](https://github.com/djayuffe/uber256-lab), drawn with the golden glimmer wire style (`Renderer::setWireStyle(1)`):
+
+- **Golden Galaxy** - de Jong map, a=1.4, b=-2.3, c=2.4, d=-2.1, start (1,1); a and d drift at 0.042/s.
+- **Golden Cliff** - Clifford map, a=-1.4, b=1.6, c=1.0, d=0.7, start (0,1); a and d drift at 0.028/s.
+
+Each frame: about 14,000 filament-aligned dashes plus a sparser trail orbit from 1.6 s earlier and a few four-point glints. Auto mode never warps them; recipe mode (R) still can.

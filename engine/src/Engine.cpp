@@ -200,6 +200,7 @@ int run(Demo& demo,int argc,char** argv){
       lastRevision=frame.revision;haveUpload=true;lastRadius=std::max(.1f,geo::stats(frame.mesh).radius);
     }
     const float scale=std::min(1.48f,1.92f/lastRadius)*frame.scale;
+    r.setWireStyle(frame.wireStyle);
     // 1) wireframe (+ logo backdrop) into the HDR target, 2) travellers, 3) post pass, 4) ticker.
     if(!r.draw(float(fi.time),W,H,float(W)/float(H),frame.sceneIndex,scale,frame.lineWidth,music.level)){std::fprintf(stderr,"Renderer draw failed: %s\n",r.error().c_str());exitCode=6;break;}
     if(frame.travelers) r.drawTravelers(float(fi.time),W,H,float(W)/float(H),scale,music.level);

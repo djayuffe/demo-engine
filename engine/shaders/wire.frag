@@ -8,6 +8,7 @@ uniform float uTime;
 uniform vec3 uColor;
 uniform float uMusicLevel;
 uniform float uGain;   // density compensation for additive blending (C++: wireGainFor)
+uniform int uStyle;    // 0 = electric palette, 1 = golden glimmer
 
 vec3 palette(float t){
   return .50+.50*cos(6.2831853*(vec3(.03,.31,.62)+t));
@@ -21,6 +22,18 @@ float lightSheet(vec3 p,vec3 n,float phase,float width){
 void main(){
   float music=clamp(uMusicLevel,0.,1.);
   vec3 p=vObject;
+  if(uStyle==1){
+    // Golden glimmer. Brightness comes from additive overlap (dense orbit regions glow, as in the
+    // uber256-lab originals); on top, each little dash twinkles on its own phase and a shimmer band
+    // sweeps across the cloud.
+    vec3 h=fract(sin(vec3(dot(floor(p*90.),vec3(12.9898,78.233,37.719)))+vec3(0.,1.7,3.1))*vec3(43758.5453,22578.1459,19642.349));
+    float twinkle=pow(.5+.5*sin(uTime*(2.6+4.0*h.y)+h.x*6.2831853),30.);
+    float sheen=exp(-abs(dot(p,normalize(vec3(.8,.45,.3)))-2.4*sin(uTime*.45))*2.6);
+    vec3 gold=mix(vec3(1.0,.50,.10),vec3(1.0,.80,.36),h.z);
+    vec3 col=gold*(.80+.75*sheen+.40*music)*(.55+.45*vDepth)+vec3(1.0,.94,.72)*twinkle*5.0;
+    FragColor=vec4(col*uGain*2.4,1.0);
+    return;
+  }
 
   float wirePhase=dot(p,vec3(.19,.37,.53))*1.75+length(p.xy)*.23+uTime*.135;
   vec3 wireCycle=palette(wirePhase+music*.12);

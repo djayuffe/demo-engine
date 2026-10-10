@@ -73,6 +73,7 @@ struct Frame {
   float scale=1.f;             // extra scale on top of the engine's auto-fit
   float lineWidth=1.f;
   bool travelers=true;         // draw the octahedra weaving through the mesh
+  int wireStyle=0;             // 0 = electric palette, 1 = golden glimmer (additive, no depth test, gold glints)
   std::string ticker;          // text for the ticker band; empty = nothing
 };
 
