@@ -67,13 +67,13 @@ void Input::poll(GLFWwindow* w){
 
 int run(Demo& demo,int argc,char** argv){
   const Config cfg=demo.config();
-  double bpm=cfg.defaultBpm;fs::path musicPath,logoOverride;bool noTicker=false,noPost=false;
+  double bpm=cfg.defaultBpm;bool bpmGiven=false;fs::path musicPath,logoOverride;bool noTicker=false,noPost=false;
   double quality=1.0;int winW=0,winH=0;bool fullscreen=false;std::string screenshotPath;int maxFrames=0;
   const auto helpText=[&](){
     std::fprintf(stdout,
       "%s %s\n"
       "Usage: %s [options]\n"
-      "  --bpm N         Tempo (default %g)\n"
+      "  --bpm N         Tempo (default: the module's own tempo, else %g)\n"
       "  --music PATH    Audio module/wav to play\n"
       "  --no-ticker     Start with the text ticker off (toggle with T)\n"
       "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
@@ -92,7 +92,7 @@ int run(Demo& demo,int argc,char** argv){
   for(int i=1;i<argc;i++){
     std::string arg(argv[i]);
     if(demo.parseArg(arg,i,argc,argv)) continue;
-    if(arg=="--bpm"&&i+1<argc){double v=std::atof(argv[++i]);if(!std::isfinite(v)){std::fprintf(stderr,"--bpm: not a finite number\n");return 2;}bpm=std::max(1.0,v);}
+    if(arg=="--bpm"&&i+1<argc){double v=std::atof(argv[++i]);if(!std::isfinite(v)){std::fprintf(stderr,"--bpm: not a finite number\n");return 2;}bpm=std::max(1.0,v);bpmGiven=true;}
     else if(arg=="--music"&&i+1<argc)musicPath=argv[++i];
     else if(arg=="--no-ticker"||arg=="--no-scroller")noTicker=true;
     else if(arg=="--no-post")noPost=true;
@@ -143,7 +143,11 @@ int run(Demo& demo,int argc,char** argv){
 #if defined(IW_HAS_AUDIO)
   if(SDL_InitSubSystem(SDL_INIT_AUDIO)!=0) std::fprintf(stderr,"SDL audio init failed: %s\n",SDL_GetError());
 #endif
-  if(!musicPath.empty()&&audio.open(musicPath)) std::fprintf(stdout,"music: %s\n",musicPath.string().c_str());
+  if(!musicPath.empty()&&audio.open(musicPath)){
+    // Lock the visuals to the module's own tempo unless --bpm was given.
+    if(!bpmGiven&&audio.nativeBpm()>0)bpm=audio.nativeBpm();
+    std::fprintf(stdout,"music: %s (%.0f BPM)\n",musicPath.string().c_str(),bpm);
+  }
 
   std::string shaderDir=cfg.shaderDir.empty()?"shaders":cfg.shaderDir;
   if(!exeDir.empty()&&cfg.shaderDir.empty()){
@@ -172,7 +176,7 @@ int run(Demo& demo,int argc,char** argv){
     if(!loaded&&!cands.empty()){ std::fprintf(stderr,"note: no logo cards found; tried:\n"); for(auto& c:cands)std::fprintf(stderr,"  %s\n",c.string().c_str()); std::fprintf(stderr,"  -> running without logo background\n"); }
   }
 
-  RunInfo ri;ri.bpm=bpm;ri.executableDir=exeDir.string();
+  RunInfo ri;ri.bpm=bpm;ri.executableDir=exeDir.string();ri.musicPath=audio.state().active?musicPath.string():std::string();
   if(!demo.init(ri)){std::fprintf(stderr,"demo init failed\n");cleanup(&r);return 4;}
 
   Timeline timeline(bpm);Input input;Frame frame;

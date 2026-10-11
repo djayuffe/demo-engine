@@ -33,7 +33,7 @@ struct Config {
   std::string title="Demo";            // window title
   std::string version="0.0";           // printed by --version
   std::string binaryName="demo";       // used in --help
-  double defaultBpm=132.0;
+  double defaultBpm=132.0;            // used when no --bpm is given and the music has no tempo of its own (WAV, none)
   // Asset search: each entry is tried relative to the CWD, the executable directory and every
   // ancestor of it, so a demo works from the repo root or from build/.
   std::vector<std::string> logoDirs;   // directories holding *_1920x1080.jpg logo cards (optional)
@@ -79,8 +79,9 @@ struct Frame {
 
 // Information passed to Demo::init.
 struct RunInfo {
-  double bpm=132.0;
+  double bpm=132.0;          // --bpm, else the module's own tempo, else Config::defaultBpm
   std::string executableDir;
+  std::string musicPath;     // the track that is actually playing; empty when silent (use it for credits)
 };
 
 class Demo {

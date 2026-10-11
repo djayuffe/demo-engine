@@ -30,8 +30,12 @@ public:
   void close();
   MusicState state() const;
   const std::filesystem::path& path() const { return path_; }
+  // The module's own tempo in BPM (tempo * 6 / speed, i.e. 4 rows per beat) right after open();
+  // 0 for WAV tracks or when nothing is open. Lets the visuals lock to any module without --bpm.
+  double nativeBpm() const { return nativeBpm_; }
 private:
   std::filesystem::path path_;
+  double nativeBpm_ = 0.0;
 #if defined(IW_HAS_AUDIO)
   static void callback(void* userdata, Uint8* stream, int len);
   void render(float* out,int frames);

@@ -1,11 +1,17 @@
 # Optional music
 
 The demo can run from its internal BPM clock and does not require bundled audio.
-Two tracks are available:
+Three tracks are bundled:
 
+- **Stars (4ch. version)** — **cs127**, ProTracker module (`cs127_-_stars_4ch.mod`, 4 channels,
+  4:21, 125 BPM, genre "Demo Style"). Source: The Mod Archive, module 201917,
+  https://modarchive.org/index.php?request=view_by_moduleid&query=201917 (MD5
+  8d4fa931ab5f55de7695b0898e7dcac9). Licence: Creative Commons Attribution 4.0
+  (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/ . Bundled unmodified.
+  **This is the default track.** cs127 later finished it as a longer IT version:
+  https://modarchive.org/index.php?request=view_by_moduleid&query=201894
 - **Silicon Dancer** — Drozerix, ProTracker module
-  (`drozerix_-_silicon_dancer.mod`), listed by the Quinlight Audio project as
-  Public Domain. This is the default track.
+  (`drozerix_-_silicon_dancer.mod`), Public Domain (The Mod Archive, module 209692).
 - **Wireframe Pulse** — an original 30 s synth loop
   (`wireframe_pulse.wav`, 44.1 kHz stereo PCM), generated for this project and
   released to the **public domain (CC0)**. See the generator note below.
@@ -13,14 +19,16 @@ Two tracks are available:
 Suggested local layout:
 
 ```text
-assets/music/drozerix_-_silicon_dancer.mod   # default (public domain)
+assets/music/cs127_-_stars_4ch.mod           # default (CC BY 4.0, credit cs127)
+assets/music/drozerix_-_silicon_dancer.mod   # alternative (public domain)
 assets/music/wireframe_pulse.wav             # alternative (CC0)
 ```
 
 Run:
 
 ```sh
-./build/impossible_wireframe --music assets/music/drozerix_-_silicon_dancer.mod --bpm 132
+./build/impossible_wireframe                                   # Stars, 125 BPM read from the module
+./build/impossible_wireframe --music assets/music/drozerix_-_silicon_dancer.mod
 ./build/impossible_wireframe --music assets/music/wireframe_pulse.wav --bpm 128
 ```
 

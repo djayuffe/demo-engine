@@ -16,7 +16,8 @@ public:
     de::Config c;
     c.title="Impossible Wireframe";c.version=kVersion;c.binaryName="impossible_wireframe";
     c.logoDirs={"demos/wireframe/assets/logos","assets/logos","UBER_Fullscreen_Logo_Pack"};
-    c.musicFiles={"demos/wireframe/assets/music/drozerix_-_silicon_dancer.mod","assets/music/drozerix_-_silicon_dancer.mod"};
+    // Default soundtrack: "Stars (4ch. version)" by cs127, CC BY 4.0 (see assets/music/README.md).
+    c.musicFiles={"demos/wireframe/assets/music/cs127_-_stars_4ch.mod","assets/music/cs127_-_stars_4ch.mod"};
     return c;
   }
   bool parseArg(const std::string& arg,int& i,int argc,char** argv) override {
@@ -32,7 +33,7 @@ public:
            "Keys: Left/Right cycle scenes, Space back to auto, R recipe mode,\n"
            "      Up/Down cycle recipe, P re-roll mutation\n";
   }
-  bool init(const de::RunInfo&) override {recipeMode_=haveRecipe_;recipeChoice_=haveRecipe_?recipeArg_:0;return true;}
+  bool init(const de::RunInfo& ri) override {recipeMode_=haveRecipe_;recipeChoice_=haveRecipe_?recipeArg_:0;musicCredit_=creditFor(ri.musicPath);return true;}
 
   bool update(const de::FrameInfo& f,const de::Input& in,de::Frame& out) override {
     const int n=scenes_.count();
@@ -92,6 +93,7 @@ public:
     if(!recipeName.empty())out.ticker+="  *  "+recipeName;
     char bpmStr[16];std::snprintf(bpmStr,sizeof bpmStr," %dBPM",int(f.bpm+0.5));
     out.ticker+=bpmStr;
+    if(!musicCredit_.empty())out.ticker+="  *  "+musicCredit_;
     return true;
   }
 private:
@@ -100,6 +102,15 @@ private:
   int manual_=-1,lastScene_=-1;
   bool haveRecipe_=false,recipeMode_=false;int recipeArg_=0,recipeChoice_=0;
   uint32_t baseSeed_=0x50454646u;
+  std::string musicCredit_;
+  // On-screen credit for the bundled tracks, keyed by file name.
+  static std::string creditFor(const std::string& path){
+    const std::string f=path.substr(path.find_last_of("/\\")==std::string::npos?0:path.find_last_of("/\\")+1);
+    if(f=="cs127_-_stars_4ch.mod")return "Music: Stars by cs127 (CC BY 4.0)";
+    if(f=="drozerix_-_silicon_dancer.mod")return "Music: Silicon Dancer by Drozerix (Public Domain)";
+    if(f=="wireframe_pulse.wav")return "Music: Wireframe Pulse (CC0)";
+    return {};
+  }
 };
 }  // namespace
 

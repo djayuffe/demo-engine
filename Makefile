@@ -6,7 +6,8 @@
 # Usage:
 #   make            # configure + build (Release)
 #   make test       # build + run ctest
-#   make run        # build + launch the wireframe demo (default music, 132 bpm)
+#   make run        # build + launch the wireframe demo (Stars by cs127, tempo from the module)
+#   make run-silicon# the wireframe demo with Silicon Dancer by Drozerix
 #   make run-hello  # build + launch the minimal hello demo
 #   make run-pulse  # launch with the CC0 Wireframe Pulse track
 #   make clean      # remove the build/ directory
@@ -42,7 +43,7 @@ CMAKE_FLAGS := -DCMAKE_BUILD_TYPE=$(TYPE) -DIW_BUILD_TESTS=ON $(CMAKE_EXTRA)
 # the build-type / generator case.)
 STAMP := $(BUILD_DIR)/.stamp
 
-.PHONY: all configure build test run run-hello run-pulse clean reconfigure diag help stamp
+.PHONY: all configure build test run run-silicon run-hello run-pulse clean reconfigure diag help stamp
 
 all: build
 
@@ -85,7 +86,10 @@ test: build
 	$(CTEST) --test-dir $(BUILD_DIR) --output-on-failure
 
 run: build
-	$(BIN) --bpm 132
+	$(BIN)
+
+run-silicon: build
+	$(BIN) --music demos/wireframe/assets/music/drozerix_-_silicon_dancer.mod
 
 run-hello: build
 	$(HELLO)

@@ -27,6 +27,11 @@ bool AudioPlayer::open(const std::filesystem::path& path) {
   if (ext != ".wav")
     module_ = openmpt_module_create_from_memory2(
         data.data(), data.size(), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+  if (module_) {
+    const int sp = int(openmpt_module_get_current_speed(module_));
+    const double tp = openmpt_module_get_current_tempo2(module_);
+    if (sp > 0 && tp > 0) nativeBpm_ = tp * 6.0 / sp;
+  }
   SDL_AudioSpec wavSpec{};
   Uint8* wavBuf = nullptr;
   Uint32 wavLen = 0;
@@ -105,6 +110,7 @@ void AudioPlayer::close() {
   pcm_.clear();
   pcmPos_ = 0;
   playedFrames_ = 0;
+  nativeBpm_ = 0.0;
   seconds_.store(0.0);
   level_.store(0.0f);
   bass_.store(0.0f); mid_.store(0.0f); treble_.store(0.0f);

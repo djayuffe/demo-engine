@@ -29,7 +29,7 @@ make run                                  # the full wireframe demo
 | **HDR pipeline** | RGBA16F target, additive GL_ONE/GL_ONE lines so overlaps glow, depth-sorted travellers, `--quality` render scale | `engine/src/Renderer.cpp` |
 | **Post pass** | Bloom, chromatic aberration, lensing, glitch, grain, vignette, ACES tone map, plus a procedural art background and wild warps. `Config::fxAmount` dials the whole look from 1 (full) to 0 (clean wires) | `engine/shaders/post.frag` |
 | **Logo show** | Optional 1920x1080 cards on a time-driven fade-in, hold, fade-out and black-break cycle | `Renderer::drawBackground` |
-| **Audio** | libopenmpt module playback through SDL2, bass/mid/treble band split, level, row/pattern; falls back to a BPM clock | `engine/src/Audio.cpp` |
+| **Audio** | libopenmpt module and SDL WAV playback, bass/mid/treble band split, level, row/pattern; the beat clock locks to the module's own tempo; falls back to a BPM clock | `engine/src/Audio.cpp` |
 | **Timeline** | Beat, bar, phase and pulse from seconds and BPM | `engine/src/Timeline.cpp` |
 | **Ticker** | Beat-synced 5x7 pixel-font band, toggled with T | `engine/src/TextScroller.cpp`, `shaders/scroller.frag` |
 | **Effects library** | 80 CPU vertex warpers (including 16 "unknown" 4D, hyperbolic, attractor and growth effects), 30 curated recipes, deterministic mutation, edge sanitiser with restore-on-failure | `engine/src/Effects.cpp` |
