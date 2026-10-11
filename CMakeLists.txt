@@ -83,6 +83,9 @@ iw_warnings(de_core)
 add_library(wireframe_content demos/wireframe/src/Scene.cpp demos/wireframe/src/AdvancedGeometry.cpp demos/wireframe/src/ShowpieceGeometry.cpp)
 target_include_directories(wireframe_content PUBLIC demos/wireframe/include)
 target_link_libraries(wireframe_content PUBLIC de_core)
+# SceneSystem builds meshes on worker threads (std::async).
+find_package(Threads REQUIRED)
+target_link_libraries(wireframe_content PUBLIC Threads::Threads)
 iw_warnings(wireframe_content)
 
 # --- Dependency detection --------------------------------------------------

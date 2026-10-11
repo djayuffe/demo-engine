@@ -6,6 +6,9 @@
 #include "Timeline.hpp"
 #include "Effects.hpp"
 #include "WindowSpec.hpp"
+#include <chrono>
+#include <thread>
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
@@ -399,6 +402,42 @@ int main(){
        float step=o2-o; if(step<0)step+=wrap;  // allow one wrap
        req(step>0.f&&step<5.f,"scroll: smooth monotonic advance (no teleport)");
      }
+   }
+   // Performance guards (deterministic, so they cannot flake on a slow CI machine):
+   // 1) every scene run through the auto recipe exactly as main() builds it stays inside the edge
+   //    budget and stays renderable (copy/echo chains once reached 400k edges and hundreds of ms).
+   { SceneSystem ss; const uint32_t baseSeed=0x50454646u;
+     for(int scene=0;scene<ss.count();++scene)for(double t:{3.0,17.5}){
+       Mesh3 m=ss.mesh(scene,t,0x49574f424a454354ull);
+       EffectContext ec; ec.time=float(t); ec.amount=1.6f; ec.beat=1.f; ec.bass=ec.mid=ec.treble=1.f; ec.seed=baseSeed+uint32_t(scene)*131u;
+       EffectRecipe rc; auto base=recipe(scene%recipeCount()); auto mut=mutateRecipe(ec.seed,2); int i=0;
+       for(int k=0;k<base.stageCount&&i<6;k++)rc.stages[i++]=base.stages[k];
+       for(int k=0;k<mut.stageCount&&i<6;k++)rc.stages[i++]=mut.stages[k];
+       rc.stageCount=i;
+       const Mesh3& sec=ss.mesh((scene+1)%ss.count(),t,0x49574f424a454354ull);
+       applyRecipe(m,rc,ec,&sec);
+       req(m.e.size()<=60000,"auto recipe stays inside the 60k edge budget");
+       req(geo::renderable(m),"auto recipe output is renderable");
+     }
+   }
+   // 2) every effect leaves a fully valid mesh, duplicates included (dedupe only runs where an effect
+   //    can create duplicates, so this checks that classification).
+   for(int id=0;id<effectCount();++id){
+     auto m=geo::torus(24,8); auto sec=geo::uvSphere(8,16); EffectContext ec; ec.time=2.3f; ec.amount=1.4f; ec.seed=11u; ec.bass=ec.mid=ec.treble=.7f; ec.beat=.8f;
+     applyEffect(m,id,ec,&sec); std::string why;
+     if(!geo::validate(m,&why)){std::cerr<<"effect "<<id<<": "<<why<<"\n";req(false,"effect output passes geo::validate");}
+   }
+   // 3) the render loop's non-blocking fetch converges to exactly the synchronous mesh.
+   { SceneSystem a,b; const uint64_t sd=0x49574f424a454354ull;
+     const Mesh3 first=a.meshAsync(2,0.0,sd);                       // first request builds synchronously
+     req(first.v.size()==b.mesh(2,0.0,sd).v.size(),"meshAsync first request is the real mesh");
+     const Mesh3& want=b.mesh(2,1.0,sd);
+     bool converged=false;
+     for(int k=0;k<500&&!converged;++k){ const Mesh3& got=a.meshAsync(2,1.0,sd);
+       converged=got.v.size()==want.v.size()&&got.e.size()==want.e.size()&&std::equal(got.v.begin(),got.v.end(),want.v.begin(),[](V3 x,V3 y){return x.x==y.x&&x.y==y.y&&x.z==y.z;});
+       if(!converged)std::this_thread::sleep_for(std::chrono::milliseconds(10)); }
+     req(converged,"meshAsync converges to the synchronous mesh");
+     a.prefetch(35,0.0,sd); req(a.meshAsync(35,0.0,sd).e.size()==b.mesh(35,0.0,sd).e.size(),"prefetch then meshAsync gives the real mesh");
    }
    std::cout<<"geometry_tests: PASS; exact 120-cell V="<<c120.v.size()<<" E="<<c120.e.size()<<"\n";
   }

@@ -42,11 +42,11 @@ Keeping GL-free code in separate libraries lets tests and CI run headless: `geom
 4. Each frame: skip while minimised, build `FrameInfo` (show time is the music clock when music plays, else wall time; `sync.pulse` is `max(beat pulse, music level)`), poll `Input`, handle the engine key (T toggles the ticker), call `Demo::update`.
 5. Upload the mesh unless `Frame::revision` is non-zero and unchanged. The scale is `min(1.48, 1.92 / radius) * Frame::scale`, so any mesh auto-fits.
 6. Draw: wires into the HDR target, travellers, post pass, ticker. Take the screenshot if requested, honour `--frames`, swap, poll events.
-7. On exit (Esc, window close, Ctrl-C, SIGTERM, `Demo::update` returning false or a fatal renderer error) shut down GL, audio, SDL and GLFW in order. Exit codes: 0 ok, 1 GLFW, 2 bad option or context, 3 renderer init, 4 demo init, 5 mesh rejected, 6 draw failed.
+7. On exit (Esc, window close, Ctrl-C, SIGTERM, `Demo::update` returning false or a fatal renderer error) shut down GL, audio, SDL and GLFW in order. Exit codes: 0 ok, 1 GLFW, 2 bad option or context, 3 renderer init, 4 demo init, 6 draw failed. (A mesh the GPU cannot take is skipped, not fatal: the previous mesh stays and the error is reported once.)
 
 ## The Demo contract
 `Demo::update` is called once per frame on the main thread and must fill a `Frame`:
-- `mesh` is a `Mesh3` (vertices plus index-pair edges). It must have finite vertices, in-range indices and no self or duplicate edges, otherwise `Renderer::upload` rejects it and the engine exits with code 5. Run it through `geo::validate` in tests and `Effects::sanitize` after warping.
+- `mesh` is a `Mesh3` (vertices plus index-pair edges). It must have finite vertices, in-range indices and no self or duplicate edges, otherwise `Renderer::upload` (which checks `geo::renderable`: finite, in range, no self edges) rejects it, the previous mesh stays on screen and the error is reported once. Duplicate edges are drawn, just twice as bright; `geo::validate` also catches them and belongs in your tests.
 - `revision` lets a static mesh skip the upload: set a non-zero counter that changes only when the mesh does. `0` means "re-upload every frame", which is always correct.
 - `sceneIndex` selects which logo card shows and varies the post pass per scene.
 - `ticker` is shown in the bottom band, if non-empty and the ticker is on.

@@ -25,6 +25,8 @@ Mesh3 project4D(const Polytope4&, float angleXY,float angleZW,float cameraW=3.2f
 Mesh3 sliceFaces4D(const Polytope4&, V4 normal,float h,float eps=1e-5f);
 Mesh3 gyroidIsosurface(unsigned n=24,float iso=0.f);
 MeshStats stats(const Mesh3&);
-bool validate(const Mesh3&,std::string* why=nullptr);
+bool validate(const Mesh3&,std::string* why=nullptr);      // renderable() + no duplicate edges (tests, generators)
+// The checks the GPU needs (finite, in range, no self edges): O(edges), cheap enough for every upload.
+bool renderable(const Mesh3&,std::string* why=nullptr);
 bool validate(const Polytope4&,std::string* why=nullptr);
 }

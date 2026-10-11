@@ -32,6 +32,20 @@ Mesh3 project4D(const Polytope4&p,float a,float b,float cw,float xw,float yz){Me
 Mesh3 sliceFaces4D(const Polytope4&p,V4 n,float h,float eps){Mesh3 m;n=norm4(n);for(const Face&f:p.faces){std::vector<V4>hits;for(size_t k=0;k<f.size();k++){V4 a=p.v[f[k]],b=p.v[f[(k+1)%f.size()]];float da=dot(n,a)-h,db=dot(n,b)-h;if(std::fabs(da)<=eps)hits.push_back(a);if((da<-eps&&db>eps)||(da>eps&&db<-eps)){float t=da/(da-db);hits.push_back({a.x+t*(b.x-a.x),a.y+t*(b.y-a.y),a.z+t*(b.z-a.z),a.w+t*(b.w-a.w)});}}std::vector<uint32_t>ids;for(V4 q:hits){V3 c=chart(q,n);uint32_t id=addVertex(m,c,eps*4);if(std::find(ids.begin(),ids.end(),id)==ids.end())ids.push_back(id);}if(ids.size()==2&&ids[0]!=ids[1])m.e.push_back({ids[0],ids[1]});else if(ids.size()>2)for(size_t i=0;i<ids.size();i++)m.e.push_back({ids[i],ids[(i+1)%ids.size()]});}std::set<std::pair<uint32_t,uint32_t>>seen;std::vector<Edge>e;for(auto x:m.e){auto q=std::minmax(x.a,x.b);if(q.first!=q.second&&seen.insert(q).second)e.push_back({q.first,q.second});}m.e=std::move(e);return m;}
 Mesh3 gyroidIsosurface(unsigned n,float iso){n=std::max(4u,n);Mesh3 m;auto F=[&](float x,float y,float z){return std::sin(x)*std::cos(y)+std::sin(y)*std::cos(z)+std::sin(z)*std::cos(x)-iso;};const int tet[6][4]={{0,5,1,6},{0,1,2,6},{0,2,3,6},{0,3,7,6},{0,7,4,6},{0,4,5,6}};const int C[8][3]={{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}};for(unsigned z=0;z<n-1;z++)for(unsigned y=0;y<n-1;y++)for(unsigned x=0;x<n-1;x++){V3 P[8];float D[8];for(int c=0;c<8;c++){float X=-PI+2*PI*(x+C[c][0])/(n-1),Y=-PI+2*PI*(y+C[c][1])/(n-1),Z=-PI+2*PI*(z+C[c][2])/(n-1);P[c]={X/PI,Y/PI,Z/PI};D[c]=F(X,Y,Z);}for(auto&T:tet){std::vector<V3>h;for(int a=0;a<4;a++)for(int b=a+1;b<4;b++){int i=T[a],j=T[b];if((D[i]<0)==(D[j]<0))continue;float t=D[i]/(D[i]-D[j]);h.push_back({P[i].x+t*(P[j].x-P[i].x),P[i].y+t*(P[j].y-P[i].y),P[i].z+t*(P[j].z-P[i].z)});}if(h.size()>=3){std::vector<uint32_t>id;for(auto q:h)id.push_back(addVertex(m,q,2e-4f));for(size_t i=0;i<id.size();i++)if(id[i]!=id[(i+1)%id.size()])m.e.push_back({id[i],id[(i+1)%id.size()]});}}}return m;}
 MeshStats stats(const Mesh3&m){MeshStats s;s.vertices=m.v.size();s.edges=m.e.size();for(auto q:m.v){if(!std::isfinite(q.x)||!std::isfinite(q.y)||!std::isfinite(q.z))s.finite=false;s.radius=std::max(s.radius,std::sqrt(q.x*q.x+q.y*q.y+q.z*q.z));}for(auto e:m.e)if(e.a>=m.v.size()||e.b>=m.v.size())s.indicesValid=false;return s;}
-bool validate(const Mesh3&m,std::string*w){auto s=stats(m);if(!s.finite){if(w)*w="non-finite vertex";return false;}if(!s.indicesValid){if(w)*w="edge index out of range";return false;}std::set<std::pair<uint32_t,uint32_t>> seen;for(auto e:m.e){if(e.a==e.b){if(w)*w="self edge";return false;}auto p=std::minmax(e.a,e.b);if(!seen.insert(p).second){if(w)*w="duplicate edge";return false;}}return true;}
+bool validate(const Mesh3&m,std::string*w){
+  if(!renderable(m,w))return false;
+  // Duplicate check by sorting packed 64-bit keys (a std::set of pairs was the slowest part of every upload).
+  std::vector<uint64_t> k;k.reserve(m.e.size());
+  for(auto e:m.e){auto p=std::minmax(e.a,e.b);k.push_back((uint64_t(p.first)<<32)|p.second);}
+  std::sort(k.begin(),k.end());
+  if(std::adjacent_find(k.begin(),k.end())!=k.end()){if(w)*w="duplicate edge";return false;}
+  return true;
+}
+bool renderable(const Mesh3&m,std::string*w){
+  for(auto q:m.v)if(!std::isfinite(q.x)||!std::isfinite(q.y)||!std::isfinite(q.z)){if(w)*w="non-finite vertex";return false;}
+  const size_t n=m.v.size();
+  for(auto e:m.e){if(e.a>=n||e.b>=n){if(w)*w="edge index out of range";return false;}if(e.a==e.b){if(w)*w="self edge";return false;}}
+  return true;
+}
 bool validate(const Polytope4&p,std::string*w){for(auto q:p.v)if(!std::isfinite(q.x)||!std::isfinite(q.y)||!std::isfinite(q.z)||!std::isfinite(q.w)){if(w)*w="non-finite 4D vertex";return false;}for(auto e:p.e)if(e.a>=p.v.size()||e.b>=p.v.size()){if(w)*w="4D edge index out of range";return false;}for(auto&f:p.faces)for(auto i:f)if(i>=p.v.size()){if(w)*w="face index out of range";return false;}return true;}
 }

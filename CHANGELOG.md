@@ -1,6 +1,16 @@
 # Changelog
 
 ## Unreleased
+### Performance
+- Effects: sort-based duplicate removal only after the four effects that can create duplicates; a 60,000-edge budget (copy/echo chains reached 404,000 edges); a stage with non-finite output is undone.
+- Wireframe demo: scenes build on worker threads (`SceneSystem::meshAsync`, `prefetch`), so the 70-300 ms implicit-surface rebuilds never block a frame.
+- Upload: O(edges) `geo::renderable` check, direct index upload, buffer orphaning; `geo::validate` is sort-based.
+- GPU: procedural background and art layer moved to a half-resolution pass (`engine/shaders/art.frag`), skipped while a logo card covers the screen (it was about 70% of the frame cost, visible or not). `--quality` now scales it too.
+### Fixes
+- A rejected mesh no longer ends the run (exit code 5 is gone): it is skipped and reported once.
+- Vsync in full-screen too; `--no-vsync` for benchmarks. `--stats` prints fps and CPU time per frame.
+- The downbeat solarize flash no longer lifts black to grey.
+- Tests: edge budget and renderability of every wireframe scene through the auto recipe, full validation of every effect, async fetch convergence.
 - Playlists: `Config::musicFiles` plays every file found, in order, looping; `--music` can be repeated. `FrameInfo::musicPath` follows the track that is playing; the beat clock locks to each track's tempo without a jump (`Timeline::retempo`). Detected tempos are folded into 70-180 BPM.
 - Wireframe demo: "Digital Rendezvous" by Drozerix (Public Domain, The Mod Archive 180821) follows Stars by cs127; the ticker credit switches with the track.
 

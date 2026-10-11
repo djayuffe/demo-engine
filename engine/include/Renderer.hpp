@@ -55,6 +55,7 @@ public:
  private:
   bool createGl(const std::string& shaderDir);
   bool initPost(const std::string& shaderDir);
+  bool initArt(const std::string& shaderDir);
   bool resizeHdr(int width,int height);
   bool initScroller(const std::string& shaderDir);
   bool initBackground(const std::string& shaderDir);
@@ -66,6 +67,9 @@ public:
   int uBgMix_=-1,uBgZoom_=-1,uBgAspect_=-1,uBgTexAspect_=-1,uBgOp_=-1,uBgTime_=-1,uBgMusic_=-1,uBgTexA_=-1,uBgTexB_=-1;
    int uTrMVP_=-1,uTrTime_=-1,uTrColor_=-1,uTrSpeed_=-1;
     bool hasLogos_=false; bool logoCapturePending_=false; float renderScale_=1.f; bool postEnabled_=true; float fxAmount_=1.f; int wireStyle_=0; int uStyle_=-1,uPostGold_=-1;
+    // Art pass (procedural background) at half resolution, see shaders/art.frag.
+    unsigned artProgram_=0,artFbo_=0,artTex_=0; int artW_=0,artH_=0;
+    int uArtTime_=-1,uArtRes_=-1,uArtMusic_=-1,uArtBpm_=-1,uArtHasLogo_=-1,uArtLogoVis_=-1,uArtGold_=-1,uArtFx_=-1,uPostArt_=-1,uPostArtOn_=-1;
     std::string error_;
   struct Logo { unsigned tex=0; int w=0,h=0; };
   std::vector<Logo> logos_;

@@ -25,14 +25,14 @@ make run                                  # the full wireframe demo
 ## What the engine provides
 | Feature | What you get | Where |
 |---|---|---|
-| **Run loop** | Window, GL 4.1 core context, clean Ctrl-C shutdown, minimise handling, fixed `--frames N` exit for automation | `engine/src/Engine.cpp` |
+| **Run loop** | Window, GL 4.1 core context (vsynced), clean Ctrl-C shutdown, minimise handling, `--frames N` exit for automation, `--stats` frame-time readout | `engine/src/Engine.cpp` |
 | **HDR pipeline** | RGBA16F target, additive GL_ONE/GL_ONE lines so overlaps glow, depth-sorted travellers, `--quality` render scale | `engine/src/Renderer.cpp` |
-| **Post pass** | Bloom, chromatic aberration, lensing, glitch, grain, vignette, ACES tone map, plus a procedural art background and wild warps. `Config::fxAmount` dials the whole look from 1 (full) to 0 (clean wires) | `engine/shaders/post.frag` |
+| **Post pass** | A half-resolution art pass (procedural background, skipped while a logo covers the screen) plus bloom, chromatic aberration, lensing, glitch, grain, vignette, ACES tone map, plus a procedural art background and wild warps. `Config::fxAmount` dials the whole look from 1 (full) to 0 (clean wires) | `engine/shaders/post.frag` |
 | **Logo show** | Optional 1920x1080 cards on a time-driven fade-in, hold, fade-out and black-break cycle | `Renderer::drawBackground` |
 | **Audio** | libopenmpt module and SDL WAV playback, bass/mid/treble band split, level, row/pattern; the beat clock locks to the module's own tempo; falls back to a BPM clock | `engine/src/Audio.cpp` |
 | **Timeline** | Beat, bar, phase and pulse from seconds and BPM | `engine/src/Timeline.cpp` |
 | **Ticker** | Beat-synced 5x7 pixel-font band, toggled with T | `engine/src/TextScroller.cpp`, `shaders/scroller.frag` |
-| **Effects library** | 80 CPU vertex warpers (including 16 "unknown" 4D, hyperbolic, attractor and growth effects), 30 curated recipes, deterministic mutation, edge sanitiser with restore-on-failure | `engine/src/Effects.cpp` |
+| **Effects library** | 80 CPU vertex warpers (including 16 "unknown" 4D, hyperbolic, attractor and growth effects), 30 curated recipes, deterministic mutation, a 60,000-edge budget, fast sort-based duplicate removal, undo on failure | `engine/src/Effects.cpp` |
 | **Geometry kit** | `Mesh3`/`Polytope4`, cube, sphere, torus, 4D polytopes and projection, validation | `engine/src/Geometry.cpp` |
 | **Wire styles** | `Frame::wireStyle`: 0 = electric palette, 1 = golden glimmer (additive point-cloud accumulation, gold twinkle and cross glints, warps and grading off) | `wire.frag`, `post.frag` |
 | **Input** | Per-frame key state with rising-edge `pressed()` | `de::Input` |

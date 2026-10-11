@@ -45,7 +45,10 @@ public:
     if(in.pressed(de::Key::Right))manual_=(cur+1)%n;
     if(in.down(de::Key::Space))manual_=-1;
     const int scene=manual_<0?autoScene:manual_;
-    Mesh3 m=scenes_.mesh(scene,f.time,seed_);
+    // Never wait for a rebuild: the newest finished mesh is shown while the next tick builds off-thread,
+    // and the scenes that can come next start building before they are needed.
+    Mesh3 m=scenes_.meshAsync(scene,f.time,seed_);
+    for(int nb:{(autoScene+1)%n,(scene+1)%n,(scene-1+n)%n})scenes_.prefetch(nb,f.time,seed_);
     if(scene!=lastScene_){auto&si=scenes_.info(scene);std::fprintf(stdout,"scene %02d: %.*s [%.*s]\n",scene,int(si.name.size()),si.name.data(),int(si.provenance.size()),si.provenance.data());lastScene_=scene;}
     if(in.pressed(de::Key::R)){recipeMode_=!recipeMode_;std::fprintf(stdout,"effects: %s\n",recipeMode_?"recipe mode (curated, Up/Down to cycle)":"auto (per-scene curated + mutation)");}
     if(recipeMode_){
@@ -78,7 +81,7 @@ public:
     // The secondary mesh (next scene) is only built when a stage actually bridges to it.
     const Mesh3* secondary=nullptr;
     for(int k=0;k<rc.stageCount;k++)
-      if(rc.stages[k].useSecondary){secondary=m.v.empty()?nullptr:&scenes_.mesh((scene+1)%n,f.time,seed_);break;}
+      if(rc.stages[k].useSecondary){secondary=m.v.empty()?nullptr:&scenes_.meshAsync((scene+1)%n,f.time,seed_);break;}
     // The golden orbit clouds (57-58) are never warped in auto mode: their motion is the attractor's own morph.
     if(scene>=57&&!recipeMode_&&!haveRecipe_)recipeName="Golden glimmer";
     else if(pureForm&&!recipeMode_&&!haveRecipe_)recipeName="Pure form";else applyRecipe(m,rc,ec,secondary);

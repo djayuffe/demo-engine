@@ -63,6 +63,7 @@ bool Renderer::createGl(const std::string&dir){
   uColor_=glGetUniformLocation(program_,"uColor");uGain_=glGetUniformLocation(program_,"uGain");uStyle_=glGetUniformLocation(program_,"uStyle");uMusicLevel_=glGetUniformLocation(program_,"uMusicLevel");
   glGenVertexArrays(1,&vao_);glGenBuffers(1,&vbo_);glGenBuffers(1,&ebo_);
   if(!initPost(dir))return false;
+  if(!initArt(dir))return false;
   // Non-fatal extras: scroller, logo background, traveling objects. A missing
   // shader degrades (no marquee / no background / no travelers) rather than
   // failing the app. drawScroller/drawBackground/drawTravelers early-return
@@ -87,7 +88,9 @@ bool Renderer::reinit(const std::string&dir){
   if(hdrFbo_)glDeleteFramebuffers(1,&hdrFbo_);
   if(hdrTex_)glDeleteTextures(1,&hdrTex_);
   if(depthRbo_)glDeleteRenderbuffers(1,&depthRbo_);
-  hdrFbo_=hdrTex_=depthRbo_=0;hdrW_=hdrH_=0;
+  if(artFbo_)glDeleteFramebuffers(1,&artFbo_);
+  if(artTex_)glDeleteTextures(1,&artTex_);
+  hdrFbo_=hdrTex_=depthRbo_=0;hdrW_=hdrH_=0;artFbo_=artTex_=0;artW_=artH_=0;
   for(auto&L:logos_)if(L.tex)glDeleteTextures(1,&L.tex),L.tex=0;
   if(scrollerFontTex_)glDeleteTextures(1,&scrollerFontTex_),scrollerFontTex_=0;
    if(scrollerCodesTex_)glDeleteTextures(1,&scrollerCodesTex_),scrollerCodesTex_=0,scrollerCodesTexW_=0;
@@ -145,7 +148,16 @@ bool Renderer::initScroller(const std::string&dir){std::string vs=readText(dir+"
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D,0);
     return true;}
-bool Renderer::initPost(const std::string&dir){std::string vs=readText(dir+"/post.vert"),fs=readText(dir+"/post.frag");if(vs.empty()||fs.empty()){error_="cannot read post shaders from "+dir;return false;}postProgram_=linkProgram(vs,fs,error_);if(!postProgram_)return false;uPostScene_=glGetUniformLocation(postProgram_,"uScene");uPostTime_=glGetUniformLocation(postProgram_,"uTime");uPostResolution_=glGetUniformLocation(postProgram_,"uResolution");uPostMusic_=glGetUniformLocation(postProgram_,"uMusicLevel");uPostBpm_=glGetUniformLocation(postProgram_,"uBpm");uPostBypass_=glGetUniformLocation(postProgram_,"uBypass");uPostHasLogo_=glGetUniformLocation(postProgram_,"uHasLogo");uPostLogoVis_=glGetUniformLocation(postProgram_,"uLogoVis");uPostFx_=glGetUniformLocation(postProgram_,"uFxAmount");uPostGold_=glGetUniformLocation(postProgram_,"uGold");setupFullscreenVao(postVao_,postVbo_);glUseProgram(postProgram_);if(uPostScene_>=0)glUniform1i(uPostScene_,0);return true;}
+bool Renderer::initArt(const std::string&dir){
+  std::string vs=readText(dir+"/post.vert"),fs=readText(dir+"/art.frag");   // same full-screen triangle as post
+  if(vs.empty()||fs.empty()){error_="cannot read art shaders from "+dir;return false;}
+  artProgram_=linkProgram(vs,fs,error_);if(!artProgram_)return false;
+  uArtTime_=glGetUniformLocation(artProgram_,"uTime");uArtRes_=glGetUniformLocation(artProgram_,"uResolution");
+  uArtMusic_=glGetUniformLocation(artProgram_,"uMusicLevel");uArtBpm_=glGetUniformLocation(artProgram_,"uBpm");
+  uArtHasLogo_=glGetUniformLocation(artProgram_,"uHasLogo");uArtLogoVis_=glGetUniformLocation(artProgram_,"uLogoVis");
+  uArtGold_=glGetUniformLocation(artProgram_,"uGold");uArtFx_=glGetUniformLocation(artProgram_,"uFxAmount");
+  return true;}
+bool Renderer::initPost(const std::string&dir){std::string vs=readText(dir+"/post.vert"),fs=readText(dir+"/post.frag");if(vs.empty()||fs.empty()){error_="cannot read post shaders from "+dir;return false;}postProgram_=linkProgram(vs,fs,error_);if(!postProgram_)return false;uPostScene_=glGetUniformLocation(postProgram_,"uScene");uPostTime_=glGetUniformLocation(postProgram_,"uTime");uPostResolution_=glGetUniformLocation(postProgram_,"uResolution");uPostMusic_=glGetUniformLocation(postProgram_,"uMusicLevel");uPostBpm_=glGetUniformLocation(postProgram_,"uBpm");uPostBypass_=glGetUniformLocation(postProgram_,"uBypass");uPostHasLogo_=glGetUniformLocation(postProgram_,"uHasLogo");uPostLogoVis_=glGetUniformLocation(postProgram_,"uLogoVis");uPostFx_=glGetUniformLocation(postProgram_,"uFxAmount");uPostGold_=glGetUniformLocation(postProgram_,"uGold");uPostArt_=glGetUniformLocation(postProgram_,"uArt");uPostArtOn_=glGetUniformLocation(postProgram_,"uArtOn");setupFullscreenVao(postVao_,postVbo_);glUseProgram(postProgram_);if(uPostScene_>=0)glUniform1i(uPostScene_,0);return true;}
 bool Renderer::resizeHdr(int width,int height){
   // Apply the render scale: the HDR target (and everything rendered into it —
   // the 3D wireframe, travelers, and the post/FX pass) runs at a fraction of
@@ -171,6 +183,20 @@ bool Renderer::resizeHdr(int width,int height){
   glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,depthRbo_);
   if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE){error_="HDR framebuffer incomplete";glBindFramebuffer(GL_FRAMEBUFFER,0);return false;}
   glBindFramebuffer(GL_FRAMEBUFFER,0);
+  // The art target: half the HDR size in each direction.
+  artW_=std::max(1,width/2);artH_=std::max(1,height/2);
+  if(!artFbo_)glGenFramebuffers(1,&artFbo_);
+  if(!artTex_)glGenTextures(1,&artTex_);
+  glBindTexture(GL_TEXTURE_2D,artTex_);
+  glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA16F,artW_,artH_,0,GL_RGBA,GL_FLOAT,nullptr);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+  glBindFramebuffer(GL_FRAMEBUFFER,artFbo_);
+  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,artTex_,0);
+  if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE){error_="art framebuffer incomplete";glBindFramebuffer(GL_FRAMEBUFFER,0);return false;}
+  glBindFramebuffer(GL_FRAMEBUFFER,0);
   return true;
 }
 // Additive lines pile up: the 600-cell projection draws ~1200 edges through the same pixels and
@@ -180,7 +206,25 @@ static float wireGainFor(int indexCount){
   float lines=float(std::max(1,indexCount/2));
   return std::clamp(0.80f*std::sqrt(500.f/lines),0.05f,1.0f);   // dense recipe scenes reach tens of thousands of lines
 }
-bool Renderer::upload(const Mesh3&m){std::string why;if(!geo::validate(m,&why)){error_=why;return false;}std::vector<uint32_t>ix;ix.reserve(m.e.size()*2);for(auto e:m.e){ix.push_back(e.a);ix.push_back(e.b);}edgeCount_=(int)ix.size();glBindVertexArray(vao_);glBindBuffer(GL_ARRAY_BUFFER,vbo_);size_t vb=m.v.size()*sizeof(V3);if(vb>vboCapacity_){vboCapacity_=std::max(vb,vboCapacity_*2+4096);glBufferData(GL_ARRAY_BUFFER,vboCapacity_,nullptr,GL_DYNAMIC_DRAW);}if(vb)glBufferSubData(GL_ARRAY_BUFFER,0,vb,m.v.data());glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(V3),nullptr);glEnableVertexAttribArray(0);glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ebo_);size_t eb=ix.size()*sizeof(uint32_t);if(eb>eboCapacity_){eboCapacity_=std::max(eb,eboCapacity_*2+4096);glBufferData(GL_ELEMENT_ARRAY_BUFFER,eboCapacity_,nullptr,GL_DYNAMIC_DRAW);}if(eb)glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,0,eb,ix.data());return true;}
+bool Renderer::upload(const Mesh3&m){
+  // renderable() is the O(edges) check the GPU needs; the duplicate-edge check (geo::validate) is for
+  // tests and generators, and was the most expensive part of every upload.
+  std::string why;if(!geo::renderable(m,&why)){error_=why;return false;}
+  static_assert(sizeof(Edge)==2*sizeof(uint32_t),"Edge must be two packed uint32 indices");
+  edgeCount_=(int)(m.e.size()*2);
+  glBindVertexArray(vao_);
+  // Orphan-then-fill: glBufferData(nullptr) hands the driver a fresh store, so updating a buffer the
+  // GPU is still drawing from does not stall the CPU.
+  glBindBuffer(GL_ARRAY_BUFFER,vbo_);size_t vb=m.v.size()*sizeof(V3);
+  if(vb>vboCapacity_)vboCapacity_=std::max(vb,vboCapacity_*2+4096);
+  glBufferData(GL_ARRAY_BUFFER,(GLsizeiptr)vboCapacity_,nullptr,GL_DYNAMIC_DRAW);
+  if(vb)glBufferSubData(GL_ARRAY_BUFFER,0,(GLsizeiptr)vb,m.v.data());
+  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(V3),nullptr);glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ebo_);size_t eb=m.e.size()*sizeof(Edge);
+  if(eb>eboCapacity_)eboCapacity_=std::max(eb,eboCapacity_*2+4096);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,(GLsizeiptr)eboCapacity_,nullptr,GL_DYNAMIC_DRAW);
+  if(eb)glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,0,(GLsizeiptr)eb,m.e.data());   // Edge{a,b} is already an index pair
+  return true;}
 bool Renderer::draw(float t,int width,int height,float aspect,int sceneIndex,float scale,float lineWidth,float musicLevel){if(!resizeHdr(width,height))return false;float ml=std::clamp(musicLevel,0.f,1.f);
  float fly=std::sin(t*.19f),zoom=std::sin(t*.23f+1.7f),breath=1.f+.075f*std::sin(t*.83f)+.12f*ml;
  float P[16],V[16]={1,0,0,0,0,1,0,0,0,0,1,0,.22f*fly,.14f*std::cos(t*.13f),-4.25f+.52f*zoom-.28f*ml,1};
@@ -376,6 +420,27 @@ bool Renderer::finishLogoFrame(float time,int width,int height,int sceneIndex,fl
   (void)sceneIndex;
   if(!logoCapturePending_)return false;
   logoCapturePending_=false;
+  // Art pass: the procedural background, at half resolution. Its weight in post.frag is
+  // (1 - hasLogo), so it is skipped outright while a logo card fully covers the screen (and with
+  // --no-post, which never shows it).
+  const float logoCover=hasLogos_?std::clamp(logoVis_,0.f,1.f):0.f;
+  const bool artOn=postEnabled_&&std::max(logoCover,1.f-fxAmount_)<.999f;
+  if(artOn){
+    glBindFramebuffer(GL_FRAMEBUFFER,artFbo_);
+    glDisable(GL_DEPTH_TEST);glDisable(GL_BLEND);
+    glViewport(0,0,artW_,artH_);
+    glUseProgram(artProgram_);
+    if(uArtTime_>=0)glUniform1f(uArtTime_,time);
+    if(uArtRes_>=0)glUniform2f(uArtRes_,float(artW_),float(artH_));
+    if(uArtMusic_>=0)glUniform1f(uArtMusic_,std::clamp(musicLevel,0.f,1.f));
+    if(uArtBpm_>=0)glUniform1f(uArtBpm_,bpm);
+    if(uArtHasLogo_>=0)glUniform1f(uArtHasLogo_,hasLogos_?1.f:0.f);
+    if(uArtLogoVis_>=0)glUniform1f(uArtLogoVis_,logoVis_);
+    if(uArtGold_>=0)glUniform1f(uArtGold_,wireStyle_==1?1.f:0.f);
+  if(uArtFx_>=0)glUniform1f(uArtFx_,fxAmount_);
+    glBindVertexArray(postVao_);
+    glDrawArrays(GL_TRIANGLES,0,3);
+  }
   // In both logo and no-logo mode the HDR buffer now holds the wireframe +
   // travelers (+ logo backdrop in logo mode). Run the post/FX pass over it.
   glBindFramebuffer(GL_FRAMEBUFFER,0);
@@ -398,8 +463,13 @@ bool Renderer::finishLogoFrame(float time,int width,int height,int sceneIndex,fl
   if(uPostLogoVis_>=0)glUniform1f(uPostLogoVis_,logoVis_);
   if(uPostFx_>=0)glUniform1f(uPostFx_,fxAmount_);
   if(uPostGold_>=0)glUniform1f(uPostGold_,wireStyle_==1?1.f:0.f);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D,artTex_);
+  if(uPostArt_>=0)glUniform1i(uPostArt_,1);
+  if(uPostArtOn_>=0)glUniform1f(uPostArtOn_,artOn?1.f:0.f);
   glBindVertexArray(postVao_);
   glDrawArrays(GL_TRIANGLES,0,3);
+  glActiveTexture(GL_TEXTURE0);
   return true;
  }
  bool Renderer::screenshot(const std::string& path,int width,int height){
@@ -492,4 +562,4 @@ bool Renderer::finishLogoFrame(float time,int width,int height,int sceneIndex,fl
    glBindTexture(GL_TEXTURE_2D,0);
    return true;
  }
-void Renderer::shutdown(){for(auto&L:logos_)if(L.tex)glDeleteTextures(1,&L.tex);logos_.clear();if(scrollerFontTex_)glDeleteTextures(1,&scrollerFontTex_);if(scrollerCodesTex_)glDeleteTextures(1,&scrollerCodesTex_);scrollerCodesTex_=0,scrollerCodesTexW_=0;if(hdrFbo_)glDeleteFramebuffers(1,&hdrFbo_);if(hdrTex_)glDeleteTextures(1,&hdrTex_);if(depthRbo_)glDeleteRenderbuffers(1,&depthRbo_);if(postProgram_)glDeleteProgram(postProgram_);if(postVao_)glDeleteVertexArrays(1,&postVao_);if(postVbo_)glDeleteBuffers(1,&postVbo_);if(scrollerProgram_)glDeleteProgram(scrollerProgram_);if(scrollerVao_)glDeleteVertexArrays(1,&scrollerVao_);if(scrollerVbo_)glDeleteBuffers(1,&scrollerVbo_);if(bgProgram_)glDeleteProgram(bgProgram_);if(bgVao_)glDeleteVertexArrays(1,&bgVao_);if(bgVbo_)glDeleteBuffers(1,&bgVbo_);if(travelerProgram_)glDeleteProgram(travelerProgram_);if(travelerVao_)glDeleteVertexArrays(1,&travelerVao_);if(travelerVbo_)glDeleteBuffers(1,&travelerVbo_);if(travelerEbo_)glDeleteBuffers(1,&travelerEbo_);if(program_)glDeleteProgram(program_);if(ebo_)glDeleteBuffers(1,&ebo_);if(vbo_)glDeleteBuffers(1,&vbo_);if(vao_)glDeleteVertexArrays(1,&vao_);program_=postProgram_=scrollerProgram_=bgProgram_=travelerProgram_=vao_=postVao_=postVbo_=scrollerVao_=scrollerVbo_=bgVao_=bgVbo_=travelerVao_=vbo_=ebo_=travelerVbo_=travelerEbo_=scrollerFontTex_=hdrFbo_=hdrTex_=depthRbo_=0;}
+void Renderer::shutdown(){if(artProgram_)glDeleteProgram(artProgram_);if(artFbo_)glDeleteFramebuffers(1,&artFbo_);if(artTex_)glDeleteTextures(1,&artTex_);artProgram_=artFbo_=artTex_=0;artW_=artH_=0;for(auto&L:logos_)if(L.tex)glDeleteTextures(1,&L.tex);logos_.clear();if(scrollerFontTex_)glDeleteTextures(1,&scrollerFontTex_);if(scrollerCodesTex_)glDeleteTextures(1,&scrollerCodesTex_);scrollerCodesTex_=0,scrollerCodesTexW_=0;if(hdrFbo_)glDeleteFramebuffers(1,&hdrFbo_);if(hdrTex_)glDeleteTextures(1,&hdrTex_);if(depthRbo_)glDeleteRenderbuffers(1,&depthRbo_);if(postProgram_)glDeleteProgram(postProgram_);if(postVao_)glDeleteVertexArrays(1,&postVao_);if(postVbo_)glDeleteBuffers(1,&postVbo_);if(scrollerProgram_)glDeleteProgram(scrollerProgram_);if(scrollerVao_)glDeleteVertexArrays(1,&scrollerVao_);if(scrollerVbo_)glDeleteBuffers(1,&scrollerVbo_);if(bgProgram_)glDeleteProgram(bgProgram_);if(bgVao_)glDeleteVertexArrays(1,&bgVao_);if(bgVbo_)glDeleteBuffers(1,&bgVbo_);if(travelerProgram_)glDeleteProgram(travelerProgram_);if(travelerVao_)glDeleteVertexArrays(1,&travelerVao_);if(travelerVbo_)glDeleteBuffers(1,&travelerVbo_);if(travelerEbo_)glDeleteBuffers(1,&travelerEbo_);if(program_)glDeleteProgram(program_);if(ebo_)glDeleteBuffers(1,&ebo_);if(vbo_)glDeleteBuffers(1,&vbo_);if(vao_)glDeleteVertexArrays(1,&vao_);program_=postProgram_=scrollerProgram_=bgProgram_=travelerProgram_=vao_=postVao_=postVbo_=scrollerVao_=scrollerVbo_=bgVao_=bgVbo_=travelerVao_=vbo_=ebo_=travelerVbo_=travelerEbo_=scrollerFontTex_=hdrFbo_=hdrTex_=depthRbo_=0;}

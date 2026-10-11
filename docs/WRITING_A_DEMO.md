@@ -50,7 +50,7 @@ Asset paths are tried relative to the CWD, the executable directory and every an
 `Frame` is your output: `mesh`, `revision`, `sceneIndex`, `scale`, `lineWidth`, `travelers`, `wireStyle`, `ticker`. `wireStyle = 1` switches to the golden glimmer look: additive with no depth test (ideal for point and orbit clouds), twinkling gold, four-point glints, and the screen warps and colour grading switched off. The engine fits the mesh to the screen, so `scale` is a multiplier around 1, ideal for beat pulses.
 
 ### Mesh rules
-Vertices must be finite, edge indices in range, no self edges, no duplicate edges. Build meshes with `geo::` helpers (`cube`, `uvSphere`, `torus`, 4D polytopes and `project4D`) or fill `Mesh3::v` and `Mesh3::e` yourself, and check with `geo::validate(mesh)` in a test. A rejected mesh ends the demo with exit code 5.
+Vertices must be finite, edge indices in range, no self edges, no duplicate edges. Build meshes with `geo::` helpers (`cube`, `uvSphere`, `torus`, 4D polytopes and `project4D`) or fill `Mesh3::v` and `Mesh3::e` yourself, and check with `geo::validate(mesh)` in a test. A mesh with non-finite vertices, out-of-range indices or self edges is skipped (the previous one stays on screen and the error is printed once); duplicate edges are drawn twice as bright.
 
 ### Static meshes
 If the mesh does not change, set `out.revision` to a non-zero value that you bump only when it changes. The engine then skips the upload. Leave it at 0 for animated meshes.

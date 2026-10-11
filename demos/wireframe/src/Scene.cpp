@@ -3,6 +3,7 @@
 #include "ShowpieceGeometry.hpp"
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 namespace {
 constexpr std::array<SceneInfo,59> S{{
@@ -30,13 +31,11 @@ int SceneSystem::count()const{return int(S.size());}
 uint64_t SceneSystem::tickFor(const SceneInfo& si,double seconds){
   return si.dynamic?uint64_t(std::floor(std::max(0.0,seconds)*si.updateHz)):0;
 }
-const Mesh3& SceneSystem::mesh(int id,double seconds,uint64_t seed){
-  id=std::clamp(id,0,count()-1);auto& si=info(id);
-  uint64_t tick=tickFor(si,seconds);
-  auto it=cache_.find(id);
-  if(it!=cache_.end()&&it->second.first==tick) return it->second.second;
+Mesh3 SceneSystem::build(int id,uint64_t tick,uint64_t seed)const{
+  // Pure: reads only the immutable polytopes, so it can run on a worker thread.
   // B7 fix: use quantized tick (not raw seconds) for all time-dependent params,
   // so the cache actually hits at the scene's declared update rate.
+  auto& si=info(id);
   float t=float(tick)/float(std::max(1.0,si.updateHz));
   Mesh3 m;
   switch(id){case 0:m=geo::project4D(c600_,t*.17f,t*.29f,3.4f,t*.09f,t*.13f);break;case 1:m=geo::sliceFaces4D(c600_,{.31f,.47f,.59f,.57f},std::sin(t*.31f)*1.45f);break;
@@ -51,6 +50,40 @@ const Mesh3& SceneSystem::mesh(int id,double seconds,uint64_t seed){
     float yaw=-.17f*t+.5f*std::sin(.3f*t);
     m=geo::goldenOrbit(id==57?geo::OrbitMap::DeJong:geo::OrbitMap::Clifford,t,yaw);break;}
   case 41:case 42:case 43:case 44:case 45:case 46:case 47:case 48:case 49:case 50:m=geo::unknownLabObject(unsigned(id-41),56,t);break;default:m=geo::discoveredObject(seed+tick,88,44);break;}
-  auto& slot=cache_[id];slot.first=tick;slot.second=std::move(m);
-  return slot.second;
+  return m;
+}
+void SceneSystem::collect(Slot& s){
+  if(s.job.valid()&&s.job.wait_for(std::chrono::seconds(0))==std::future_status::ready){s.mesh=s.job.get();s.tick=s.jobTick;s.ready=true;}
+}
+const Mesh3& SceneSystem::mesh(int id,double seconds,uint64_t seed){
+  id=std::clamp(id,0,count()-1);
+  const uint64_t tick=tickFor(info(id),seconds);
+  Slot& s=cache_[id];
+  if(s.job.valid()){s.mesh=s.job.get();s.tick=s.jobTick;s.ready=true;}   // settle any in-flight build first
+  if(!s.ready||s.tick!=tick){s.mesh=build(id,tick,seed);s.tick=tick;s.ready=true;}
+  return s.mesh;
+}
+const Mesh3& SceneSystem::meshAsync(int id,double seconds,uint64_t seed){
+  id=std::clamp(id,0,count()-1);
+  const uint64_t tick=tickFor(info(id),seconds);
+  Slot& s=cache_[id];
+  collect(s);
+  if(!s.ready){                                        // never built: nothing to show yet, so wait
+    if(s.job.valid()){s.mesh=s.job.get();s.tick=s.jobTick;}else{s.mesh=build(id,tick,seed);s.tick=tick;}
+    s.ready=true;
+  }
+  if(s.tick!=tick&&!s.job.valid()){                    // stale: show it one more tick, build the new one off-thread
+    s.jobTick=tick;
+    s.job=std::async(std::launch::async,[this,id,tick,seed]{return build(id,tick,seed);});
+  }
+  return s.mesh;
+}
+void SceneSystem::prefetch(int id,double seconds,uint64_t seed){
+  id=std::clamp(id,0,count()-1);
+  Slot& s=cache_[id];
+  collect(s);
+  if(s.ready||s.job.valid())return;
+  const uint64_t tick=tickFor(info(id),seconds);
+  s.jobTick=tick;
+  s.job=std::async(std::launch::async,[this,id,tick,seed]{return build(id,tick,seed);});
 }

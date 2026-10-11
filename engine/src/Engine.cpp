@@ -17,6 +17,7 @@
 #include "WindowSpec.hpp"
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <csignal>
 #include <cstdio>
@@ -68,7 +69,7 @@ void Input::poll(GLFWwindow* w){
 int run(Demo& demo,int argc,char** argv){
   const Config cfg=demo.config();
   double bpm=cfg.defaultBpm;bool bpmGiven=false;std::vector<fs::path> musicPaths;fs::path logoOverride;bool noTicker=false,noPost=false;
-  double quality=1.0;int winW=0,winH=0;bool fullscreen=false;std::string screenshotPath;int maxFrames=0;
+  double quality=1.0;int winW=0,winH=0;bool fullscreen=false;std::string screenshotPath;int maxFrames=0;bool vsync=true,showStats=false;
   const auto helpText=[&](){
     std::fprintf(stdout,
       "%s %s\n"
@@ -83,6 +84,8 @@ int run(Demo& demo,int argc,char** argv){
       "  --fullscreen    Full-screen on the primary monitor (overrides --window)\n"
       "  --screenshot P  Save one PNG frame to P (on frame N when --frames N is given)\n"
       "  --frames N      Exit after N frames (0 = run forever)\n"
+      "  --stats         Print fps and CPU time per frame (demo update + upload) every 5 s\n"
+      "  --no-vsync      Do not wait for the display refresh (benchmarking)\n"
       "  --version       Print version and exit\n"
       "  -h, --help      Show this help\n"
       "%s"
@@ -104,6 +107,8 @@ int run(Demo& demo,int argc,char** argv){
       winW=ww;winH=wh;
     }
     else if(arg=="--fullscreen")fullscreen=true;
+    else if(arg=="--no-vsync")vsync=false;
+    else if(arg=="--stats")showStats=true;
     else if(arg=="--version"){std::fprintf(stdout,"%s %s\n",cfg.title.c_str(),cfg.version.c_str());return 0;}
     else if(arg=="--screenshot"&&i+1<argc)screenshotPath=argv[++i];
     else if(arg=="--frames"&&i+1<argc)maxFrames=std::max(0,std::atoi(argv[++i]));
@@ -133,7 +138,7 @@ int run(Demo& demo,int argc,char** argv){
   GLFWwindow* w=glfwCreateWindow(cw,ch,windowTitle.c_str(),mon,nullptr);
   if(!w){std::fprintf(stderr,"OpenGL 4.1 context creation failed\n");glfwTerminate();return 2;}
   if(fullscreen)glfwSetWindowMonitor(w,mon,0,0,cw,ch,vm?vm->refreshRate:0);
-  glfwMakeContextCurrent(w);glfwSwapInterval(fullscreen?0:1);
+  glfwMakeContextCurrent(w);glfwSwapInterval(vsync?1:0);   // vsync in full-screen too: uncapped only burned the GPU and tore
 #ifdef _WIN32
   { const char* missing=nullptr;
     if(!loadGL(reinterpret_cast<void*(*)(const char*)>(glfwGetProcAddress),&missing)){std::fprintf(stderr,"OpenGL loader: missing %s (needs an OpenGL 4.1 driver)\n",missing?missing:"?");glfwDestroyWindow(w);glfwTerminate();return 2;} }
@@ -203,12 +208,21 @@ int run(Demo& demo,int argc,char** argv){
     if(input.pressed(Key::T))tickerOn=!tickerOn;
 
     frame=Frame{};
+    const auto cpuStart=std::chrono::steady_clock::now();
     if(!demo.update(fi,input,frame))break;
 
     // Mesh upload: skipped only when the demo promises it is unchanged (revision != 0).
     if(!haveUpload||frame.revision==0||frame.revision!=lastRevision){
-      if(!r.upload(frame.mesh)){std::fprintf(stderr,"Mesh rejected: %s\n",r.error().c_str());exitCode=5;break;}
-      lastRevision=frame.revision;haveUpload=true;lastRadius=std::max(.1f,geo::stats(frame.mesh).radius);
+      // A mesh the GPU cannot take (non-finite, out-of-range or self edges) is skipped, not fatal: the
+      // previous mesh stays on screen and the problem is reported once.
+      if(r.upload(frame.mesh)){lastRevision=frame.revision;haveUpload=true;lastRadius=std::max(.1f,geo::stats(frame.mesh).radius);}
+      else{static bool reported=false;if(!reported){std::fprintf(stderr,"Mesh rejected (%s): keeping the previous mesh\n",r.error().c_str());reported=true;}}
+    }
+    { // --stats: CPU time of the demo's update and the upload, and the frame rate
+      static double cpuSum=0,cpuMax=0,statT0=-1;static int statFrames=0;
+      const double cpuMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-cpuStart).count();
+      cpuSum+=cpuMs;cpuMax=std::max(cpuMax,cpuMs);++statFrames;if(statT0<0)statT0=now;
+      if(showStats&&now-statT0>=5.0){std::fprintf(stdout,"stats: %.1f fps, CPU %.2f ms/frame avg, %.2f max, %zu edges\n",statFrames/(now-statT0),cpuSum/statFrames,cpuMax,frame.mesh.e.size());cpuSum=cpuMax=0;statFrames=0;statT0=now;}
     }
     const float scale=std::min(1.48f,1.92f/lastRadius)*frame.scale;
     r.setWireStyle(frame.wireStyle);

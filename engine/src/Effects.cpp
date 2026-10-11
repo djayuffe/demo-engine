@@ -1,5 +1,4 @@
 #include "Effects.hpp"
-#include <set>
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -26,6 +25,17 @@ V3 vnorm(V3 a) { float q = vlen(a); return q > 1e-12f ? vmul(a, 1.f / q) : V3{0,
 V3 vcross(V3 a, V3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
 float hyp(V3 a) { return std::hypot(a.x, a.z); }
 
+// Hard ceiling on edges after any stage. Copy/echo effects multiply the edge count, and a chain of
+// them used to reach 400k edges (hundreds of ms per frame); every multiplying effect now sizes itself
+// to fit, and applyEffect() thins anything that still exceeds it.
+constexpr size_t kEdgeBudget = 60000;
+// How many extra copies of `m` fit in the budget (at most `want`).
+int copiesThatFit(const Mesh3& m, int want) {
+  const size_t e = std::max<size_t>(1, m.e.size());
+  const size_t room = kEdgeBudget > e ? (kEdgeBudget - e) / e : 0;
+  return int(std::min<size_t>(size_t(std::max(0, want)), room));
+}
+
 V3 center(const Mesh3& m) { V3 c{}; for (auto p : m.v) c = vadd(c, p); return m.v.empty() ? c : vmul(c, 1.f / float(m.v.size())); }
 void mapv(Mesh3& m, const std::function<V3(V3, size_t)>& f) { for (size_t i = 0; i < m.v.size(); ++i) m.v[i] = f(m.v[i], i); }
 void cull(Mesh3& m, const std::function<bool(V3, V3, size_t)>& f) {
@@ -40,10 +50,9 @@ void copyInto(Mesh3& d, const Mesh3& s, V3 o, float sc, float a) {
 }
 void subdiv(Mesh3& m, int n, float j, uint32_t seed) {
   n = std::clamp(n, 1, 8);
-  // Cap edge growth: if the subdivision would produce >50k edges, skip it
-  // (the mesh is already dense enough; heavy recipes on large meshes would
-  // otherwise produce 100k+ edges per stage, killing frame time).
-  if (m.e.size() * (size_t)n > 50000) return;
+  // Cap edge growth: if the subdivision would exceed the edge budget, skip it
+  // (the mesh is already dense enough).
+  if (m.e.size() * (size_t)n > kEdgeBudget) return;
   Mesh3 o;
   for (const Edge& ed : m.e) {
     V3 a = m.v[ed.a], b = m.v[ed.b], dv = vsub(b, a), side = vnorm(vcross(dv, V3{.31f, .73f, .19f}));
@@ -53,19 +62,41 @@ void subdiv(Mesh3& m, int n, float j, uint32_t seed) {
   m = std::move(o);
 }
 
-// Drops out-of-range, self and zero-length edges, and duplicate edges (the constellation/bridge
-// effects re-add edges between already-connected vertices). Duplicates must go: the renderer's
-// geo::validate() rejects them, and main() used to quit the whole show on the first rejected mesh;
-// they would also be drawn twice and double the brightness of an additively blended line.
-void sanitize(Mesh3& m) {
+// Drops out-of-range, self and zero-length edges, and (when `dedupe` is set) duplicate edges.
+// Duplicates only arise from the effects that add edges between existing vertices (bridges, spokes,
+// chords); vertex maps, culls and copies cannot create them from a clean mesh, so they skip that
+// pass. Deduplication sorts packed 64-bit keys instead of filling a std::set: same result, about
+// 10x faster, and the first occurrence of each edge keeps its place.
+void sanitize(Mesh3& m, bool dedupe) {
+  const size_t nv = m.v.size();
   std::vector<Edge> out; out.reserve(m.e.size());
-  std::set<std::pair<uint32_t, uint32_t>> seen;
   for (const Edge& ed : m.e) {
-    if (ed.a >= m.v.size() || ed.b >= m.v.size() || ed.a == ed.b) continue;
-    if (vlen(vsub(m.v[ed.a], m.v[ed.b])) <= 1e-5f) continue;
-    if (!seen.insert(std::minmax(ed.a, ed.b)).second) continue;
+    if (ed.a >= nv || ed.b >= nv || ed.a == ed.b) continue;
+    const V3 d = vsub(m.v[ed.a], m.v[ed.b]);
+    if (vdot(d, d) <= 1e-10f) continue;
     out.push_back(ed);
   }
+  if (dedupe && out.size() > 1) {
+    std::vector<std::pair<uint64_t, uint32_t>> keys(out.size());
+    for (size_t i = 0; i < out.size(); ++i) {
+      const auto mm = std::minmax(out[i].a, out[i].b);
+      keys[i] = {(uint64_t(mm.first) << 32) | mm.second, uint32_t(i)};
+    }
+    std::sort(keys.begin(), keys.end());
+    std::vector<char> drop(out.size(), 0);
+    for (size_t i = 1; i < keys.size(); ++i) if (keys[i].first == keys[i - 1].first) drop[keys[i].second] = 1;   // sorted by (key, index): later copies go
+    size_t w = 0;
+    for (size_t i = 0; i < out.size(); ++i) if (!drop[i]) out[w++] = out[i];
+    out.resize(w);
+  }
+  m.e = std::move(out);
+}
+// Keeps every k-th edge so the mesh fits the edge budget (deterministic, spreads evenly).
+void thinToBudget(Mesh3& m) {
+  if (m.e.size() <= kEdgeBudget) return;
+  const double step = double(m.e.size()) / double(kEdgeBudget);
+  std::vector<Edge> out; out.reserve(kEdgeBudget);
+  for (size_t k = 0; k < kEdgeBudget; ++k) out.push_back(m.e[size_t(double(k) * step)]);
   m.e = std::move(out);
 }
 // The lab's fail-safe gate: finite, in-bounds, no degenerate/self edges (duplicates are removed by
@@ -133,13 +164,13 @@ bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
   case 28: cull(m, [&](V3 a, V3 b, size_t) { return fmodf(vlen(q(vmul(vadd(a, b), .5f))) * 3 + t, 2) < 1; }); break;
   case 29: cull(m, [&](V3 a, V3 b, size_t) { return (a.z + b.z) * .5f > C.z + A * .2f * sinf(t); }); break;
   case 30: cull(m, [&](V3, V3, size_t e) { return sinf(float(e) * .73f + t * 3) > -.1f; }); break;
-  case 31: { Mesh3 x = m; for (int k = 1; k <= 4; k++) copyInto(m, x, {0, .08f * k, 0}, 1 - .08f * k, .13f * k + A * .03f); } break;
-  case 32: { Mesh3 x = m; for (int k = 1; k < 6; k++) { float a = t * .3f + k * 2 * PI / 6; copyInto(m, x, {1.8f * cosf(a), 0, 1.8f * sinf(a)}, .35f, a); } } break;
-  case 33: { Mesh3 x = m; for (int k = 1; k <= 4; k++) copyInto(m, x, {0, 0, 0}, powf(.55f, k), t * .1f * k); } break;
-  case 34: { Mesh3 x = m; for (int k = 1; k <= 6; k++) copyInto(m, x, {-.12f * k, .04f * k, .08f * k}, 1 - .09f * k, -.06f * k); } break;
+  case 31: { Mesh3 x = m; const int n = copiesThatFit(m, 4); for (int k = 1; k <= n; k++) copyInto(m, x, {0, .08f * k, 0}, 1 - .08f * k, .13f * k + A * .03f); } break;
+  case 32: { Mesh3 x = m; const int n = copiesThatFit(m, 5); for (int k = 1; k <= n; k++) { float a = t * .3f + k * 2 * PI / 6; copyInto(m, x, {1.8f * cosf(a), 0, 1.8f * sinf(a)}, .35f, a); } } break;
+  case 33: { Mesh3 x = m; const int n = copiesThatFit(m, 4); for (int k = 1; k <= n; k++) copyInto(m, x, {0, 0, 0}, powf(.55f, k), t * .1f * k); } break;
+  case 34: { Mesh3 x = m; const int n = copiesThatFit(m, 6); for (int k = 1; k <= n; k++) copyInto(m, x, {-.12f * k, .04f * k, .08f * k}, 1 - .09f * k, -.06f * k); } break;
   case 35: mapv(m, [&](V3 p, size_t i) { float ph = t + float(i % 97) * .025f; p.x += A * .18f * sinf(ph + p.y); p.z += A * .18f * cosf(ph - p.x); return p; }); break;
-  case 36: if (s && !s->v.empty()) { auto sv = s->v; auto se = s->e; unsigned base = (unsigned)m.v.size(); for (auto p : sv) m.v.push_back(p); for (auto i : se) m.e.push_back({base + i.a, base + i.b}); size_t n = std::min<size_t>(64, std::min<size_t>(base, sv.size())); for (size_t i = 0; i < n; i++) m.e.push_back({(unsigned)(i * base / n), base + (unsigned)(i * sv.size() / n)}); } break;
-  case 37: if (s && !s->v.empty()) { auto sv = s->v; auto se = s->e; unsigned base = (unsigned)m.v.size(); for (auto p : sv) m.v.push_back(p); for (auto i : se) m.e.push_back({base + i.a, base + i.b}); for (unsigned i = 0; i < base; i += std::max(1u, base / 48u)) { float bd = 1e30f; unsigned bj = 0; for (unsigned j = 0; j < sv.size(); j++) { float d = vlen(vsub(m.v[i], sv[j])); if (d < bd) { bd = d; bj = j; } } m.e.push_back({i, base + bj}); } } break;
+  case 36: if (s && !s->v.empty() && m.e.size() + s->e.size() + 64 <= kEdgeBudget) { auto sv = s->v; auto se = s->e; unsigned base = (unsigned)m.v.size(); for (auto p : sv) m.v.push_back(p); for (auto i : se) m.e.push_back({base + i.a, base + i.b}); size_t n = std::min<size_t>(64, std::min<size_t>(base, sv.size())); for (size_t i = 0; i < n; i++) m.e.push_back({(unsigned)(i * base / n), base + (unsigned)(i * sv.size() / n)}); } break;
+  case 37: if (s && !s->v.empty() && m.e.size() + s->e.size() + 64 <= kEdgeBudget) { auto sv = s->v; auto se = s->e; unsigned base = (unsigned)m.v.size(); for (auto p : sv) m.v.push_back(p); for (auto i : se) m.e.push_back({base + i.a, base + i.b}); for (unsigned i = 0; i < base; i += std::max(1u, base / 48u)) { float bd = 1e30f; unsigned bj = 0; for (unsigned j = 0; j < sv.size(); j++) { float d = vlen(vsub(m.v[i], sv[j])); if (d < bd) { bd = d; bj = j; } } m.e.push_back({i, base + bj}); } } break;
   case 38: { unsigned cc = (unsigned)m.v.size(); m.v.push_back(C); for (unsigned i = 0; i < cc; i += std::max(1u, cc / 96u)) m.e.push_back({cc, i}); } break;
   case 39: { unsigned n = (unsigned)m.v.size(); for (unsigned i = 0; i < n; i += std::max(1u, n / 80u)) { unsigned j = (i * 37 + 17) % n; if (i != j) m.e.push_back({i, j}); } } break;
   case 40: subdiv(m, 3, 0, c.seed); break;
@@ -154,8 +185,8 @@ bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
   case 49: mapv(m, [&](V3 p, size_t) { float d = 1 + A * .16f * p.z; if (fabsf(d) < .12f) d = d < 0 ? -.12f : .12f; return V3{p.x / d, p.y / d, p.z}; }); break;
   case 50: mapv(m, [&](V3 p, size_t) { float d = expf(clampf(A * .12f * p.z, -1.5f, 1.5f)); return V3{p.x * d, p.y * d, p.z}; }); break;
   case 51: mapv(m, [&](V3 p, size_t) { V3 x = q(p); float r = vlen(x); return vadd(C, vmul(x, (1 + A * .12f * r * r) / (1 + .04f * r * r))); }); break;
-  case 52: { Mesh3 x = m; mapv(m, [&](V3 p, size_t) { p.x -= .08f * A; return p; }); copyInto(m, x, {.16f * A, 0, 0}, 1, 0); } break;
-  case 53: { Mesh3 x = m; copyInto(m, x, {.04f * A, 0, 0}, 1.01f, .012f * A); copyInto(m, x, {-.04f * A, 0, 0}, .99f, -.012f * A); } break;
+  case 52: { Mesh3 x = m; mapv(m, [&](V3 p, size_t) { p.x -= .08f * A; return p; }); if (copiesThatFit(m, 1) >= 1) copyInto(m, x, {.16f * A, 0, 0}, 1, 0); } break;
+  case 53: { Mesh3 x = m; const int n = copiesThatFit(m, 2); if (n >= 1) copyInto(m, x, {.04f * A, 0, 0}, 1.01f, .012f * A); if (n >= 2) copyInto(m, x, {-.04f * A, 0, 0}, .99f, -.012f * A); } break;
   case 54: mapv(m, [&](V3 p, size_t) { return vadd(C, vmul(q(p), 1 + A * .35f * c.bass)); }); break;
   case 55: { EffectContext x = c; x.amount = A * (.2f + 2 * c.mid); return applyEffect(m, 1, x, s); }
   case 56: mapv(m, [&](V3 p, size_t) { float f = p.y > C.y ? c.treble : c.bass; return vadd(C, vmul(q(p), 1 + A * .25f * f)); }); break;
@@ -291,7 +322,8 @@ bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
   case 78: {  // Lissajous satellites: three small copies orbit on a 3:4:5 Lissajous knot
     if (m.v.size() > 15000) break;
     Mesh3 x = m; float r0 = maxRadius(m, C) * 1.25f;
-    for (int k = 0; k < 3; k++) { float sp = t * .25f + float(k) * 2.094f;
+    const int nSat = copiesThatFit(m, 3);
+    for (int k = 0; k < nSat; k++) { float sp = t * .25f + float(k) * 2.094f;
       copyInto(m, x, vadd(C, V3{r0 * sinf(3 * sp), r0 * .7f * sinf(4 * sp + 1), r0 * sinf(5 * sp)}), .2f + .05f * fabsf(A), t + float(k)); }
   } break;
   case 79: {  // Spectral harmonics: bass, mid and treble each drive a harmonic band of radial displacement
@@ -301,9 +333,15 @@ bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
       return vadd(C, vmul(x, 1 + A * .22f * f)); });
   } break;
   }
-  sanitize(m);
-  if (m.e.empty()) m = std::move(original);
-  return meshOK(m);
+  // Only the bridge/spoke/chord effects add edges between existing vertices, so only they can
+  // create duplicates (recursion via 55/57/59 lands on vertex maps, which cannot).
+  sanitize(m, id >= 36 && id <= 39);
+  thinToBudget(m);
+  // Fail-safe: a stage that empties the mesh or produces non-finite vertices is undone, so a bad
+  // combination never blanks or poisons the frame (the renderer would reject it).
+  if (m.e.empty()) { m = std::move(original); return true; }      // e.g. a cull removed everything: skip the stage
+  if (!meshOK(m)) { m = std::move(original); return false; }     // non-finite: undo and stop the chain
+  return true;
 }
 
 EffectRecipe recipe(int id) {
