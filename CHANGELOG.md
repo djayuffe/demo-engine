@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.0 - Optimised, playlists
 ### Performance
 - Effects: sort-based duplicate removal only after the four effects that can create duplicates; a 60,000-edge budget (copy/echo chains reached 404,000 edges); a stage with non-finite output is undone.
 - Wireframe demo: scenes build on worker threads (`SceneSystem::meshAsync`, `prefetch`), so the 70-300 ms implicit-surface rebuilds never block a frame.
