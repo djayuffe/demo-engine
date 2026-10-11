@@ -37,7 +37,7 @@ struct Config {
   // Asset search: each entry is tried relative to the CWD, the executable directory and every
   // ancestor of it, so a demo works from the repo root or from build/.
   std::vector<std::string> logoDirs;   // directories holding *_1920x1080.jpg logo cards (optional)
-  std::vector<std::string> musicFiles; // default tracker modules / wavs; first existing one plays
+  std::vector<std::string> musicFiles; // default playlist: every one found plays, in order, looping
   std::string shaderDir;               // empty = the engine's shaders next to the executable
   bool logoShow=true;                  // false = never draw logo cards even if found
   float fxAmount=1.f;                  // 0..1 strength of the signature post look (art, warps, lensing)
@@ -51,7 +51,8 @@ struct FrameInfo {
   int frame=0;            // frames rendered so far
   double bpm=132.0;
   SyncState sync;         // beat/bar position; sync.pulse is already max(beat pulse, music level)
-  MusicState music;       // real band energies when music is active
+  MusicState music;       // real band energies when music is active; music.track = playlist index
+  std::string musicPath;  // file of the track playing now (changes as the playlist advances; use it for credits)
 };
 
 // Keyboard state. Key codes are de::Key::* (GLFW codes).
@@ -81,7 +82,7 @@ struct Frame {
 struct RunInfo {
   double bpm=132.0;          // --bpm, else the module's own tempo, else Config::defaultBpm
   std::string executableDir;
-  std::string musicPath;     // the track that is actually playing; empty when silent (use it for credits)
+  std::string musicPath;     // the first track; empty when silent. FrameInfo::musicPath follows the playlist
 };
 
 class Demo {

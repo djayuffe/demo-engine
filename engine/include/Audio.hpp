@@ -11,11 +11,12 @@
 
 struct MusicState {
   bool active=false;
-  double seconds=0.0;
+  double seconds=0.0;   // played time since open(): keeps counting across loops and track changes
   float level=0.0f;
   float bass=0.0f;
   float mid=0.0f;
   float treble=0.0f;
+  int track=-1;         // index into the playlist of the track that is playing
   int order=0;
   int pattern=0;
   int row=0;
@@ -26,27 +27,39 @@ struct MusicState {
 class AudioPlayer {
 public:
   ~AudioPlayer();
-  bool open(const std::filesystem::path& path);
+  // Plays the tracks in order and loops the list (a one-track list loops that track). Every track is
+  // decoded up front, so the audio callback never touches the disk. Tracks that fail to load are
+  // reported and skipped; returns false if none loaded or the device could not be opened.
+  bool open(const std::vector<std::filesystem::path>& playlist);
+  bool open(const std::filesystem::path& path) { return open(std::vector<std::filesystem::path>{path}); }
   void close();
   MusicState state() const;
-  const std::filesystem::path& path() const { return path_; }
-  // The module's own tempo in BPM (tempo * 6 / speed, i.e. 4 rows per beat) right after open();
-  // 0 for WAV tracks or when nothing is open. Lets the visuals lock to any module without --bpm.
-  double nativeBpm() const { return nativeBpm_; }
+  int trackCount() const { return int(tracks_.size()); }
+  const std::filesystem::path& trackPath(int i) const;
+  // A track's own tempo in BPM, folded into 70..180 (tempo * 6 / speed assumes 4 rows per beat; fast
+  // modules use 8, so 276 becomes 138). 0 for WAV tracks: the caller keeps its --bpm/default.
+  double nativeBpm(int i) const;
 private:
-  std::filesystem::path path_;
-  double nativeBpm_ = 0.0;
+  struct Track {
+    std::filesystem::path path;
+    double bpm = 0.0;
+#if defined(IW_HAS_AUDIO)
+    openmpt_module* mod = nullptr;
+    // WAV: libopenmpt only reads tracker modules, so SDL decodes it, converted once to float stereo
+    // at the device rate.
+    std::vector<float> pcm;
+    size_t pos = 0;   // in frames (WAV only; modules keep their own position)
+#endif
+  };
+  std::vector<Track> tracks_;
 #if defined(IW_HAS_AUDIO)
   static void callback(void* userdata, Uint8* stream, int len);
   void render(float* out,int frames);
   void analyze(const float* out,int validSamples);   // level + bass/mid/treble from the rendered block
-  openmpt_module* module_{};
-  // Plain PCM (WAV) tracks: libopenmpt only reads tracker modules, so a .wav is decoded by SDL,
-  // converted once to float stereo at the device rate and looped from memory.
-  std::vector<float> pcm_;
-  size_t pcmPos_{};   // in frames
+  void rewind(Track& t);
+  std::atomic<int> current_{0};
   // Frames handed to the device since open(). The music clock is played time, not the position in
-  // the track: it keeps counting when a track loops, so the show does not restart with every loop.
+  // the track, so the show does not restart with every loop or track change.
   uint64_t playedFrames_{};
   SDL_AudioDeviceID device_{};
   int rate_{48000};

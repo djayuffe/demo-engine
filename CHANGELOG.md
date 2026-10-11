@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- Playlists: `Config::musicFiles` plays every file found, in order, looping; `--music` can be repeated. `FrameInfo::musicPath` follows the track that is playing; the beat clock locks to each track's tempo without a jump (`Timeline::retempo`). Detected tempos are folded into 70-180 BPM.
+- Wireframe demo: "Digital Rendezvous" by Drozerix (Public Domain, The Mod Archive 180821) follows Stars by cs127; the ticker credit switches with the track.
+
 ## 1.4.0 - Soundtrack and tempo sync
 - The beat clock locks to the playing module's own tempo (tempo x 6 / speed) unless `--bpm` is given; `RunInfo::musicPath` tells the demo which track is playing.
 - Wireframe demo: new default soundtrack **"Stars (4ch. version)" by cs127** (CC BY 4.0, The Mod Archive 201917), credited in its README, NOTICE, music README and in the ticker while it plays. `make run-silicon` plays Silicon Dancer.

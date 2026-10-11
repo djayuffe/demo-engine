@@ -31,6 +31,8 @@ int main(){
  for(unsigned i=0;i<geo::unknownLabCount();++i)mesh(geo::unknownLabObject(i,24,.3f),geo::unknownLabName(i).c_str());
   req(geo::noveltyScore(geo::discoveredObject(1,24,12))>0,"novelty finite positive");
   Timeline tl(120);auto s=tl.sample(.5);req(s.beatIndex==1&&std::fabs(s.beatPhase)<.001f,"timeline beat");req(s.barIndex==0&&s.barPhase>.24f&&s.barPhase<.26f,"timeline bar");
+  { Timeline rt(120); auto before=rt.sample(10.0); rt.retempo(10.0,140); auto after=rt.sample(10.0); req(std::fabs(after.beat-before.beat)<1e-9,"retempo keeps the beat continuous");
+    auto later=rt.sample(13.0); req(std::fabs(later.beat-(before.beat+3.0*140.0/60.0))<1e-9,"retempo uses the new BPM afterwards"); }
   // B18: scene-table consistency
   { SceneSystem ss;req(ss.count()==59,"scene count 59");
     for(int i=0;i<ss.count();++i){auto&si=ss.info(i);req(si.id==i,"scene id==index");req(!si.name.empty(),"scene name non-empty");

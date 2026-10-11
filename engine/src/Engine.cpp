@@ -67,14 +67,14 @@ void Input::poll(GLFWwindow* w){
 
 int run(Demo& demo,int argc,char** argv){
   const Config cfg=demo.config();
-  double bpm=cfg.defaultBpm;bool bpmGiven=false;fs::path musicPath,logoOverride;bool noTicker=false,noPost=false;
+  double bpm=cfg.defaultBpm;bool bpmGiven=false;std::vector<fs::path> musicPaths;fs::path logoOverride;bool noTicker=false,noPost=false;
   double quality=1.0;int winW=0,winH=0;bool fullscreen=false;std::string screenshotPath;int maxFrames=0;
   const auto helpText=[&](){
     std::fprintf(stdout,
       "%s %s\n"
       "Usage: %s [options]\n"
       "  --bpm N         Tempo (default: the module's own tempo, else %g)\n"
-      "  --music PATH    Audio module/wav to play\n"
+      "  --music PATH    Module or WAV to play; repeat for a playlist\n"
       "  --no-ticker     Start with the text ticker off (toggle with T)\n"
       "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
       "  --quality F     Render the HDR target at F of screen resolution (0.25-1.0)\n"
@@ -93,7 +93,7 @@ int run(Demo& demo,int argc,char** argv){
     std::string arg(argv[i]);
     if(demo.parseArg(arg,i,argc,argv)) continue;
     if(arg=="--bpm"&&i+1<argc){double v=std::atof(argv[++i]);if(!std::isfinite(v)){std::fprintf(stderr,"--bpm: not a finite number\n");return 2;}bpm=std::max(1.0,v);bpmGiven=true;}
-    else if(arg=="--music"&&i+1<argc)musicPath=argv[++i];
+    else if(arg=="--music"&&i+1<argc)musicPaths.push_back(argv[++i]);   // repeat for a playlist
     else if(arg=="--no-ticker"||arg=="--no-scroller")noTicker=true;
     else if(arg=="--no-post")noPost=true;
     else if(arg=="--quality"&&i+1<argc){double v=std::atof(argv[++i]);if(!std::isfinite(v)){std::fprintf(stderr,"--quality: not a finite number\n");return 2;}quality=std::clamp(v,0.25,1.0);}
@@ -115,8 +115,8 @@ int run(Demo& demo,int argc,char** argv){
 
   const fs::path exe=executablePath();
   const fs::path exeDir=exe.has_parent_path()?exe.parent_path():fs::path();
-  if(musicPath.empty()){
-    for(auto& m:cfg.musicFiles){ for(auto& c:assetCandidates(m,exeDir)){ std::error_code ec; if(fs::exists(c,ec)){musicPath=c;break;} } if(!musicPath.empty())break; }
+  if(musicPaths.empty()){
+    for(auto& m:cfg.musicFiles){ for(auto& c:assetCandidates(m,exeDir)){ std::error_code ec; if(fs::exists(c,ec)){musicPaths.push_back(c);break;} } }
   }
 
   if(!glfwInit()){std::fprintf(stderr,"GLFW initialization failed\n");return 1;}
@@ -143,10 +143,10 @@ int run(Demo& demo,int argc,char** argv){
 #if defined(IW_HAS_AUDIO)
   if(SDL_InitSubSystem(SDL_INIT_AUDIO)!=0) std::fprintf(stderr,"SDL audio init failed: %s\n",SDL_GetError());
 #endif
-  if(!musicPath.empty()&&audio.open(musicPath)){
-    // Lock the visuals to the module's own tempo unless --bpm was given.
-    if(!bpmGiven&&audio.nativeBpm()>0)bpm=audio.nativeBpm();
-    std::fprintf(stdout,"music: %s (%.0f BPM)\n",musicPath.string().c_str(),bpm);
+  if(!musicPaths.empty()&&audio.open(musicPaths)){
+    // Lock the visuals to the first module's own tempo unless --bpm was given.
+    if(!bpmGiven&&audio.nativeBpm(0)>0)bpm=audio.nativeBpm(0);
+    for(int i=0;i<audio.trackCount();++i)std::fprintf(stdout,"music %d/%d: %s (%.0f BPM)\n",i+1,audio.trackCount(),audio.trackPath(i).string().c_str(),audio.nativeBpm(i)>0?audio.nativeBpm(i):bpm);
   }
 
   std::string shaderDir=cfg.shaderDir.empty()?"shaders":cfg.shaderDir;
@@ -176,7 +176,7 @@ int run(Demo& demo,int argc,char** argv){
     if(!loaded&&!cands.empty()){ std::fprintf(stderr,"note: no logo cards found; tried:\n"); for(auto& c:cands)std::fprintf(stderr,"  %s\n",c.string().c_str()); std::fprintf(stderr,"  -> running without logo background\n"); }
   }
 
-  RunInfo ri;ri.bpm=bpm;ri.executableDir=exeDir.string();ri.musicPath=audio.state().active?musicPath.string():std::string();
+  RunInfo ri;ri.bpm=bpm;ri.executableDir=exeDir.string();ri.musicPath=audio.state().active?audio.trackPath(0).string():std::string();int lastTrack=0;
   if(!demo.init(ri)){std::fprintf(stderr,"demo init failed\n");cleanup(&r);return 4;}
 
   Timeline timeline(bpm);Input input;Frame frame;
@@ -187,7 +187,14 @@ int run(Demo& demo,int argc,char** argv){
     if(glfwGetWindowAttrib(w,GLFW_ICONIFIED)){glfwWaitEventsTimeout(.05);continue;}
     const double now=glfwGetTime();
     const MusicState music=audio.state();
-    FrameInfo fi;fi.time=music.active?music.seconds:now;fi.dt=now-lastNow;lastNow=now;fi.frame=frameCount;fi.bpm=bpm;fi.music=music;
+    const double showTime=music.active?music.seconds:now;
+    // A new playlist track: lock to its tempo without a jump in the beat count.
+    if(music.active&&music.track>=0&&music.track!=lastTrack){
+      lastTrack=music.track;
+      if(!bpmGiven&&audio.nativeBpm(lastTrack)>0){bpm=audio.nativeBpm(lastTrack);timeline.retempo(showTime,bpm);}
+      std::fprintf(stdout,"music: now playing %s (%.0f BPM)\n",audio.trackPath(lastTrack).filename().string().c_str(),bpm);
+    }
+    FrameInfo fi;fi.time=showTime;fi.musicPath=music.active?audio.trackPath(std::max(0,music.track)).string():std::string();fi.dt=now-lastNow;lastNow=now;fi.frame=frameCount;fi.bpm=bpm;fi.music=music;
     fi.sync=timeline.sample(fi.time);fi.sync.pulse=std::max(fi.sync.pulse,music.level);
     int W,H;glfwGetFramebufferSize(w,&W,&H);
     if(W<=0||H<=0){glfwWaitEventsTimeout(.05);continue;}

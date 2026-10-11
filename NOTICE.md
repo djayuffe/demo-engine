@@ -16,6 +16,11 @@ Bundled music:
   (https://creativecommons.org/licenses/by/4.0/). Redistributed unmodified; the
   demo shows this credit in its ticker while the track plays.
 
+- **"Digital Rendezvous" by Drozerix** (`demos/wireframe/assets/music/drozerix_-_digital_rendezvous.xm`),
+  second in the wireframe demo's playlist. Source: The Mod Archive, module 180821
+  (https://modarchive.org/index.php?request=view_by_moduleid&query=180821). Public Domain.
+  Redistributed unmodified; credited in the ticker while it plays.
+
 Other music:
 
 - Drozerix — Silicon Dancer (`drozerix_-_silicon_dancer.mod`), listed by the

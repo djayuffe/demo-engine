@@ -181,11 +181,15 @@ GitHub Actions (`.github/workflows/ci.yml`) builds and tests on macOS 15, Ubuntu
 
 Why this track: it is a demo-style Amiga MOD, like the cracktros this project comes from; its steady 125 BPM groove suits the beat-synced scene changes; its title fits the golden galaxy scenes; and its licence allows bundling with credit.
 
+**Second in the playlist: "Digital Rendezvous" by [Drozerix](https://modarchive.org/index.php?request=view_by_moduleid&query=180821)**, a 20-channel FastTracker 2 module (2:44, 138 BPM, genre Chiptune, member rating 10/10) from [The Mod Archive, module 180821](https://modarchive.org/index.php?request=view_by_moduleid&query=180821), Public Domain, bundled unmodified as `demos/wireframe/assets/music/drozerix_-_digital_rendezvous.xm`.
+
+The demo plays the two as a playlist (Stars, then Digital Rendezvous, then round again). At each change the ticker credit switches and the visuals lock to the new track's tempo without a jump in the beat count. Pass `--music` several times for your own playlist.
+
 Also bundled:
 - **"Silicon Dancer" by Drozerix** (MOD, Public Domain, [Mod Archive 209692](https://modarchive.org/index.php?request=view_by_moduleid&query=209692)): `make run-silicon`.
 - **"Wireframe Pulse"** (WAV, CC0, made for this project): `make run-pulse`.
 
-The visuals lock to the module's own tempo (tempo x 6 / speed) unless you pass `--bpm`. The ticker shows the credit of the track that is playing.
+The visuals lock to each module's own tempo (tempo x 6 / speed, folded into 70-180 BPM because fast modules use 8 rows per beat) unless you pass `--bpm`. The ticker shows the credit of the track that is playing.
 
 ## Troubleshooting
 - **Shader edits have no effect**: shaders are copied to `build/shaders` at build time; run `make` after editing.
