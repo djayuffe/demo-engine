@@ -12,9 +12,9 @@ public:
   int count() const;
   // Synchronous: always returns the mesh for this exact tick (builds it if needed). Used by tests.
   const Mesh3& mesh(int id,double seconds,uint64_t seed);
-  // For the render loop: never waits for a rebuild. Returns the newest finished mesh (at most one
-  // update tick old) and builds the current tick on a worker thread. Only a scene's very first
-  // request blocks, and prefetch() avoids even that.
+  // For the render loop: never waits. Returns the newest finished mesh (at most one update tick old)
+  // and builds the current tick on a worker thread. A scene that has never finished building returns
+  // an empty mesh, and the caller keeps showing its previous one; prefetch() makes that rare.
   const Mesh3& meshAsync(int id,double seconds,uint64_t seed);
   // Starts building a scene that has never been built, without waiting (e.g. the next scene).
   void prefetch(int id,double seconds,uint64_t seed);

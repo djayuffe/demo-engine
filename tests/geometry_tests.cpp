@@ -429,15 +429,17 @@ int main(){
    }
    // 3) the render loop's non-blocking fetch converges to exactly the synchronous mesh.
    { SceneSystem a,b; const uint64_t sd=0x49574f424a454354ull;
-     const Mesh3 first=a.meshAsync(2,0.0,sd);                       // first request builds synchronously
-     req(first.v.size()==b.mesh(2,0.0,sd).v.size(),"meshAsync first request is the real mesh");
+     req(a.meshAsync(2,0.0,sd).v.empty(),"meshAsync never blocks: an unbuilt scene is empty at first");
+     Mesh3 first; for(int k=0;k<500&&first.v.empty();++k){ first=a.meshAsync(2,0.0,sd); if(first.v.empty())std::this_thread::sleep_for(std::chrono::milliseconds(10)); }
+     req(first.v.size()==b.mesh(2,0.0,sd).v.size(),"meshAsync delivers the real mesh once built");
      const Mesh3& want=b.mesh(2,1.0,sd);
      bool converged=false;
      for(int k=0;k<500&&!converged;++k){ const Mesh3& got=a.meshAsync(2,1.0,sd);
        converged=got.v.size()==want.v.size()&&got.e.size()==want.e.size()&&std::equal(got.v.begin(),got.v.end(),want.v.begin(),[](V3 x,V3 y){return x.x==y.x&&x.y==y.y&&x.z==y.z;});
        if(!converged)std::this_thread::sleep_for(std::chrono::milliseconds(10)); }
      req(converged,"meshAsync converges to the synchronous mesh");
-     a.prefetch(35,0.0,sd); req(a.meshAsync(35,0.0,sd).e.size()==b.mesh(35,0.0,sd).e.size(),"prefetch then meshAsync gives the real mesh");
+     a.prefetch(35,0.0,sd); size_t got=0; for(int k=0;k<500&&got==0;++k){ got=a.meshAsync(35,0.0,sd).e.size(); if(!got)std::this_thread::sleep_for(std::chrono::milliseconds(10)); }
+     req(got==b.mesh(35,0.0,sd).e.size(),"prefetch then meshAsync gives the real mesh");
    }
    std::cout<<"geometry_tests: PASS; exact 120-cell V="<<c120.v.size()<<" E="<<c120.e.size()<<"\n";
   }

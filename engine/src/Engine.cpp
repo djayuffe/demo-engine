@@ -212,7 +212,8 @@ int run(Demo& demo,int argc,char** argv){
     if(!demo.update(fi,input,frame))break;
 
     // Mesh upload: skipped only when the demo promises it is unchanged (revision != 0).
-    if(!haveUpload||frame.revision==0||frame.revision!=lastRevision){
+    // An empty mesh keeps the previous one on screen (e.g. a scene still building on a worker thread).
+    if(!frame.mesh.e.empty()&&(!haveUpload||frame.revision==0||frame.revision!=lastRevision)){
       // A mesh the GPU cannot take (non-finite, out-of-range or self edges) is skipped, not fatal: the
       // previous mesh stays on screen and the problem is reported once.
       if(r.upload(frame.mesh)){lastRevision=frame.revision;haveUpload=true;lastRadius=std::max(.1f,geo::stats(frame.mesh).radius);}

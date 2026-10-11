@@ -68,9 +68,10 @@ const Mesh3& SceneSystem::meshAsync(int id,double seconds,uint64_t seed){
   const uint64_t tick=tickFor(info(id),seconds);
   Slot& s=cache_[id];
   collect(s);
-  if(!s.ready){                                        // never built: nothing to show yet, so wait
-    if(s.job.valid()){s.mesh=s.job.get();s.tick=s.jobTick;}else{s.mesh=build(id,tick,seed);s.tick=tick;}
-    s.ready=true;
+  if(!s.ready){                                        // never built: start it if needed, and never wait
+    if(!s.job.valid()){s.jobTick=tick;s.job=std::async(std::launch::async,[this,id,tick,seed]{return build(id,tick,seed);});}
+    static const Mesh3 empty;                         // the caller keeps showing its previous mesh meanwhile
+    return empty;
   }
   if(s.tick!=tick&&!s.job.valid()){                    // stale: show it one more tick, build the new one off-thread
     s.jobTick=tick;
