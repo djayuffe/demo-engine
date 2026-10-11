@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0 - Soundtrack and tempo sync
 - The beat clock locks to the playing module's own tempo (tempo x 6 / speed) unless `--bpm` is given; `RunInfo::musicPath` tells the demo which track is playing.
 - Wireframe demo: new default soundtrack **"Stars (4ch. version)" by cs127** (CC BY 4.0, The Mod Archive 201917), credited in its README, NOTICE, music README and in the ticker while it plays. `make run-silicon` plays Silicon Dancer.
 - `AudioPlayer` plays `.wav` files through SDL (decoded once, converted to float stereo, looped), with the same band analysis and music clock as modules. `--music file.wav` used to be rejected by libopenmpt.

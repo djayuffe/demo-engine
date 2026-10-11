@@ -6,7 +6,7 @@
 
 It was extracted from the [Impossible Wireframe](https://github.com/djayuffe/wireframe-scroller) demo, which is now just the first demo built on it.
 
-Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.3.0.
+Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.4.0.
 
 **Contents:** [Why](#why) | [Quick start](#quick-start) | [What the engine provides](#what-the-engine-provides) | [Writing a demo](#writing-a-demo) | [Demos in this repository](#demos-in-this-repository) | [Build](#build) | [Tests and CI](#tests-and-ci) | [Repository layout](#repository-layout) | [Roadmap](#roadmap)
 
