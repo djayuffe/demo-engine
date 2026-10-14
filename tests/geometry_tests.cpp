@@ -13,6 +13,7 @@
 #include "RenderScale.hpp"
 #include "BackgroundStyle.hpp"
 #include "AdaptiveRes.hpp"
+#include "Director.hpp"
 #include "LogoShow.hpp"
 #include "Describe.hpp"
 #include "WindowSpec.hpp"
@@ -130,6 +131,59 @@ int main() {
       bounded = bounded && std::fabs(sx) <= .30001f && std::fabs(sy) <= .22001f;
     }
     req(bounded, "idle sway is bounded");
+  }
+  // B25: the auto-director
+  {
+    director::Director d;
+    d.start(1, 0.0);
+    int cuts = 0, firstCut = -1;
+    uint64_t bar = 0;
+    double t = 0;
+    for (int i = 0; i < 60 * 130; i++) {   // 130 s of steady mid energy at 60 fps, 2 s bars
+      t = i / 60.0;
+      bar = uint64_t(t / 2.0);
+      const auto o = d.update(t, .45f, bar);
+      if (o.switchTo >= 0) { if (firstCut < 0) firstCut = int(t); ++cuts; }
+    }
+    req(firstCut >= 24 && firstCut <= 62 && cuts >= 2 && cuts <= 5, "steady music: cuts land between the min and max hold");
+    director::Director c;
+    c.start(1, 0.0);
+    double cutAt = -1;
+    for (int i = 0; i < 60 * 70 && cutAt < 0; i++) {
+      t = i / 60.0;
+      const auto o = c.update(t, .15f, uint64_t(t / 2.0));
+      if (o.switchTo >= 0) cutAt = t;
+    }
+    req(cutAt >= 59.9 && std::fabs(std::fmod(cutAt, 2.0)) < .05, "a cut lands on a bar line");
+    // a drop: calm for 20 s, then a jump in energy -> early cut, and the drop is flagged
+    director::Director e;
+    e.start(2, 0.0);
+    bool sawDrop = false;
+    double dropCut = -1;
+    for (int i = 0; i < 60 * 45; i++) {
+      t = i / 60.0;
+      const float lvl = t < 20.0 ? .12f : .95f;
+      const auto o = e.update(t, lvl, uint64_t(t / 2.0));
+      sawDrop = sawDrop || o.drop;
+      if (o.switchTo >= 0 && dropCut < 0) dropCut = t;
+    }
+    req(sawDrop && dropCut >= 20.0 && dropCut < 30.0, "a drop triggers an early cut on the next bar");
+    // style choice: after a long calm passage the pick is calm-friendly; at peak it is not "nebula"
+    director::Director calm, peak;
+    calm.start(1, 0.0);
+    peak.start(1, 0.0);
+    const int pc = calm.pick(.05f, 200.0), pp = peak.pick(.9f, 200.0);
+    req(director::affinity(pc, 0) >= .5f, "calm music picks a calm-friendly style");
+    req(director::affinity(pp, 2) >= .5f && pp != 2, "peak music picks a high-energy style");
+    // gain stays inside 1.0..2.2
+    director::Director g;
+    g.start(1, 0.0);
+    bool inRange = true;
+    for (int i = 0; i < 60 * 60; i++) {
+      const auto o = g.update(i / 60.0, (i / 300) % 2 ? 1.f : 0.f, uint64_t(i / 120));
+      inRange = inRange && o.gain >= .99f && o.gain <= 2.21f;
+    }
+    req(inRange, "parallax gain stays within 1.0..2.2");
   }
   // B24: per-style objects
   {

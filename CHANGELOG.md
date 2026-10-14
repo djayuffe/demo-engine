@@ -2,6 +2,8 @@
 
 ## Unreleased: special effects
 
+- Auto-director (`--background-style auto`, `Director.hpp`, test B25): replaces the fixed 40 s timer. It follows the music energy (fast/slow followers), detects drops and breakdowns, cuts only on bar lines after a 24 s minimum (60 s maximum) hold, fires a shockwave on a drop, picks the next world by how well it suits the current energy and how long ago it was shown, and breathes the parallax gain with the energy (1.0-2.2) unless `--parallax`/G is set.
+
 - Gloss finish (key **O** / `--no-gloss`): a specular sweep that glides over mid-bright detail every 7.5 s, four-point diagonal glints thrown by the brightest highlights (sampled from the bloom), and a pulsing glass-bezel rim light. It never pushes already-blown pixels further.
 
 - Per-object switches in every background style: F1..F12 toggle the current style's objects (classic: organism, ink, glass, rose, julia, moire, turing, contour, poincare, kifs, ribbons, ambient; synthwave: sun, mountains, grid, stars, aurora, reflection, sky; nebula: gas, stars, flares, supernova, comets, dust; mandala: crystal, neon, folds, mirror, rings; blackhole: disk, photonring, jets, galaxy, stars; hyperspace: walls, streaks, glow, flash). `--hide a,b` starts with objects off; V and F-keys print the current switches. Test B24.

@@ -14,6 +14,7 @@
 #endif
 #include "Engine.hpp"
 #include "AdaptiveRes.hpp"
+#include "Director.hpp"
 #include "BackgroundStyle.hpp"
 #include "RenderScale.hpp"
 #include "Renderer.hpp"
@@ -108,6 +109,7 @@ int run(Demo& demo, int argc, char** argv) {
   bool adaptive = true;      // frame-time governor for the background resolution (--no-adaptive)
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
   bool noDepth = false, autoStyle = false;   // autoStyle: cycle the background styles by themselves
+  bool parallaxGiven = false;
   double parallax = 1.6;   // gain on every pointer-driven depth offset (--parallax, key P)
   bool noTicker = false, noPost = false, noBackground = false, noLogo = false;
   double quality = 1.0;
@@ -174,6 +176,7 @@ int run(Demo& demo, int argc, char** argv) {
         return 2;
       }
       parallax = std::clamp(v, 0.0, 3.0);
+      parallaxGiven = true;
     } else if (arg == "--pointer" && i + 1 < argc) {
       float px = 0, py = 0;
       if (std::sscanf(argv[++i], "%f,%f", &px, &py) != 2 || !std::isfinite(px) || !std::isfinite(py)) {
@@ -344,8 +347,10 @@ int run(Demo& demo, int argc, char** argv) {
   if (!hideList.empty())
     for (const auto& u : r.objects().hide(hideList)) std::fprintf(stderr, "--hide: no background object named '%s'\n", u.c_str());
   adaptive::Governor governor;
-  double ptrT = glfwGetTime(), autoT = ptrT;
+  double ptrT = glfwGetTime();
+  director::Director dj;
   if (autoStyle) r.setBackgroundStyle(1);
+  bool djStarted = false;
   float ptrX = 0, ptrY = 0, ptrPulse = 0;
   bool mouseWas = false;
   r.setShowLogos(!noLogo);
@@ -470,12 +475,23 @@ int run(Demo& demo, int argc, char** argv) {
                    "keys: B background  V style  D depth  O gloss  G parallax gain  L logos  T ticker  C capture PNG  H help  Esc quit\n"
                    "      mouse = steer depth, click = shockwave\n");
     if (input.pressed(Key::G)) {
+      parallaxGiven = true;
       parallax = bgstyle::nextGain(parallax);
       std::fprintf(stdout, "parallax: %.1f\n", parallax);
     }
-    if (autoStyle && glfwGetTime() - autoT > 40.0) {   // auto mode: a new world every 40 s (V takes over)
-      autoT = glfwGetTime();
-      r.setBackgroundStyle(r.backgroundStyle() + 1);
+    if (autoStyle) {   // the director: cuts on bar lines, reacts to drops/breakdowns, breathes the parallax (V takes over)
+      if (!djStarted) {
+        dj.start(1, fi.time);
+        djStarted = true;
+      }
+      const int fromStyle = dj.style;
+      const director::Decision dd = dj.update(fi.time, music.level, fi.sync.barIndex);
+      if (dd.drop) ptrPulse = 1.f;
+      if (dd.switchTo >= 0) {
+        r.setBackgroundStyle(dd.switchTo);
+        std::fprintf(stdout, "director: %s%s -> %s\n", dd.drop ? "drop " : dd.breakdown ? "breakdown " : "", bgstyle::name(fromStyle), bgstyle::name(dd.switchTo));
+      }
+      if (!parallaxGiven) parallax = dd.gain;
     }
     if (input.pressed(Key::O)) {
       r.setShowGloss(!r.showGloss());
