@@ -1,7 +1,11 @@
 #include "ImpossibleGeometry.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <set>
+#include <utility>
 #include <vector>
 namespace geo {
 namespace {
