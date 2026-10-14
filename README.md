@@ -18,6 +18,7 @@ Every demo needs the same plumbing: a window, a float framebuffer, bloom and ton
 ## Quick start
 ```sh
 brew install cmake glfw sdl2 libopenmpt   # macOS; SDL2 + libopenmpt are optional (music)
+./build_mac.sh --run                       # or: one command that installs deps, builds, tests and runs
 make run-hello                            # the minimal demo
 make run                                  # the full wireframe demo
 ```
