@@ -100,6 +100,8 @@ int run(Demo& demo, int argc, char** argv) {
   std::vector<fs::path> musicPaths;
   fs::path logoOverride;
   int bgStyle = 0;
+  bool fixedPointer = false;   // --pointer X,Y: pin the pointer (screenshots, parallax checks)
+  float fixedX = 0, fixedY = 0;
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
   bool noDepth = false, autoStyle = false;   // autoStyle: cycle the background styles by themselves
   double parallax = 1.6;   // gain on every pointer-driven depth offset (--parallax, key P)
@@ -122,6 +124,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --no-background Start with the procedural background off (toggle with B)\n"
                  "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole|hyperspace (cycle with V)\n"
                  "  --parallax F    Depth-parallax gain 0-3 (default 1.6; cycle with G)\n"
+                 "  --pointer X,Y   Pin the pointer, -1..1 (screenshots, parallax checks)\n"
                  "  --no-depth      Start with the depth-mote layer off (toggle with D)\n"
                  "  --no-logo       Start with the logo cards off (toggle with L)\n"
                  "  --quality F     Render the HDR target at F of screen resolution (0.25-1.0)\n"
@@ -164,6 +167,15 @@ int run(Demo& demo, int argc, char** argv) {
         return 2;
       }
       parallax = std::clamp(v, 0.0, 3.0);
+    } else if (arg == "--pointer" && i + 1 < argc) {
+      float px = 0, py = 0;
+      if (std::sscanf(argv[++i], "%f,%f", &px, &py) != 2 || !std::isfinite(px) || !std::isfinite(py)) {
+        std::fprintf(stderr, "--pointer: expected X,Y in -1..1\n");
+        return 2;
+      }
+      fixedPointer = true;
+      fixedX = std::clamp(px, -1.f, 1.f);
+      fixedY = std::clamp(py, -1.f, 1.f);
     } else if (arg == "--no-depth")
       noDepth = true;
     else if (arg == "--background-style" && i + 1 < argc) {
@@ -414,8 +426,8 @@ int run(Demo& demo, int argc, char** argv) {
       glfwGetCursorPos(w, &mx, &my);
       glfwGetWindowSize(w, &ww, &wh);
       const bool inside = glfwGetWindowAttrib(w, GLFW_HOVERED) != 0;
-      const float tx = inside ? std::clamp(float(mx / std::max(1, ww) * 2.0 - 1.0), -1.f, 1.f) : 0.f;
-      const float ty = inside ? std::clamp(float(1.0 - my / std::max(1, wh) * 2.0), -1.f, 1.f) : 0.f;
+      const float tx = fixedPointer ? fixedX : inside ? std::clamp(float(mx / std::max(1, ww) * 2.0 - 1.0), -1.f, 1.f) : 0.f;
+      const float ty = fixedPointer ? fixedY : inside ? std::clamp(float(1.0 - my / std::max(1, wh) * 2.0), -1.f, 1.f) : 0.f;
       const float k = 1.f - std::exp(-dt * 6.f);
       ptrX += (tx - ptrX) * k;
       ptrY += (ty - ptrY) * k;

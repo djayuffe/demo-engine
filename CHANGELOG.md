@@ -2,6 +2,8 @@
 
 ## Unreleased: special effects
 
+- Robustness: the style pass sanitises NaN/Inf and clamps HDR output before it can reach bloom; `--pointer X,Y` pins the pointer for screenshots and parallax checks.
+
 - Sixth style `hyperspace`: warp tunnel with six depth shells of streaking stars, ribbed energy walls, a pointer-steered vanishing point, speed and flashes driven by the music.
 
 - Key **C** saves the current frame as `demo-<date>-<time>.png` in the working directory; key **H** prints the key list.

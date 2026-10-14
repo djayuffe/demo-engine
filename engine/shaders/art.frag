@@ -72,7 +72,8 @@ void main(){
   if(uStyle>0){
     // Selectable style: a single self-contained scene, still faded out by the logo / fx amount.
     vec3 sc=styleLayer(uStyle,p,mlev,beat)*(1.0-hasLogo)*(1.0-.5*uGold);
-    FragColor=vec4(max(sc,vec3(0.))*uFade,1.0);
+    sc=(any(isnan(sc))||any(isinf(sc)))?vec3(0.):clamp(sc,0.,48.);   // a driver NaN/Inf must never reach bloom
+    FragColor=vec4(sc*uFade,1.0);
     return;
   }
   float n=fbm(p*1.7+uTime*.035);
