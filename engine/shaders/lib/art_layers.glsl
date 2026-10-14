@@ -88,6 +88,54 @@ float turing(vec2 p,float t){
   for(int i=0;i<3;i++){float a=float(i)*2.0944+t*.03;v+=cos(dot(p,vec2(cos(a),sin(a)))*9.+sin(t*.2+float(i))*2.);}
   return smoothstep(.4,1.4,v)*smoothstep(3.,1.8,v+.6);
 }
+// ---- Gallery layers G..J: slow, painterly, each surfaces in its own wave ---------------------------------
+// G: topographic contour lines of a drifting height field, with pulses running up the slopes.
+float contourFlow(vec2 p,float t){
+  float h=fbm(p*1.3+vec2(t*.03,-t*.02))+.35*fbm(p*3.1-t*.05);
+  float f=fract(h*9.);
+  float line=1.-smoothstep(0.,.07,min(f,1.-f));
+  float run=.35+.65*(.5+.5*sin(h*38.-t*1.8));
+  return line*line*run;
+}
+// H: Poincare disk. A Moebius map slides the centre about; hyperbolic rings and spokes tile the disk and
+// shrink toward the rim, the way an Escher print does.
+float poincare(vec2 p,float t){
+  vec2 z=p*.62;
+  if(dot(z,z)>=.98) return 0.;
+  vec2 c=.38*vec2(cos(t*.1),sin(t*.13));
+  vec2 num=z-c,den=vec2(1.-(c.x*z.x+c.y*z.y),c.y*z.x-c.x*z.y);
+  z=vec2(num.x*den.x+num.y*den.y,num.y*den.x-num.x*den.y)/max(dot(den,den),1e-4);
+  float r=length(z);
+  if(r>=.995) return 0.;
+  float d=log((1.+r)/(1.-r));                                  // hyperbolic distance from the centre
+  float ring=abs(fract(d*1.35-t*.12)-.5)*2.;
+  float spokes=abs(fract(atan(z.y,z.x)*(7./6.2831853)+t*.02)-.5)*2.;
+  float edge=min(ring,spokes*(.35+.65*smoothstep(0.,2.5,d)));  // spokes thin out toward the centre
+  float cell=floor(d*1.35-t*.12)+floor(atan(z.y,z.x)*(7./6.2831853)+t*.02);
+  return exp(-edge*14.)*(.5+.5*mod(cell,2.))*smoothstep(1.0,.82,r);
+}
+// I: kaleidoscopic IFS (fold, shift, rotate, scale) - lace-like filaments that breathe.
+float kifs(vec2 p,float t){
+  vec2 z=p*1.4;float trap=1e3;
+  for(int i=0;i<7;i++){
+    z=abs(z)-vec2(.55+.12*sin(t*.2),.35);
+    z=rot2(z,.45+.1*sin(t*.15));
+    z*=1.28;
+    trap=min(trap,min(abs(z.x),abs(z.y)));
+  }
+  return exp(-trap*5.5);
+}
+// J: auroral ribbons: stacked sine curtains whose brightness travels along them.
+float ribbons(vec2 p,float t){
+  float s=0.;
+  for(int i=0;i<5;i++){
+    float fi=float(i);
+    float y=p.y*(1.+.1*fi)+.35*sin(p.x*(1.6+.3*fi)+t*(.3+.07*fi)+fi*2.)+.2*sin(p.x*4.1-t*.4+fi);
+    s+=exp(-abs(y-(fi-2.)*.28)*14.)*(.5+.5*sin(p.x*3.+t+fi));
+  }
+  return s*.6;
+}
+
 vec3 artLayer(vec2 p,float ml,float beat){
   // Breathing, uneven morph: the whole field swells and shears like living tissue.
   float breath=.5+.5*sin(uTime*.55)+.6*beat*.3;
@@ -120,6 +168,15 @@ vec3 artLayer(vec2 p,float ml,float beat){
   c+=wD*pal(t*.03+r*.15)*juliaTrap(p*1.25,t)*(.5+.9*ml);
   c+=wE*pal(t*.05+p.x*.1)*moire(p,t)*(.28+.6*ml);
   c+=wF*pal(t*.04-p.y*.1)*turing(p,t)*(.3+.7*ml+.5*beat);
+  // G..J: the gallery layers, each on its own slow wave (skipped outright while their weight is ~0)
+  float wG=smoothstep(.45,.95,.5+.5*sin(t*.05+.7));
+  float wH=smoothstep(.55,.97,.5+.5*sin(t*.043+2.2));
+  float wI=smoothstep(.55,.97,.5+.5*sin(t*.057+4.1));
+  float wJ=smoothstep(.45,.95,.5+.5*sin(t*.071+5.9));
+  if(wG>.002) c+=wG*pal(t*.02+p.y*.12)*contourFlow(p,t)*(.8+1.2*ml);
+  if(wH>.002) c+=wH*pal(t*.025+r*.2+.5)*poincare(p,t)*(1.0+1.2*ml+.6*beat);
+  if(wI>.002) c+=wI*pal(t*.03-r*.1+.2)*kifs(p,t)*(.7+1.0*ml);
+  if(wJ>.002) c+=wJ*pal(t*.04+p.x*.08+.65)*ribbons(p,t)*(.9+1.2*ml);
   // soft iridescent mist so the dark never goes flat
   c+=pal(fbm(p*.9+t*.02)+t*.01)*.035*(.6+ml);
   // Uneven, drifting light pools: some regions glow while others sink into darkness.

@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased: special effects
+- Background gallery: four new slow, painterly layers in `lib/art_layers.glsl` that surface in waves: topographic contour flow, a
+  Poincare-disk hyperbolic tiling on a sliding Moebius map, a kaleidoscopic IFS lace and auroral ribbons. `tools/artshot.cpp` dumps the
+  background at chosen times for review.
 - Background refactor: shaders gained `#include` (expanded by `glutil::readText`); shared helpers live in `shaders/lib/common.glsl`,
   the art layers in `lib/art_layers.glsl`, and `art.frag` main is split into named ambient-layer functions. The art pass is now its
   own `ArtPass` class out of `Renderer`. `tools/shaderdiff.cpp` renders old vs new shaders: art.frag and post.frag are bit-identical.
