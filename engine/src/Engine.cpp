@@ -13,6 +13,7 @@
 #include <GL/glext.h>
 #endif
 #include "Engine.hpp"
+#include "BackgroundStyle.hpp"
 #include "RenderScale.hpp"
 #include "Renderer.hpp"
 #include "WindowSpec.hpp"
@@ -165,13 +166,9 @@ int run(Demo& demo, int argc, char** argv) {
       noDepth = true;
     else if (arg == "--background-style" && i + 1 < argc) {
       const std::string v = argv[++i];
-      if (v == "auto") autoStyle = true;
-      else if (v == "classic") bgStyle = 0;
-      else if (v == "synthwave") bgStyle = 1;
-      else if (v == "nebula") bgStyle = 2;
-      else if (v == "mandala") bgStyle = 3;
-      else if (v == "blackhole") bgStyle = 4;
-      else if (v.size() == 1 && v[0] >= '0' && v[0] <= '4') bgStyle = v[0] - '0';
+      const int st = bgstyle::parse(v);
+      if (st == -1) autoStyle = true;
+      else if (st >= 0) bgStyle = st;
       else {
         std::fprintf(stderr, "--background-style: use auto|classic|synthwave|nebula|mandala|blackhole (or 0-4)\n");
         return 2;
@@ -425,16 +422,12 @@ int run(Demo& demo, int argc, char** argv) {
       mouseWas = mouse;
       ptrPulse *= std::exp(-dt * 1.6f);
       // Idle sway keeps the depth alive when the mouse is still; the gain scales the whole thing.
-      const float sx = .22f * std::sin(float(now) * .23f) + .08f * std::sin(float(now) * .61f);
-      const float sy = .16f * std::cos(float(now) * .19f) + .06f * std::cos(float(now) * .53f);
+      float sx, sy;
+      bgstyle::sway(now, sx, sy);
       r.setPointer((ptrX + sx) * float(parallax), (ptrY + sy) * float(parallax), ptrPulse);
     }
     if (input.pressed(Key::G)) {
-      static const double kGain[] = {0.0, 0.8, 1.6, 2.4, 3.0};
-      int k = 0;
-      for (int j = 0; j < 5; j++)
-        if (std::fabs(kGain[j] - parallax) < .05) k = j;
-      parallax = kGain[(k + 1) % 5];
+      parallax = bgstyle::nextGain(parallax);
       std::fprintf(stdout, "parallax: %.1f\n", parallax);
     }
     if (autoStyle && glfwGetTime() - autoT > 40.0) {   // auto mode: a new world every 40 s (V takes over)
@@ -447,9 +440,8 @@ int run(Demo& demo, int argc, char** argv) {
     }
     if (input.pressed(Key::V)) {
       autoStyle = false;
-      static const char* const kNames[] = {"classic", "synthwave", "nebula", "mandala", "blackhole"};
       r.setBackgroundStyle(r.backgroundStyle() + 1);
-      std::fprintf(stdout, "background style: %s\n", kNames[r.backgroundStyle()]);
+      std::fprintf(stdout, "background style: %s\n", bgstyle::name(r.backgroundStyle()));
     }
     if (input.pressed(Key::L)) {
       r.setShowLogos(!r.showLogos());

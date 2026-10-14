@@ -2,6 +2,8 @@
 
 ## Unreleased: special effects
 
+- Polish: background-style parsing, the fade state machine, parallax-gain cycle and idle sway moved into the pure, unit-tested `BackgroundStyle.hpp` (test B22); black hole ray-march exits early once the disk is opaque; calmer synthwave aurora.
+
 - Eye-candy pass: synthwave aurora curtains and sun reflection on the floor; nebula beat-driven supernova shells; mandala counter-rotating second fold; black hole spiral arms and orbiting hot spots; style changes now fade through black; `--background-style auto` cycles a new world every 40 s (V takes over).
 
 - Maximised per-layer parallax: 5 depth-mote planes (near planes slide opposite to far ones), every classic art layer and every style layer at its own depth, the wires as a mid plane, idle sway so depth lives without the mouse. `--parallax F` (0-3, default 1.6) / key **G** sets the gain.

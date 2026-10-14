@@ -20,7 +20,7 @@ vec3 styleSynthwave(vec2 p,float ml,float beat){
   { vec2 ap=p-vec2(uPointer.x*.16,0.);
     float cur=sin(ap.x*2.3+uTime*.35+sin(ap.x*5.+uTime*.2)*.8)*.12;
     float band=exp(-pow((ap.y-.62-cur)*5.,2.))+.6*exp(-pow((ap.y-.85-cur*1.4)*6.,2.));
-    float ray=.55+.45*sin(ap.x*60.+uTime*.7+fbm(ap*3.)*6.);
+    float ray=.7+.3*sin(ap.x*22.+uTime*.5+fbm(ap*2.5)*5.);
     col+=mix(vec3(.1,1.,.8),vec3(1.,.2,.9),.5+.5*sin(ap.x*1.5+uTime*.2))*band*ray*(.16+.25*ml)*step(hor,p.y); }
   // stars
   vec2 sp=(p-uPointer*.03)*vec2(95.,60.);          // stars: farthest plane
@@ -194,6 +194,7 @@ vec3 styleBlackHole(vec2 p,float ml,float beat){
     float r2=dot(pos,pos),r=sqrt(r2);
     if(r<1.02){dead=true;break;}
     if(r>40.&&dot(pos,vel)>0.)break;
+    if(trans<.03)break;                       // disk already opaque: nothing behind it matters
     float dt=clamp(.06*r,.05,1.1);
     vec3 hv=cross(pos,vel);float h2=dot(hv,hv);
     vec3 acc=-1.5*h2*pos/(r2*r2*r);

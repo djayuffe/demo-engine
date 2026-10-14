@@ -11,6 +11,7 @@
 #include "Choreography.hpp"
 #include "Camera.hpp"
 #include "RenderScale.hpp"
+#include "BackgroundStyle.hpp"
 #include "LogoShow.hpp"
 #include "Describe.hpp"
 #include "WindowSpec.hpp"
@@ -102,6 +103,32 @@ int main() {
     req(std::fabs(after.beat - before.beat) < 1e-9, "retempo keeps the beat continuous");
     auto later = rt.sample(13.0);
     req(std::fabs(later.beat - (before.beat + 3.0 * 140.0 / 60.0)) < 1e-9, "retempo uses the new BPM afterwards");
+  }
+  // B22: background styles, fade-through-black, parallax gain, idle sway
+  {
+    req(bgstyle::parse("blackhole") == 4 && bgstyle::parse("classic") == 0 && bgstyle::parse("3") == 3, "style parse by name and digit");
+    req(bgstyle::parse("auto") == -1 && bgstyle::parse("5") == -2 && bgstyle::parse("nope") == -2 && bgstyle::parse("") == -2, "style parse rejects junk");
+    req(bgstyle::wrap(5) == 0 && bgstyle::wrap(-1) == 4, "style index wraps both ways");
+    req(std::string(bgstyle::name(2)) == "nebula" && std::string(bgstyle::name(7)) == "nebula", "style names wrap");
+    bgstyle::Fade f;
+    req(f.step(3, 0.f) == 1.f && f.shown == 3, "first frame shows the requested style at once");
+    float mn = 1.f;
+    int swapAt = -1;
+    for (int i = 0; i < 200; i++) {
+      const int before = f.shown;
+      const float b = f.step(1, .016f);
+      mn = std::min(mn, b);
+      if (before != f.shown && swapAt < 0) { swapAt = i; req(b <= .05f, "style swaps while fully dark"); }
+    }
+    req(swapAt > 0 && mn < .02f && f.shown == 1 && f.step(1, .016f) > .99f, "fade goes dark, swaps, returns to full");
+    req(bgstyle::nextGain(0.0) == .8 && bgstyle::nextGain(3.0) == 0.0 && bgstyle::nextGain(1.6) == 2.4, "parallax gain cycles");
+    bool bounded = true;
+    for (double t = 0; t < 600; t += .37) {
+      float sx, sy;
+      bgstyle::sway(t, sx, sy);
+      bounded = bounded && std::fabs(sx) <= .30001f && std::fabs(sy) <= .22001f;
+    }
+    req(bounded, "idle sway is bounded");
   }
   // B21: render-scale pixel budget
   {

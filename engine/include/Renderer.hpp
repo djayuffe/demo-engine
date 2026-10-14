@@ -1,4 +1,5 @@
 #pragma once
+#include "BackgroundStyle.hpp"
 #include "Geometry.hpp"
 #include "SpecialFx.hpp"
 #include "Bloom.hpp"
@@ -25,7 +26,7 @@ public:
   bool showLogos() const { return showLogos_; }
   void setShowBackground(bool on) { showBackground_ = on; }
   bool showBackground() const { return showBackground_; }
-  void setBackgroundStyle(int s) { bgStyle_ = ((s % 5) + 5) % 5; }  // 0 classic, 1 synthwave, 2 nebula, 3 mandala, 4 blackhole
+  void setBackgroundStyle(int s) { bgStyle_ = bgstyle::wrap(s); }  // 0 classic, 1 synthwave, 2 nebula, 3 mandala, 4 blackhole
   int backgroundStyle() const { return bgStyle_; }
   // Pointer in -1..1 (y up) and a 0..1 click pulse: the backgrounds react to it, the depth layer is pushed by it.
   void setPointer(float x, float y, float pulse) { ptrX_ = x; ptrY_ = y; ptrPulse_ = pulse; }
@@ -114,8 +115,8 @@ private:
   bool hasLogos_ = false;
   bool showLogos_ = true, showBackground_ = true;
   int bgStyle_ = 0;               // requested style
-  int shownStyle_ = 0;            // style actually on screen (lags the request by a fade-through-black)
-  float styleFade_ = 1.f, lastArtT_ = -1.f;
+  bgstyle::Fade styleFade_;       // style actually on screen (lags the request by a fade-through-black)
+  float lastArtT_ = -1.f;
   bool showDepth_ = true;
   float ptrX_ = 0, ptrY_ = 0, ptrPulse_ = 0;
   bool logosActive() const { return hasLogos_ && showLogos_; }

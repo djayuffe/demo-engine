@@ -582,20 +582,11 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
     ap.gold = wireStyle_ == 1;
     // Style changes fade out, swap, fade in (about 0.4 s each way) instead of cutting.
     {
-      const float dt = lastArtT_ < 0.f ? 1.f : std::clamp(time - lastArtT_, 0.f, .1f);
+      const float dt = lastArtT_ < 0.f ? 0.f : time - lastArtT_;
       lastArtT_ = time;
-      if (shownStyle_ != bgStyle_) {
-        styleFade_ -= dt / .4f;
-        if (styleFade_ <= 0.f) {
-          styleFade_ = 0.f;
-          shownStyle_ = bgStyle_;
-        }
-      } else {
-        styleFade_ = std::min(1.f, styleFade_ + dt / .4f);
-      }
+      ap.fade = styleFade_.step(bgStyle_, dt);
+      ap.style = styleFade_.shown;
     }
-    ap.style = shownStyle_;
-    ap.fade = styleFade_ * styleFade_ * (3.f - 2.f * styleFade_);
     ap.pointerX = ptrX_;
     ap.pointerY = ptrY_;
     ap.pulse = ptrPulse_;
@@ -623,7 +614,7 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   if (uPostLogoVis_ >= 0) glUniform1f(uPostLogoVis_, logoVis_);
   if (uPostFx_ >= 0) glUniform1f(uPostFx_, fxAmount_);
   if (uPostGold_ >= 0) glUniform1f(uPostGold_, wireStyle_ == 1 ? 1.f : 0.f);
-  if (uPostBgStyle_ >= 0) glUniform1f(uPostBgStyle_, float(shownStyle_));
+  if (uPostBgStyle_ >= 0) glUniform1f(uPostBgStyle_, float(styleFade_.shown));
   if (uPostPtr_ >= 0) glUniform2f(uPostPtr_, ptrX_, ptrY_);
   if (uPostPulse_ >= 0) glUniform1f(uPostPulse_, ptrPulse_);
   if (uPostDepth_ >= 0) glUniform1f(uPostDepth_, showDepth_ ? 1.f : 0.f);
