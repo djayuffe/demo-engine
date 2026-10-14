@@ -180,5 +180,9 @@ void main(){
   hdr=mix(hdr,hdr*vec3(1.10,1.0,.80),.55*uGold);   // warm grade for the golden scenes
   hdr=(hdr-.5)*1.075+.5;
   hdr=pow(max(hdr,0.),vec3(mix(.86,1.0,hasLogo)));
+  // Final touch: triangular-PDF dither (+-1 LSB) so the slow dark gradients of the background styles
+  // (nebula gas, synthwave sky) quantise to 8 bits without visible banding.
+  vec2 dq=gl_FragCoord.xy+fract(uTime*7.31)*64.;
+  hdr+=(hash(dq)+hash(dq+37.7)-1.0)/255.0;
   FragColor=vec4(hdr,1);
 }

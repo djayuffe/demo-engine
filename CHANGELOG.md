@@ -4,6 +4,7 @@
 
 - Three selectable background styles: `synthwave` (striped sun, neon grid, ridgeline), `nebula` (parallax self-shadowed gas, flared stars, shooting stars), `mandala` (folded orbit-trap kaleidoscope). `--background-style classic|synthwave|nebula|mandala`, key **V** cycles.
 - Styled backgrounds keep their own palette: the post hue-drift/solarize/posterize grade is held back to 12% when a style is selected.
+- Final output is TPDF-dithered (±1 LSB) to remove 8-bit banding in dark gradients.
 - Background and logo switches: keys B (procedural background) and L (logo cards) toggle at runtime; `--no-background` and `--no-logo` start with them off.
 - Signal packets: with the geometry stage every wire knows its position along itself, so each carries a travelling pulse (own speed and phase,
   faster with the music): the whole mesh reads as circuitry with data flowing through it.
