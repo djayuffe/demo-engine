@@ -97,7 +97,7 @@ int run(Demo& demo, int argc, char** argv) {
   bool bpmGiven = false;
   std::vector<fs::path> musicPaths;
   fs::path logoOverride;
-  bool noTicker = false, noPost = false;
+  bool noTicker = false, noPost = false, noBackground = false, noLogo = false;
   double quality = 1.0;
   bool qualityGiven = false;
   int winW = 0, winH = 0;
@@ -113,6 +113,8 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --music PATH    Module or WAV to play; repeat for a playlist\n"
                  "  --no-ticker     Start with the text ticker off (toggle with T)\n"
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
+                 "  --no-background Start with the procedural background off (toggle with B)\n"
+                 "  --no-logo       Start with the logo cards off (toggle with L)\n"
                  "  --quality F     Render the HDR target at F of screen resolution (0.25-1.0)\n"
                  "  --logos DIR     Directory of *_1920x1080.jpg logo cards\n"
                  "  --window WxH    Initial window size (320x200 .. 3840x2160, default 1440x900)\n"
@@ -124,7 +126,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --version       Print version and exit\n"
                  "  -h, --help      Show this help\n"
                  "%s"
-                 "Keys: T toggles the ticker, Esc quits\n",
+                 "Keys: T toggles the ticker, B the background, L the logo cards, Esc quits\n",
                  cfg.title.c_str(), cfg.version.c_str(), cfg.binaryName.c_str(), cfg.defaultBpm, demo.usage().c_str());
   };
   for (int i = 1; i < argc; i++) {
@@ -144,6 +146,10 @@ int run(Demo& demo, int argc, char** argv) {
       noTicker = true;
     else if (arg == "--no-post")
       noPost = true;
+    else if (arg == "--no-background")
+      noBackground = true;
+    else if (arg == "--no-logo")
+      noLogo = true;
     else if (arg == "--quality" && i + 1 < argc) {
       double v = std::atof(argv[++i]);
       if (!std::isfinite(v)) {
@@ -279,6 +285,8 @@ int run(Demo& demo, int argc, char** argv) {
   // Default: cap the HDR target to a pixel budget (Retina/4K); an explicit --quality means "exactly this".
   r.setMaxHdrPixels(qualityGiven ? 0.0 : rscale::kDefaultBudget);
   r.setPostEnabled(!noPost);
+  r.setShowBackground(!noBackground);
+  r.setShowLogos(!noLogo);
   r.setFxAmount(cfg.fxAmount);
   if (cfg.logoShow) {
     std::vector<fs::path> cands;
@@ -360,6 +368,14 @@ int run(Demo& demo, int argc, char** argv) {
     fi.height = H;
     input.poll(w);
     if (input.pressed(Key::T)) tickerOn = !tickerOn;
+    if (input.pressed(Key::B)) {
+      r.setShowBackground(!r.showBackground());
+      std::fprintf(stdout, "background: %s\n", r.showBackground() ? "on" : "off");
+    }
+    if (input.pressed(Key::L)) {
+      r.setShowLogos(!r.showLogos());
+      std::fprintf(stdout, "logo: %s\n", r.showLogos() ? "on" : "off");
+    }
 
     frame = Frame{};
     const auto cpuStart = std::chrono::steady_clock::now();

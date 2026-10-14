@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased: special effects
+- Background and logo switches: keys B (procedural background) and L (logo cards) toggle at runtime; `--no-background` and `--no-logo` start with them off.
 - Signal packets: with the geometry stage every wire knows its position along itself, so each carries a travelling pulse (own speed and phase,
   faster with the music): the whole mesh reads as circuitry with data flowing through it.
 - Wide antialiased wires: `wire.geom` expands every line into a screen-space quad (~1.4 px at 900 px height, growing with beat/music,

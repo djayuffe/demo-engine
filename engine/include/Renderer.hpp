@@ -19,6 +19,12 @@ public:
   bool drawScroller(float time, float beatPhase, int width, int height, const char* text, float musicLevel = 0.f);
   // Logo background: load the UBER_*_1920x1080.jpg cards from a directory.
   bool loadLogos(const std::string& dir);
+  // Runtime switches: the logo cards and the procedural background can each be turned off, leaving the
+  // wireframe (and the screen-space look) over black.
+  void setShowLogos(bool on) { showLogos_ = on; }
+  bool showLogos() const { return showLogos_; }
+  void setShowBackground(bool on) { showBackground_ = on; }
+  bool showBackground() const { return showBackground_; }
   int logoCount() const { return (int)logos_.size(); }
   // Draw a full-screen logo backdrop behind the wireframe (crossfades on
   // scene change, subtle Ken Burns). logoComposite=true renders into the HDR
@@ -100,6 +106,8 @@ private:
       uBgTexA_ = -1, uBgTexB_ = -1;
   int uTrMVP_ = -1, uTrTime_ = -1, uTrColor_ = -1, uTrSpeed_ = -1;
   bool hasLogos_ = false;
+  bool showLogos_ = true, showBackground_ = true;
+  bool logosActive() const { return hasLogos_ && showLogos_; }
   bool logoCapturePending_ = false;
   float renderScale_ = 1.f;
   double maxHdrPixels_ = 0;

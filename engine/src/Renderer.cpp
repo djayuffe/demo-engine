@@ -350,7 +350,7 @@ bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex
   float ml = std::clamp(musicLevel, 0.f, 1.f);
   float M[16];
   cameraMvp(t, aspect, scale, ml, M);
-  if (hasLogos_) {
+  if (logosActive()) {
     // Logo section: the logo is the BACKDROP. Draw it FIRST into the HDR FBO
     // (opaque, no depth), then the wireframe + travelers render ADDITIVELY on
     // top, so the 3D content glows over the picture. The post/FX pass runs later
@@ -565,8 +565,8 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   // Art pass: the procedural background, at half resolution. Its weight in post.frag is
   // (1 - hasLogo), so it is skipped outright while a logo card fully covers the screen (and with
   // --no-post, which never shows it).
-  const float logoCover = hasLogos_ ? std::clamp(logoVis_, 0.f, 1.f) : 0.f;
-  const bool artOn = postEnabled_ && std::max(logoCover, 1.f - fxAmount_) < .999f;
+  const float logoCover = logosActive() ? std::clamp(logoVis_, 0.f, 1.f) : 0.f;
+  const bool artOn = postEnabled_ && showBackground_ && std::max(logoCover, 1.f - fxAmount_) < .999f;
   if (artOn) {
     ArtPass::Params ap;
     ap.time = time;
@@ -574,7 +574,7 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
     ap.bpm = bpm;
     ap.logoVisibility = logoVis_;
     ap.fxAmount = fxAmount_;
-    ap.hasLogos = hasLogos_;
+    ap.hasLogos = logosActive();
     ap.gold = wireStyle_ == 1;
     art_.render(ap);
   }
@@ -596,7 +596,7 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   if (uPostMusic_ >= 0) glUniform1f(uPostMusic_, std::clamp(musicLevel, 0.f, 1.f));
   if (uPostBpm_ >= 0) glUniform1f(uPostBpm_, bpm);
   if (uPostBypass_ >= 0) glUniform1f(uPostBypass_, postEnabled_ ? 0.f : 1.f);
-  if (uPostHasLogo_ >= 0) glUniform1f(uPostHasLogo_, hasLogos_ ? 1.f : 0.f);
+  if (uPostHasLogo_ >= 0) glUniform1f(uPostHasLogo_, logosActive() ? 1.f : 0.f);
   if (uPostLogoVis_ >= 0) glUniform1f(uPostLogoVis_, logoVis_);
   if (uPostFx_ >= 0) glUniform1f(uPostFx_, fxAmount_);
   if (uPostGold_ >= 0) glUniform1f(uPostGold_, wireStyle_ == 1 ? 1.f : 0.f);
