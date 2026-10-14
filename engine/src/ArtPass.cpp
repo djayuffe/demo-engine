@@ -19,6 +19,8 @@ bool ArtPass::init(const std::string& dir, std::string& err) {
   uGold_ = glGetUniformLocation(prog_, "uGold");
   uFx_ = glGetUniformLocation(prog_, "uFxAmount");
   uStyle_ = glGetUniformLocation(prog_, "uStyle");
+  uPointer_ = glGetUniformLocation(prog_, "uPointer");
+  uPulse_ = glGetUniformLocation(prog_, "uPulse");
   glutil::setupFullscreenVao(vao_, vbo_);
   return true;
 }
@@ -57,6 +59,8 @@ void ArtPass::render(const Params& p) {
   glUniform1f(uLogoVis_, p.logoVisibility);
   glUniform1f(uGold_, p.gold ? 1.f : 0.f);
   glUniform1f(uFx_, p.fxAmount);
+  glUniform2f(uPointer_, std::clamp(p.pointerX, -1.f, 1.f), std::clamp(p.pointerY, -1.f, 1.f));
+  glUniform1f(uPulse_, std::clamp(p.pulse, 0.f, 1.f));
   glUniform1i(uStyle_, std::clamp(p.style, 0, 4));
   glBindVertexArray(vao_);
   glDrawArrays(GL_TRIANGLES, 0, 3);

@@ -8,7 +8,8 @@ float swRidge(float x,float t){
   return h;
 }
 vec3 styleSynthwave(vec2 p,float ml,float beat){
-  float hor=-.12;
+  p.x-=uPointer.x*.10;                       // steer: the whole world slides against the pointer
+  float hor=-.12+uPointer.y*.12;
   vec3 col=vec3(0);
   // sky: indigo to hot magenta at the horizon
   float sk=clamp((p.y-hor)/1.1,0.,1.);
@@ -65,7 +66,7 @@ vec3 styleNebula(vec2 p,float ml,float beat){
   for(int i=0;i<3;i++){
     float fi=float(i);
     float sc=1.0+fi*.9;
-    vec2 q=rot2(p,fi*.7+t*.01)*sc*.9+vec2(fi*13.,t*(.012+.01*fi));
+    vec2 q=rot2(p-uPointer*(.05+.09*fi),fi*.7+t*.01)*sc*.9+vec2(fi*13.,t*(.012+.01*fi));   // each gas layer parallaxes differently
     float d=nebDensity(q,t+fi*20.);
     float d2=nebDensity(q+L*.12,t+fi*20.);
     float lit=clamp((d-d2)*5.5+.35,0.,1.6);               // cheap directional light
@@ -77,7 +78,7 @@ vec3 styleNebula(vec2 p,float ml,float beat){
   // two parallax star layers + bright flared stars
   for(int i=0;i<2;i++){
     float fi=float(i);
-    vec2 sp=(p+vec2(t*(.012+.02*fi),0.))*(55.+fi*70.);
+    vec2 sp=(p-uPointer*(.03+.16*fi)+vec2(t*(.012+.02*fi),0.))*(55.+fi*70.);
     vec2 id=floor(sp);float h=hash(id+fi*31.);
     float tw=.6+.4*sin(t*(2.+h*5.)+h*60.);
     float s=step(.985-fi*.004,h)*smoothstep(.45,.0,length(fract(sp)-.5))*tw;
@@ -103,8 +104,9 @@ vec3 styleNebula(vec2 p,float ml,float beat){
 // ---- 3: MANDALA -- folded kaleidoscope of iridescent neon crystal, orbit-trap shaded ----
 vec3 styleMandala(vec2 p,float ml,float beat){
   float t=uTime;
+  p-=uPointer*.35;                            // the mandala follows the pointer
   float r0=length(p);
-  vec2 q=rot2(p,t*.05+.15*sin(t*.2));
+  vec2 q=rot2(p,t*.05+.15*sin(t*.2)+uPointer.x*.6);
   float seg=6.2831853/10.;
   float a=atan(q.y,q.x);a=abs(mod(a,seg)-seg*.5);
   q=vec2(cos(a),sin(a))*r0;
@@ -157,8 +159,8 @@ vec3 bhGalaxy(vec3 d,float t){
 vec3 styleBlackHole(vec2 p,float ml,float beat){
   float t=uTime;
   // camera: slow orbit, ~10 degrees above the disk plane, drifts closer on the beat
-  float R=13.-1.2*ml-.5*beat;
-  float az=t*.045,el=.17+.07*sin(t*.11);
+  float R=13.-1.2*ml-.5*beat-2.5*uPulse;
+  float az=t*.045+uPointer.x*1.1,el=clamp(.17+.07*sin(t*.11)+uPointer.y*.75,-.2,1.2);   // pointer flies the camera
   vec3 ro=R*vec3(sin(az)*cos(el),sin(el),-cos(az)*cos(el));
   vec3 fw=normalize(-ro),rt=normalize(cross(vec3(0,1,0),fw)),up=cross(fw,rt);
   vec3 rd=normalize(fw*1.7+rt*p.x+up*p.y);

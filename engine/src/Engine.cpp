@@ -98,6 +98,7 @@ int run(Demo& demo, int argc, char** argv) {
   std::vector<fs::path> musicPaths;
   fs::path logoOverride;
   int bgStyle = 0;
+  bool noDepth = false;
   bool noTicker = false, noPost = false, noBackground = false, noLogo = false;
   double quality = 1.0;
   bool qualityGiven = false;
@@ -116,6 +117,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
                  "  --no-background Start with the procedural background off (toggle with B)\n"
                  "  --background-style S  classic|synthwave|nebula|mandala|blackhole (cycle with V)\n"
+                 "  --no-depth      Start with the depth-mote layer off (toggle with D)\n"
                  "  --no-logo       Start with the logo cards off (toggle with L)\n"
                  "  --quality F     Render the HDR target at F of screen resolution (0.25-1.0)\n"
                  "  --logos DIR     Directory of *_1920x1080.jpg logo cards\n"
@@ -128,7 +130,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --version       Print version and exit\n"
                  "  -h, --help      Show this help\n"
                  "%s"
-                 "Keys: T ticker, B background, V background style, L logo cards, Esc quits\n",
+                 "Keys: T ticker, B background, V background style, D depth layer, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
                  cfg.title.c_str(), cfg.version.c_str(), cfg.binaryName.c_str(), cfg.defaultBpm, demo.usage().c_str());
   };
   for (int i = 1; i < argc; i++) {
@@ -150,6 +152,8 @@ int run(Demo& demo, int argc, char** argv) {
       noPost = true;
     else if (arg == "--no-background")
       noBackground = true;
+    else if (arg == "--no-depth")
+      noDepth = true;
     else if (arg == "--background-style" && i + 1 < argc) {
       const std::string v = argv[++i];
       if (v == "classic") bgStyle = 0;
@@ -301,6 +305,10 @@ int run(Demo& demo, int argc, char** argv) {
   r.setPostEnabled(!noPost);
   r.setShowBackground(!noBackground);
   r.setBackgroundStyle(bgStyle);
+  r.setShowDepth(!noDepth);
+  double ptrT = glfwGetTime();
+  float ptrX = 0, ptrY = 0, ptrPulse = 0;
+  bool mouseWas = false;
   r.setShowLogos(!noLogo);
   r.setFxAmount(cfg.fxAmount);
   if (cfg.logoShow) {
@@ -386,6 +394,30 @@ int run(Demo& demo, int argc, char** argv) {
     if (input.pressed(Key::B)) {
       r.setShowBackground(!r.showBackground());
       std::fprintf(stdout, "background: %s\n", r.showBackground() ? "on" : "off");
+    }
+    {   // pointer: smoothed -1..1 (y up) + click shockwave; drives the backgrounds and the depth layer
+      const double now = glfwGetTime();
+      const float dt = float(std::clamp(now - ptrT, 0.0, .1));
+      ptrT = now;
+      double mx = 0, my = 0;
+      int ww = 1, wh = 1;
+      glfwGetCursorPos(w, &mx, &my);
+      glfwGetWindowSize(w, &ww, &wh);
+      const bool inside = glfwGetWindowAttrib(w, GLFW_HOVERED) != 0;
+      const float tx = inside ? std::clamp(float(mx / std::max(1, ww) * 2.0 - 1.0), -1.f, 1.f) : 0.f;
+      const float ty = inside ? std::clamp(float(1.0 - my / std::max(1, wh) * 2.0), -1.f, 1.f) : 0.f;
+      const float k = 1.f - std::exp(-dt * 6.f);
+      ptrX += (tx - ptrX) * k;
+      ptrY += (ty - ptrY) * k;
+      const bool mouse = glfwGetMouseButton(w, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+      if (mouse && !mouseWas) ptrPulse = 1.f;
+      mouseWas = mouse;
+      ptrPulse *= std::exp(-dt * 1.6f);
+      r.setPointer(ptrX, ptrY, ptrPulse);
+    }
+    if (input.pressed(Key::D)) {
+      r.setShowDepth(!r.showDepth());
+      std::fprintf(stdout, "depth: %s\n", r.showDepth() ? "on" : "off");
     }
     if (input.pressed(Key::V)) {
       static const char* const kNames[] = {"classic", "synthwave", "nebula", "mandala", "blackhole"};

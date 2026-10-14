@@ -30,9 +30,13 @@ uniform float uArtOn;
 // Selected background style (0 = classic). Styled backgrounds keep their own palette: the hue drift,
 // solarize and posterize grade is mostly held back so a pink synthwave sun stays pink.
 uniform float uBgStyle;
+uniform vec2 uPointer;   // -1..1, y up
+uniform float uPulse;    // click shockwave 1 -> 0
+uniform float uDepth;    // independent depth-mote layer on/off
 uniform sampler2D uBloom;
 
 #include "lib/common.glsl"
+#include "lib/depth_layers.glsl"
 
 void main(){
   // --no-post fast path: sample the captured frame, ACES tone-map it (the buffer
@@ -128,6 +132,7 @@ void main(){
   // already computed above (before the warps).
   vec3 hdr=(1.0-hasLogo)*bg*(1.0-.75*uGold) + scene*mix(1.35,1.0,hasLogo) + bloom*(.32+uMusicLevel*.70)*mix(1.0,.30,hasLogo);   // little glow over a logo card: it washes out
   hdr+=(streak+rays)*(1.0-.85*hasLogo);
+  if(uDepth>.5&&uFxAmount>.001) hdr+=depthMotes(p,uPointer*vec2(uResolution.x/max(uResolution.y,1.),1.),uPulse,uTime,mlev,beat)*(1.0-.8*hasLogo)*uFxAmount;
   hdr+=(1.0-hasLogo)*(1.0-uGold)*pal(length(p)*.08+uTime*.02)*pow(max(scene.r,max(scene.g,scene.b)),2.2)*(.45+uMusicLevel);
 
   // --- Uber-compositor signature FX ------------------------------------------

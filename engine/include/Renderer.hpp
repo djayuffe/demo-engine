@@ -27,6 +27,10 @@ public:
   bool showBackground() const { return showBackground_; }
   void setBackgroundStyle(int s) { bgStyle_ = ((s % 5) + 5) % 5; }  // 0 classic, 1 synthwave, 2 nebula, 3 mandala, 4 blackhole
   int backgroundStyle() const { return bgStyle_; }
+  // Pointer in -1..1 (y up) and a 0..1 click pulse: the backgrounds react to it, the depth layer is pushed by it.
+  void setPointer(float x, float y, float pulse) { ptrX_ = x; ptrY_ = y; ptrPulse_ = pulse; }
+  void setShowDepth(bool on) { showDepth_ = on; }
+  bool showDepth() const { return showDepth_; }
   int logoCount() const { return (int)logos_.size(); }
   // Draw a full-screen logo backdrop behind the wireframe (crossfades on
   // scene change, subtle Ken Burns). logoComposite=true renders into the HDR
@@ -110,6 +114,8 @@ private:
   bool hasLogos_ = false;
   bool showLogos_ = true, showBackground_ = true;
   int bgStyle_ = 0;
+  bool showDepth_ = true;
+  float ptrX_ = 0, ptrY_ = 0, ptrPulse_ = 0;
   bool logosActive() const { return hasLogos_ && showLogos_; }
   bool logoCapturePending_ = false;
   float renderScale_ = 1.f;
@@ -117,7 +123,7 @@ private:
   bool postEnabled_ = true;
   float fxAmount_ = 1.f;
   int wireStyle_ = 0;
-  int uStyle_ = -1, uPostGold_ = -1, uPostBgStyle_ = -1;
+  int uStyle_ = -1, uPostGold_ = -1, uPostBgStyle_ = -1, uPostPtr_ = -1, uPostPulse_ = -1, uPostDepth_ = -1;
   // Art pass (procedural background) at half resolution, see shaders/art.frag.
   ArtPass art_;
   int uPostArt_ = -1, uPostArtOn_ = -1;

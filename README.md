@@ -16,6 +16,8 @@ Docs: [ARCHITECTURE.md](ARCHITECTURE.md) | [docs/WRITING_A_DEMO.md](docs/WRITING
 
 `--background-style classic|synthwave|nebula|mandala|blackhole` picks the procedural background (key **V** cycles it live, **B** turns it off, **L** the logo cards). `classic` is the slowly cross-fading generative blend; the others are single scenes: a striped-sun synthwave horizon with a neon grid, a parallax self-shadowed nebula with shooting stars, and a folded orbit-trap crystal mandala, and a relativistic black hole: ray-marched Schwarzschild lensing of a galaxy sky, a Doppler-beamed turbulent accretion disk, photon ring and polar jets. A styled background keeps its own palette (the post hue-drift grade is held back) and the final output is dithered to avoid banding.
 
+Interaction: move the mouse to steer the background (black hole: fly the camera; synthwave: steer; nebula: layer parallax; mandala: follow), click for a shockwave. **D** toggles the independent depth-mote layer (also `--no-depth`). Background (**B**), logos (**L**), depth (**D**) and style (**V**) are all independent switches.
+
 ## Why
 Every demo needs the same plumbing: a window, a float framebuffer, bloom and tone mapping, audio, a beat clock, a ticker, a screenshot switch for CI. The engine owns that plumbing so a new demo is one file that answers a single question: *what should be on screen right now?*
 
