@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased: special effects
+- Signal packets: with the geometry stage every wire knows its position along itself, so each carries a travelling pulse (own speed and phase,
+  faster with the music): the whole mesh reads as circuitry with data flowing through it.
 - Wide antialiased wires: `wire.geom` expands every line into a screen-space quad (~1.4 px at 900 px height, growing with beat/music,
   scaled by render resolution) with a soft edge, so wires are no longer 1 px thin on Retina/macOS core profiles. Falls back to plain
   GL lines if a driver rejects the geometry stage.

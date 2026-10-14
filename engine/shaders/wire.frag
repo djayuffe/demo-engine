@@ -3,6 +3,8 @@ in float gDepth;
 in vec3 gObject;
 in vec2 gNdc;
 in float gSide;
+in float gAlong;
+flat in float gEdge;
 // shader bodies below use the old names
 #define vDepth gDepth
 #define vObject gObject
@@ -25,6 +27,16 @@ float lightSheet(vec3 p,vec3 n,float phase,float width){
   return exp(-abs(d)*width);
 }
 
+// Signal packets: every wire carries a bright pulse that runs along it at its own speed and phase, so the
+// whole mesh reads as circuitry with data flowing through it. Returns an extra gain (>=0) for this fragment.
+float packet(float along,float id,float t,float music){
+  float h1=fract(sin(id*12.9898)*43758.5453),h2=fract(sin(id*78.233+1.7)*12345.678);
+  float speed=.18+.5*h1+.25*music;
+  float head=fract(t*speed+h2);
+  float d=abs(along-head);d=min(d,1.-d);                       // wrap: the packet re-enters at the other end
+  float on=step(.35,h1);                                        // only some wires carry a packet at a time
+  return on*exp(-d*d*260.)*(1.6+1.6*music);
+}
 void main(){
   // soft-edged line profile: full intensity in the core, falling to 0 over the antialiasing skirt
   float hw=.5*uWidthPx+.75;
@@ -67,5 +79,7 @@ void main(){
   vec3 color=(base+electric)*pulse*vDepth*(.62+rim*.55);
   color+=vec3(.12,.34,1.0)*matrixB*music*.75;
 
+  float pk=packet(clamp(gAlong,0.,1.),gEdge,uTime,music);
+  color+=palette(wirePhase*.5+uTime*.08+gEdge*.013)*pk*1.1*vDepth;
   FragColor=vec4(color*uGain*edge,1.0);
 }

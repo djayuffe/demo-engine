@@ -60,7 +60,7 @@ bool Renderer::createGl(const std::string& dir) {
     // the fragment shader reads geometry-stage outputs; for the plain pipeline give it vertex-stage ones
     auto rep = [&](const std::string& a, const std::string& b) { for (size_t k = fsPlain.find(a); k != std::string::npos; k = fsPlain.find(a, k + b.size())) fsPlain.replace(k, a.size(), b); };
     rep("in float gDepth;", "in float vDepth;"); rep("in vec3 gObject;", "in vec3 vObject;"); rep("in vec2 gNdc;", "in vec2 vNdc;");
-    rep("in float gSide;", "const float gSide = 0.0;");
+    rep("in float gSide;", "const float gSide = 0.0;"); rep("in float gAlong;", "const float gAlong = 0.5;"); rep("flat in float gEdge;", "const float gEdge = 0.0;");
     rep("#define vDepth gDepth", ""); rep("#define vObject gObject", ""); rep("#define vNdc gNdc", "");
     program_ = linkProgram(vs, fsPlain, error_);
   }

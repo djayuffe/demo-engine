@@ -12,6 +12,8 @@ out float gDepth;
 out vec3 gObject;
 out vec2 gNdc;
 out float gSide;
+out float gAlong;   // 0..1 along the segment (end caps clamp to the ends)
+flat out float gEdge;   // per-segment id, for hashing
 void main(){
   vec4 a=gl_in[0].gl_Position,b=gl_in[1].gl_Position;
   // Segments touching or behind the camera plane cannot be expanded safely in screen space: draw them thin.
@@ -32,6 +34,7 @@ void main(){
     float endSign=(k==0)?-1.:1.;
     vec2 o=off*side+ext*endSign;
     gl_Position=vec4(p.xy+o*p.w,p.z,p.w);
+    gAlong=float(k);gEdge=float(gl_PrimitiveIDIn);
     gDepth=vDepth[k];gObject=vObject[k];gNdc=vNdc[k];gSide=behind?0.:side;
     EmitVertex();
   }
