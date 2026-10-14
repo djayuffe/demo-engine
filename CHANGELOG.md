@@ -7,6 +7,7 @@
 - Noncommutative camera (#86): `Frame::modelTransform` 3x3 driven by shear products (`Choreography.hpp`); scene 59.
 - `Frame` gains `modelTransform`, `temporalRefraction`, `memory`. Demo keys: N, T, M toggle the effects in any scene.
 - Scene 60 holonomy arrows enlarged; choreography unit tests added.
+- Post bloom is now a 6-level dual-filter pyramid (`Bloom`, shaders `bloom_down/up.frag`) with a soft knee and Karis averaging, replacing the 6-tap blur; skipped with --no-post.
 
 ## 1.5.0 - Optimised, playlists
 ### Performance

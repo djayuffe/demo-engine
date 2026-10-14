@@ -27,6 +27,7 @@ uniform float uFxAmount;
 uniform float uGold;
 uniform sampler2D uArt;   // the art pass (half resolution), see art.frag
 uniform float uArtOn;
+uniform sampler2D uBloom;
 
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
 float hash21(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
@@ -100,15 +101,8 @@ void main(){
   vec2 ca=(suv-.5)*(.002+.006*beat)*(1.0-calm);
   vec3 scene=vec3(texture(uScene,suv+ca).r,texture(uScene,suv).g,texture(uScene,suv-ca).b);
 
-  // bloom (multi-tap)
-  vec3 bloom=vec3(0);
-  bloom+=texture(uScene,suv+vec2( px.x*1.5,0)).rgb;
-  bloom+=texture(uScene,suv+vec2(-px.x*1.5,0)).rgb;
-  bloom+=texture(uScene,suv+vec2(0, px.y*1.5)).rgb;
-  bloom+=texture(uScene,suv+vec2(0,-px.y*1.5)).rgb;
-  bloom+=texture(uScene,suv+vec2( px.x*3.5, px.y*2.5)).rgb;
-  bloom+=texture(uScene,suv+vec2(-px.x*3.5,-px.y*2.5)).rgb;
-  bloom/=6.;
+  // bloom: multi-scale pyramid built by bloom.cpp (the glow spreads across the screen, wire-width to full-frame)
+  vec3 bloom=texture(uBloom,suv).rgb*.5;
 
 
   // Eye candy: anamorphic horizontal streak + radial light rays (bright pixels only).

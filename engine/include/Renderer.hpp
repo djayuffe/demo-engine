@@ -1,6 +1,7 @@
 #pragma once
 #include "Geometry.hpp"
 #include "SpecialFx.hpp"
+#include "Bloom.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <string>
@@ -102,6 +103,9 @@ private:
   int uArtTime_ = -1, uArtRes_ = -1, uArtMusic_ = -1, uArtBpm_ = -1, uArtHasLogo_ = -1, uArtLogoVis_ = -1,
       uArtGold_ = -1, uArtFx_ = -1, uPostArt_ = -1, uPostArtOn_ = -1;
   SpecialFx fx_;
+  Bloom bloom_;
+  int uPostBloom_ = -1;
+  bool bloomOk_ = false;
   float modelShear_[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   float temporalAmt_ = 0.f, memoryAmt_ = 0.f;
   std::string error_;
