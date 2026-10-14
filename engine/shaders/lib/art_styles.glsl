@@ -132,8 +132,84 @@ vec3 styleMandala(vec2 p,float ml,float beat){
   return col*smoothstep(2.6,.4,r0)+vec3(.0,.0,.01);
 }
 
+
+// ---- 4: BLACK HOLE -- a Schwarzschild ray-marcher: lensed galaxy, Doppler-beamed accretion disk,
+//         photon ring and polar jets. Rays are bent with a = -1.5 h^2 r^-5 pos (rs = 1). ----
+vec3 bhGalaxy(vec3 d,float t){
+  // sky seen in direction d: a milky-way band with dust lanes, a distant spiral and deep starfield
+  float lat=d.y,lon=atan(d.z,d.x);
+  float band=exp(-pow(lat*3.2+.25*sin(lon*2.+t*.01),2.));
+  vec2 q=vec2(lon*2.2,lat*5.);
+  float gas=fbm(q*1.6+vec2(t*.004,0.));
+  float dust=smoothstep(.45,.8,fbm(q*3.1+9.))*.8;
+  vec3 c=mix(vec3(.9,.45,.3),vec3(.35,.5,1.),gas)*band*gas*(1.-dust)*.55;
+  c+=vec3(1.,.8,.55)*exp(-pow(length(vec2(lat*2.2,sin(lon*.5)*.6)),2.)*4.)*band*.5; // bulge
+  // stars on a sphere: cell grid in (lon,lat); finer grid = fainter, more numerous
+  for(int i=0;i<3;i++){
+    float k=90.+float(i)*110.;
+    vec2 sp=vec2(lon*k*.5,lat*k*.5+float(i)*17.);vec2 id=floor(sp);
+    float h=hash(id+float(i)*5.3);
+    float m=step(.975,h)*smoothstep(.5,.0,length(fract(sp)-.5)*1.4);
+    c+=mix(vec3(.6,.75,1.),vec3(1.,.8,.6),hash(id+1.7))*m*(i==0?1.8:.9);
+  }
+  return c;
+}
+vec3 styleBlackHole(vec2 p,float ml,float beat){
+  float t=uTime;
+  // camera: slow orbit, ~10 degrees above the disk plane, drifts closer on the beat
+  float R=13.-1.2*ml-.5*beat;
+  float az=t*.045,el=.17+.07*sin(t*.11);
+  vec3 ro=R*vec3(sin(az)*cos(el),sin(el),-cos(az)*cos(el));
+  vec3 fw=normalize(-ro),rt=normalize(cross(vec3(0,1,0),fw)),up=cross(fw,rt);
+  vec3 rd=normalize(fw*1.7+rt*p.x+up*p.y);
+  vec3 pos=ro,vel=rd;
+  vec3 col=vec3(0.);float trans=1.;
+  float ring=0.,jet=0.;
+  bool dead=false;
+  for(int i=0;i<64;i++){
+    float r2=dot(pos,pos),r=sqrt(r2);
+    if(r<1.02){dead=true;break;}
+    if(r>40.&&dot(pos,vel)>0.)break;
+    float dt=clamp(.06*r,.05,1.1);
+    vec3 hv=cross(pos,vel);float h2=dot(hv,hv);
+    vec3 acc=-1.5*h2*pos/(r2*r2*r);
+    vec3 np=pos+vel*dt;vel=normalize(vel+acc*dt);
+    // accretion disk (y = 0 plane, 2.6 < r < 9): translucent, Doppler-beamed, turbulent
+    if(pos.y*np.y<0.){
+      float f=pos.y/(pos.y-np.y);vec3 hp=mix(pos,np,f);
+      float rr=length(hp.xz);
+      if(rr>2.6&&rr<9.5){
+        float om=pow(rr,-1.5)*9.;
+        float ang=atan(hp.z,hp.x)-t*om*.35;
+        float turb=fbm(vec2(rr*2.4,ang*3.+rr*.6))*.7+fbm(vec2(rr*7.,ang*9.-t*.2))*.5;
+        float lanes=.5+.5*sin(rr*9.+turb*9.+sin(ang*2.)*2.);
+        lanes=mix(.45,1.,lanes*lanes);
+        float dens=smoothstep(2.6,3.4,rr)*smoothstep(9.5,6.,rr)*(.35+turb)*lanes;
+        vec3 tang=normalize(vec3(-hp.z,0.,hp.x));
+        float dop=clamp(1.+.75*dot(tang,-vel),.15,2.2);          // approaching side blazes
+        float temp=pow(clamp(2.8/rr,0.,1.),.75)*dop;
+        vec3 bb=mix(vec3(1.,.28,.04),vec3(1.,.82,.55),clamp(temp,0.,1.));
+        bb=mix(bb,vec3(.7,.85,1.4),smoothstep(.9,1.6,temp)*.6);
+        float a=clamp(dens*.85,0.,1.);
+        col+=trans*a*bb*pow(dop,2.4)*(.55+.9*ml+.5*beat)*(.5+1.8*exp(-(rr-2.6)*1.1));
+        trans*=1.-a*.82;
+      }
+    }
+    // photon-ring glow hugging r ~ 1.5 and faint polar jets along the spin axis
+    ring+=trans*dt*.012/(.05+abs(r-1.55)*abs(r-1.55)*6.);
+    float ax=dot(pos.xz,pos.xz);
+    jet+=trans*dt*exp(-ax*.9)*smoothstep(1.5,3.,abs(pos.y))*exp(-abs(pos.y)*.18)*.05;
+    pos=np;
+  }
+  if(!dead) col+=trans*bhGalaxy(normalize(vel),t)*(.8+.4*ml);
+  col+=vec3(1.,.72,.42)*ring*(.3+.5*ml);
+  col+=vec3(.45,.6,1.2)*jet*(1.+1.5*beat);
+  return col;
+}
+
 vec3 styleLayer(int style,vec2 p,float ml,float beat){
   if(style==1) return styleSynthwave(p,ml,beat);
   if(style==2) return styleNebula(p,ml,beat);
+  if(style==4) return styleBlackHole(p,ml,beat);
   return styleMandala(p,ml,beat);
 }

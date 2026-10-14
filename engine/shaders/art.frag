@@ -20,7 +20,7 @@ uniform float uFxAmount;
 // 1 while a golden-glimmer scene is on: gold-tinted streaks plus vertical streaks (cross glints),
 // a quieter art background and a warm grade.
 uniform float uGold;
-// Background style: 0 = classic generative blend, 1 = synthwave, 2 = nebula, 3 = mandala.
+// Background style: 0 = classic generative blend, 1 = synthwave, 2 = nebula, 3 = mandala, 4 = black hole.
 uniform int uStyle;
 
 #include "lib/common.glsl"

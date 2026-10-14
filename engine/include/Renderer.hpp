@@ -25,7 +25,7 @@ public:
   bool showLogos() const { return showLogos_; }
   void setShowBackground(bool on) { showBackground_ = on; }
   bool showBackground() const { return showBackground_; }
-  void setBackgroundStyle(int s) { bgStyle_ = ((s % 4) + 4) % 4; }  // 0 classic, 1 synthwave, 2 nebula, 3 mandala
+  void setBackgroundStyle(int s) { bgStyle_ = ((s % 5) + 5) % 5; }  // 0 classic, 1 synthwave, 2 nebula, 3 mandala, 4 blackhole
   int backgroundStyle() const { return bgStyle_; }
   int logoCount() const { return (int)logos_.size(); }
   // Draw a full-screen logo backdrop behind the wireframe (crossfades on

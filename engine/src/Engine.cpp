@@ -115,7 +115,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --no-ticker     Start with the text ticker off (toggle with T)\n"
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
                  "  --no-background Start with the procedural background off (toggle with B)\n"
-                 "  --background-style S  classic|synthwave|nebula|mandala (cycle with V)\n"
+                 "  --background-style S  classic|synthwave|nebula|mandala|blackhole (cycle with V)\n"
                  "  --no-logo       Start with the logo cards off (toggle with L)\n"
                  "  --quality F     Render the HDR target at F of screen resolution (0.25-1.0)\n"
                  "  --logos DIR     Directory of *_1920x1080.jpg logo cards\n"
@@ -156,9 +156,10 @@ int run(Demo& demo, int argc, char** argv) {
       else if (v == "synthwave") bgStyle = 1;
       else if (v == "nebula") bgStyle = 2;
       else if (v == "mandala") bgStyle = 3;
-      else if (v.size() == 1 && v[0] >= '0' && v[0] <= '3') bgStyle = v[0] - '0';
+      else if (v == "blackhole") bgStyle = 4;
+      else if (v.size() == 1 && v[0] >= '0' && v[0] <= '4') bgStyle = v[0] - '0';
       else {
-        std::fprintf(stderr, "--background-style: use classic|synthwave|nebula|mandala (or 0-3)\n");
+        std::fprintf(stderr, "--background-style: use classic|synthwave|nebula|mandala|blackhole (or 0-4)\n");
         return 2;
       }
     } else if (arg == "--no-logo")
@@ -387,7 +388,7 @@ int run(Demo& demo, int argc, char** argv) {
       std::fprintf(stdout, "background: %s\n", r.showBackground() ? "on" : "off");
     }
     if (input.pressed(Key::V)) {
-      static const char* const kNames[] = {"classic", "synthwave", "nebula", "mandala"};
+      static const char* const kNames[] = {"classic", "synthwave", "nebula", "mandala", "blackhole"};
       r.setBackgroundStyle(r.backgroundStyle() + 1);
       std::fprintf(stdout, "background style: %s\n", kNames[r.backgroundStyle()]);
     }

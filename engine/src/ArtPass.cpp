@@ -57,7 +57,7 @@ void ArtPass::render(const Params& p) {
   glUniform1f(uLogoVis_, p.logoVisibility);
   glUniform1f(uGold_, p.gold ? 1.f : 0.f);
   glUniform1f(uFx_, p.fxAmount);
-  glUniform1i(uStyle_, std::clamp(p.style, 0, 3));
+  glUniform1i(uStyle_, std::clamp(p.style, 0, 4));
   glBindVertexArray(vao_);
   glDrawArrays(GL_TRIANGLES, 0, 3);
 }
