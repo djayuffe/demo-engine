@@ -1,7 +1,13 @@
 #version 410 core
-in float vDepth;
-in vec3 vObject;
-in vec2 vNdc;
+in float gDepth;
+in vec3 gObject;
+in vec2 gNdc;
+in float gSide;
+// shader bodies below use the old names
+#define vDepth gDepth
+#define vObject gObject
+#define vNdc gNdc
+uniform float uWidthPx;
 
 out vec4 FragColor;
 uniform float uTime;
@@ -20,6 +26,10 @@ float lightSheet(vec3 p,vec3 n,float phase,float width){
 }
 
 void main(){
+  // soft-edged line profile: full intensity in the core, falling to 0 over the antialiasing skirt
+  float hw=.5*uWidthPx+.75;
+  float edge=1.-smoothstep((hw-.75)/hw,1.,abs(gSide));
+  edge*=1./max(1.,.55*uWidthPx);   // keep total energy near that of a 1 px line as wires get wider
   float music=clamp(uMusicLevel,0.,1.);
   vec3 p=vObject;
   if(uStyle==1){
@@ -31,7 +41,7 @@ void main(){
     float sheen=exp(-abs(dot(p,normalize(vec3(.8,.45,.3)))-2.4*sin(uTime*.45))*2.6);
     vec3 gold=mix(vec3(1.0,.50,.10),vec3(1.0,.80,.36),h.z);
     vec3 col=gold*(.80+.75*sheen+.40*music)*(.55+.45*vDepth)+vec3(1.0,.94,.72)*twinkle*5.0;
-    FragColor=vec4(col*uGain*2.4,1.0);
+    FragColor=vec4(col*uGain*2.4*edge,1.0);
     return;
   }
 
@@ -57,5 +67,5 @@ void main(){
   vec3 color=(base+electric)*pulse*vDepth*(.62+rim*.55);
   color+=vec3(.12,.34,1.0)*matrixB*music*.75;
 
-  FragColor=vec4(color*uGain,1.0);
+  FragColor=vec4(color*uGain*edge,1.0);
 }

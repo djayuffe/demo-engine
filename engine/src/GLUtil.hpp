@@ -18,6 +18,8 @@ namespace glutil {
 std::string readText(const std::string& path);   // whole file, or "" if unreadable
 // Compile + link a vertex/fragment pair. On failure returns 0 and puts the driver log in `err`.
 unsigned linkProgram(const std::string& vs, const std::string& fs, std::string& err);
+// Same with a geometry stage between the two (empty gs = none).
+unsigned linkProgram(const std::string& vs, const std::string& gs, const std::string& fs, std::string& err);
 // A VAO for the "no-VBO fullscreen triangle" idiom: glDrawArrays on a VAO with no enabled attribute is
 // GL_INVALID_OPERATION, so a 0-byte buffer plus a dummy attribute pointer are still required.
 void setupFullscreenVao(unsigned& vao, unsigned& vbo);

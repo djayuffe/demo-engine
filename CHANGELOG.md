@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased: special effects
+- Wide antialiased wires: `wire.geom` expands every line into a screen-space quad (~1.4 px at 900 px height, growing with beat/music,
+  scaled by render resolution) with a soft edge, so wires are no longer 1 px thin on Retina/macOS core profiles. Falls back to plain
+  GL lines if a driver rejects the geometry stage.
 - Outstanding fixes: Boy's surface rebuilt on the Bryant-Kusner disk parametrisation (uniform cells, exact antipodal rim weld; the old
   u=pi/2 ring collapsed to a point and stretched the mesh). Scene 65 gets pole vertices (no open caps), 63 gets more agents, a soft
   wall and capped relationship edges, 64 is thinned from a hairball, 61 has denser longer trails. Golden hashes: every effect, recipe and

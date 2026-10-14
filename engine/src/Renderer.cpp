@@ -49,8 +49,24 @@ bool Renderer::createGl(const std::string& dir) {
     error_ = "cannot read shaders from " + dir;
     return false;
   }
-  program_ = linkProgram(vs, fs, error_);
+  // Wide wires via a geometry stage; if a driver refuses it, fall back to plain 1-px GL lines.
+  std::string gerr;
+  const std::string gs = readText(dir + "/wire.geom");
+  wideWires_ = false;
+  if (!gs.empty()) program_ = linkProgram(vs, gs, fs, gerr);
+  wideWires_ = program_ != 0;
+  if (!program_) {
+    std::string fsPlain = fs;
+    // the fragment shader reads geometry-stage outputs; for the plain pipeline give it vertex-stage ones
+    auto rep = [&](const std::string& a, const std::string& b) { for (size_t k = fsPlain.find(a); k != std::string::npos; k = fsPlain.find(a, k + b.size())) fsPlain.replace(k, a.size(), b); };
+    rep("in float gDepth;", "in float vDepth;"); rep("in vec3 gObject;", "in vec3 vObject;"); rep("in vec2 gNdc;", "in vec2 vNdc;");
+    rep("in float gSide;", "const float gSide = 0.0;");
+    rep("#define vDepth gDepth", ""); rep("#define vObject gObject", ""); rep("#define vNdc gNdc", "");
+    program_ = linkProgram(vs, fsPlain, error_);
+  }
   if (!program_) return false;
+  uViewport_ = glGetUniformLocation(program_, "uViewport");
+  uWidthPx_ = glGetUniformLocation(program_, "uWidthPx");
   uMVP_ = glGetUniformLocation(program_, "uMVP");
   uTime_ = glGetUniformLocation(program_, "uTime");
   uColor_ = glGetUniformLocation(program_, "uColor");
@@ -313,6 +329,18 @@ bool Renderer::upload(const Mesh3& m) {
 // The camera shared by the wireframe and the travelers, so both live in the same 3D space.
 // modelShear_ (row-major 3x3, identity by default) is applied to the model first: it is how the
 // noncommutative-camera effect shears the world.
+// Wire thickness: ~1.4 px at 900 px render height, growing with the beat and the music, scaled with the render
+// resolution so wires look the same at any --quality and on Retina. Falls back to glLineWidth without the
+// geometry stage (where >1 is invalid in some core profiles; glGetError is drained by callers).
+void Renderer::setWireWidth(float lineWidth, float music) const {
+  const float px = std::clamp((1.4f + .8f * (lineWidth - 1.f) + .8f * music) * float(std::max(hdrH_, 1)) / 900.f, 1.f, 9.f);
+  if (wideWires_) {
+    if (uViewport_ >= 0) glUniform2f(uViewport_, float(std::max(hdrW_, 1)), float(std::max(hdrH_, 1)));
+    if (uWidthPx_ >= 0) glUniform1f(uWidthPx_, px);
+  } else {
+    glLineWidth(px);
+  }
+}
 void Renderer::cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const {
   cam::mvp(t, aspect, scale, musicLevel, modelShear_, M);
 }
@@ -347,7 +375,7 @@ bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex
     if (uMusicLevel_ >= 0) glUniform1f(uMusicLevel_, ml);
     glUniform3f(uColor_, 1.2f + .75f * ml, 1.55f + .35f * ml, 2.1f + 1.1f * ml);
     if (uGain_ >= 0) glUniform1f(uGain_, wireGainFor(edgeCount_) * (1.f - .22f * logoVis_));
-    glLineWidth(std::max(1.f, lineWidth + ml * .75f));
+    setWireWidth(lineWidth, ml);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
     glBlendEquation(GL_FUNC_ADD);
@@ -376,7 +404,7 @@ bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex
   if (uMusicLevel_ >= 0) glUniform1f(uMusicLevel_, ml);
   glUniform3f(uColor_, 1.2f + .75f * ml, 1.55f + .35f * ml, 2.1f + 1.1f * ml);
   if (uGain_ >= 0) glUniform1f(uGain_, wireGainFor(edgeCount_));
-  glLineWidth(std::max(1.f, lineWidth + ml * .75f));
+  setWireWidth(lineWidth, ml);
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ONE);
   glBlendEquation(GL_FUNC_ADD);

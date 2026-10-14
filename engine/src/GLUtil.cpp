@@ -74,19 +74,29 @@ std::string readText(const std::string& p) {
   std::set<std::string> seen;
   return expand(p, seen, 0);
 }
+#ifndef GL_GEOMETRY_SHADER
+#define GL_GEOMETRY_SHADER 0x8DD9
+#endif
 unsigned linkProgram(const std::string& vs, const std::string& fs, std::string& err) {
-  GLuint v = 0, f = 0;
-  if (!shader(v, GL_VERTEX_SHADER, vs, err) || !shader(f, GL_FRAGMENT_SHADER, fs, err)) {
+  return linkProgram(vs, std::string(), fs, err);
+}
+unsigned linkProgram(const std::string& vs, const std::string& gs, const std::string& fs, std::string& err) {
+  GLuint v = 0, f = 0, g = 0;
+  if (!shader(v, GL_VERTEX_SHADER, vs, err) || !shader(f, GL_FRAGMENT_SHADER, fs, err) ||
+      (!gs.empty() && !shader(g, GL_GEOMETRY_SHADER, gs, err))) {
     if (v) glDeleteShader(v);
     if (f) glDeleteShader(f);
+    if (g) glDeleteShader(g);
     return 0;
   }
   GLuint p = glCreateProgram();
   glAttachShader(p, v);
+  if (g) glAttachShader(p, g);
   glAttachShader(p, f);
   glLinkProgram(p);
   glDeleteShader(v);
   glDeleteShader(f);
+  if (g) glDeleteShader(g);
   GLint ok = 0;
   glGetProgramiv(p, GL_LINK_STATUS, &ok);
   if (!ok) {

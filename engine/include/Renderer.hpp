@@ -74,6 +74,7 @@ public:
   const std::string& error() const { return error_; }
 
 private:
+  void setWireWidth(float lineWidth, float music) const;
   void cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const;
   bool createGl(const std::string& shaderDir);
   bool initPost(const std::string& shaderDir);
@@ -111,6 +112,8 @@ private:
   int uPostArt_ = -1, uPostArtOn_ = -1;
   SpecialFx fx_;
   Bloom bloom_;
+  bool wideWires_ = false;
+  int uViewport_ = -1, uWidthPx_ = -1;
   LookFx lookFx_;
   LookFx::Amounts look_;
   bool lookOk_ = false;
