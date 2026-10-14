@@ -2,6 +2,8 @@
 
 ## Unreleased: special effects
 
+- Key **C** saves the current frame as `demo-<date>-<time>.png` in the working directory; key **H** prints the key list.
+
 - Polish: background-style parsing, the fade state machine, parallax-gain cycle and idle sway moved into the pure, unit-tested `BackgroundStyle.hpp` (test B22); black hole ray-march exits early once the disk is opaque; calmer synthwave aurora.
 
 - Eye-candy pass: synthwave aurora curtains and sun reflection on the floor; nebula beat-driven supernova shells; mandala counter-rotating second fold; black hole spiral arms and orbiting hot spots; style changes now fade through black; `--background-style auto` cycles a new world every 40 s (V takes over).

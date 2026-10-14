@@ -22,6 +22,7 @@
 #include <chrono>
 #include <cmath>
 #include <csignal>
+#include <ctime>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -99,6 +100,7 @@ int run(Demo& demo, int argc, char** argv) {
   std::vector<fs::path> musicPaths;
   fs::path logoOverride;
   int bgStyle = 0;
+  bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
   bool noDepth = false, autoStyle = false;   // autoStyle: cycle the background styles by themselves
   double parallax = 1.6;   // gain on every pointer-driven depth offset (--parallax, key P)
   bool noTicker = false, noPost = false, noBackground = false, noLogo = false;
@@ -133,7 +135,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --version       Print version and exit\n"
                  "  -h, --help      Show this help\n"
                  "%s"
-                 "Keys: T ticker, B background, V background style, D depth layer, G parallax gain, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
+                 "Keys: T ticker, B background, V background style, D depth layer, G parallax gain, C capture PNG, H key list, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
                  cfg.title.c_str(), cfg.version.c_str(), cfg.binaryName.c_str(), cfg.defaultBpm, demo.usage().c_str());
   };
   for (int i = 1; i < argc; i++) {
@@ -426,6 +428,11 @@ int run(Demo& demo, int argc, char** argv) {
       bgstyle::sway(now, sx, sy);
       r.setPointer((ptrX + sx) * float(parallax), (ptrY + sy) * float(parallax), ptrPulse);
     }
+    if (input.pressed(Key::C)) captureNow = true;
+    if (input.pressed(Key::H))
+      std::fprintf(stdout,
+                   "keys: B background  V style  D depth  G parallax gain  L logos  T ticker  C capture PNG  H help  Esc quit\n"
+                   "      mouse = steer depth, click = shockwave\n");
     if (input.pressed(Key::G)) {
       parallax = bgstyle::nextGain(parallax);
       std::fprintf(stdout, "parallax: %.1f\n", parallax);
@@ -510,6 +517,16 @@ int run(Demo& demo, int argc, char** argv) {
         shotTaken = true;
       } else
         std::fprintf(stderr, "screenshot failed: %s\n", r.error().c_str());
+    }
+    if (captureNow) {
+      captureNow = false;
+      char stamp[48];
+      const std::time_t tt = std::time(nullptr);
+      std::strftime(stamp, sizeof stamp, "demo-%Y%m%d-%H%M%S.png", std::localtime(&tt));
+      if (r.screenshot(stamp, W, H))
+        std::fprintf(stdout, "captured: %s (%dx%d)\n", stamp, W, H);
+      else
+        std::fprintf(stderr, "capture failed: %s\n", r.error().c_str());
     }
     ++frameCount;
     if (maxFrames > 0 && frameCount >= maxFrames) {
