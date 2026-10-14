@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased: special effects
+- Refactor: `Camera.hpp` (pure camera/FOV, now keeps the horizontal field of view on windows narrower than 16:9; unchanged at 16:9 and wider),
+  `LogoShow.hpp` (pure logo fade/hold/black timing and Ken Burns zoom), `Describe.hpp` (scene description line). Unit-tested.
 - Scenes 67-72: hyperbolic city (#81), spherical universe (#82), geodesic lightning (#87/88), time-dilation cathedral (#14),
   discrete-space crystal (#83), conflict geometry (#74). Scene count is now 73.
 - `LookFx` pass (one shader, previous-frame aware, zero cost when off): chromatic gravity (#27), prediction failure storm (#33),

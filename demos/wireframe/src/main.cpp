@@ -4,6 +4,7 @@
 #include "Effects.hpp"
 #include "Scene.hpp"
 #include "Choreography.hpp"
+#include "Describe.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -176,15 +177,7 @@ public:
       out.scale *= .8f;
     } // golden orbit clouds: dense right out to the rim
     auto& si = scenes_.info(scene);
-    char idx[16];
-    std::snprintf(idx, sizeof idx, "[%02d]", scene);
-    out.ticker = std::string(idx) + " " + std::string(si.name) + "  -  " + std::string(si.provenance);
-    if (!recipeName.empty()) out.ticker += "  *  " + recipeName;
-    char bpmStr[16];
-    std::snprintf(bpmStr, sizeof bpmStr, " %dBPM", int(f.bpm + 0.5));
-    out.ticker += bpmStr;
-    const std::string credit = creditFor(f.musicPath); // follows the playlist
-    if (!credit.empty()) out.ticker += "  *  " + credit;
+    out.ticker = describeScene(scene, si.name, si.provenance, recipeName, f.bpm, creditFor(f.musicPath));
     return true;
   }
 

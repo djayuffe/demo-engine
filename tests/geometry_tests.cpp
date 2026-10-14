@@ -9,6 +9,9 @@
 #include "Timeline.hpp"
 #include "Effects.hpp"
 #include "Choreography.hpp"
+#include "Camera.hpp"
+#include "LogoShow.hpp"
+#include "Describe.hpp"
 #include "WindowSpec.hpp"
 #include <chrono>
 #include <thread>
@@ -98,6 +101,25 @@ int main() {
     req(std::fabs(after.beat - before.beat) < 1e-9, "retempo keeps the beat continuous");
     auto later = rt.sample(13.0);
     req(std::fabs(later.beat - (before.beat + 3.0 * 140.0 / 60.0)) < 1e-9, "retempo uses the new BPM afterwards");
+  }
+  // B20: camera field of view, logo show, scene description
+  {
+    const float v169 = cam::verticalFov(3.f, 0.f, 16.f / 9.f);
+    req(std::fabs(v169 - (52.f + 3.f * std::sin(.21f)) * cam::kPi / 180.f) < 1e-5f, "16:9 fov unchanged");
+    req(cam::verticalFov(3.f, 0.f, 1.f) > v169, "narrow window widens the vertical fov");
+    const float h169 = 2.f * std::atan(std::tan(v169 * .5f) * (16.f / 9.f)), h11 = 2.f * std::atan(std::tan(cam::verticalFov(3.f, 0.f, 1.f) * .5f));
+    req(std::fabs(h169 - h11) < 1e-3f, "horizontal fov is preserved on narrow windows");
+    req(cam::verticalFov(3.f, 0.f, .01f) <= 2.6f + 1e-6f, "fov capped");
+    const float id3[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+    float M[16];
+    cam::mvp(1.f, 1.6f, 1.f, 0.f, id3, M);
+    bool fin = true;
+    for (float x : M) fin = fin && std::isfinite(x);
+    req(fin, "camera matrix finite");
+    req(logoshow::at(0.0, 5).visibility == 0.f && logoshow::at(2.0, 5).visibility == 1.f, "logo fades in and holds");
+    req(logoshow::at(logoshow::kFadeIn + logoshow::kHold + logoshow::kFadeOut + 1.0, 5).visibility == 0.f, "logo black beat");
+    req(logoshow::at(logoshow::kCycle * 6.5, 5).card == 1, "logo cards cycle");
+    req(describeScene(3, "N", "p", "R", 132.4, "") == "[03] N  -  p  *  R 132BPM", "description format");
   }
   // B19: noncommutative camera choreography
   {

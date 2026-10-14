@@ -23,26 +23,12 @@
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
+#include "Camera.hpp"
+#include "LogoShow.hpp"
 namespace {
 using glutil::linkProgram;
 using glutil::readText;
 using glutil::setupFullscreenVao;
-void perspective(float* m, float fovy, float aspect, float zn, float zf) {
-  float f = 1 / std::tan(fovy * .5f);
-  for (int i = 0; i < 16; i++) m[i] = 0;
-  m[0] = f / aspect;
-  m[5] = f;
-  m[10] = (zf + zn) / (zn - zf);
-  m[11] = -1;
-  m[14] = (2 * zf * zn) / (zn - zf);
-}
-void mul(float* o, const float* a, const float* b) {
-  float r[16]{};
-  for (int c = 0; c < 4; c++)
-    for (int rr = 0; rr < 4; rr++)
-      for (int k = 0; k < 4; k++) r[c * 4 + rr] += a[k * 4 + rr] * b[c * 4 + k];
-  std::copy(r, r + 16, o);
-}
 } // namespace
 // Create all GL objects (programs, VAOs, buffers, textures, HDR FBO). Called by
 // init() and reinit() (after a context loss). Must run with a current context.
@@ -365,34 +351,7 @@ bool Renderer::upload(const Mesh3& m) {
 // modelShear_ (row-major 3x3, identity by default) is applied to the model first: it is how the
 // noncommutative-camera effect shears the world.
 void Renderer::cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const {
-  const float ml = std::clamp(musicLevel, 0.f, 1.f);
-  const float fly = std::sin(t * .19f), zoom = std::sin(t * .23f + 1.7f),
-              breath = 1.f + .075f * std::sin(t * .83f) + .12f * ml;
-  float P[16],
-      V[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, .22f * fly, .14f * std::cos(t * .13f),
-               -4.25f + .52f * zoom - .28f * ml, 1};
-  float Ry[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
-        Rx[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}, G[16] = {0}, R[16], RG[16], X[16];
-  const float cy = std::cos(t * .17f), sy = std::sin(t * .17f), cx = std::cos(.27f * std::sin(t * .11f)),
-              sx = std::sin(.27f * std::sin(t * .11f));
-  Ry[0] = cy * scale * breath;
-  Ry[2] = -sy * scale * breath;
-  Ry[8] = sy * scale * breath;
-  Ry[10] = cy * scale * breath;
-  Ry[5] = scale * breath;
-  Rx[5] = cx;
-  Rx[6] = sx;
-  Rx[9] = -sx;
-  Rx[10] = cx;
-  for (int r = 0; r < 3; ++r)
-    for (int c = 0; c < 3; ++c) G[c * 4 + r] = modelShear_[r * 3 + c];   // row-major 3x3 -> column-major 4x4
-  G[15] = 1.f;
-  perspective(P, (52.f + 3.f * std::sin(t * .07f) - 2.f * ml) * 3.14159265f / 180.f, std::max(.05f, aspect), .05f,
-              100.f);
-  mul(R, Ry, Rx);
-  mul(RG, R, G);
-  mul(X, V, RG);
-  mul(M, P, X);
+  cam::mvp(t, aspect, scale, musicLevel, modelShear_, M);
 }
 bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex, float scale, float lineWidth,
                     float musicLevel) {
@@ -521,37 +480,16 @@ bool Renderer::loadLogos(const std::string& dir) {
 bool Renderer::drawBackground(float time, int width, int height, int /*sceneIndex: reserved, the card is chosen by time*/,
                               float musicLevel, bool logoComposite) {
   if (!bgProgram_ || logos_.empty()) return false;
-  // Logo show, driven by time (not by scene changes): each card fades in, holds for a few seconds,
-  // fades out to black, then a short black beat shows only the wireframe, then the next card.
-  // Eased fades; the cycle never depends on the frame rate.
-  static constexpr double kFadeIn = 1.0, kHold = 3.5, kFadeOut = 1.0, kBlack = 9.0; // a long black beat between cards
-  static constexpr double kCycle = kFadeIn + kHold + kFadeOut + kBlack;
-  const int n = (int)logos_.size();
-  const double cyc = std::max(0.0, (double)time) / kCycle;
-  const int idx = int(std::floor(cyc)) % n;
-  const double ph = (cyc - std::floor(cyc)) * kCycle;
-  auto ease = [](double x) {
-    x = std::clamp(x, 0.0, 1.0);
-    return float(x * x * (3.0 - 2.0 * x));
-  };
-  float vis;
-  if (ph < kFadeIn)
-    vis = ease(ph / kFadeIn);
-  else if (ph < kFadeIn + kHold)
-    vis = 1.f;
-  else if (ph < kFadeIn + kHold + kFadeOut)
-    vis = 1.f - ease((ph - kFadeIn - kHold) / kFadeOut);
-  else
-    vis = 0.f;
-  logoVis_ = vis;
-  bgCurrent_ = bgTarget_ = idx;
+  const logoshow::State show = logoshow::at(time, (int)logos_.size());
+  logoVis_ = show.visibility;
+  bgCurrent_ = bgTarget_ = show.card;
   bgMix_ = 0.f;
-  bgTexA_ = bgTexB_ = logos_[idx].tex;
+  bgTexA_ = bgTexB_ = logos_[size_t(show.card)].tex;
   bgLastTime_ = time;
   if (!bgTexA_) bgTexA_ = logos_[0].tex;
   if (!bgTexB_) bgTexB_ = logos_[0].tex;
   // Ken Burns: slow zoom in/out.
-  float zoom = 1.05f + 0.04f * std::sin(time * 0.06f);
+  const float zoom = show.zoom;
   glUseProgram(bgProgram_);
   if (uBgMix_ >= 0) glUniform1f(uBgMix_, bgMix_);
   if (uBgZoom_ >= 0) glUniform1f(uBgZoom_, zoom);
