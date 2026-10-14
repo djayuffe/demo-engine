@@ -43,11 +43,12 @@ public:
     return false;
   }
   std::string usage() const override {
-    return "  --scene N       Start on scene N in manual mode (0-66; Space returns to auto)\n"
+    return "  --scene N       Start on scene N in manual mode (0-72; Space returns to auto)\n"
            "  --recipe N      Start in recipe mode with curated recipe N (0-29)\n"
            "Keys: Left/Right cycle scenes, Space back to auto, R recipe mode,\n"
            "      Up/Down cycle recipe, P re-roll mutation,\n"
-           "      N noncommutative camera, T temporal-refraction sphere, M memory layer (toggle in any scene)\n";
+           "      N noncommutative camera, Y temporal-refraction sphere, M memory layer,\n"
+           "      1-5 chromatic gravity / prediction failure / colorless matter / specular mutation / negative reflection\n";
   }
   bool init(const de::RunInfo& ri) override {
     recipeMode_ = haveRecipe_;
@@ -62,11 +63,18 @@ public:
     // Normalise the current scene before applying the delta so Left on scene 0 wraps to the last one.
     const int cur = manual_ < 0 ? autoScene : ((manual_ % n) + n) % n;
     for (auto [key, flag, name] : {std::tuple{de::Key::N, &forceShear_, "noncommutative camera"},
-                                    std::tuple{de::Key::T, &forceTemporal_, "temporal refraction"},
+                                    std::tuple{de::Key::Y, &forceTemporal_, "temporal refraction"},
                                     std::tuple{de::Key::M, &forceMemory_, "memory layer"}})
       if (in.pressed(key)) {
         *flag = !*flag;
         std::fprintf(stdout, "%s: %s\n", name, *flag ? "on" : "off");
+      }
+    for (int i = 0; i < 5; ++i)
+      if (in.pressed(de::Key::Num1 + i)) {
+        forceLook_[i] = !forceLook_[i];
+        static const char* const names[5] = {"chromatic gravity", "prediction failure", "colorless matter",
+                                             "specular mutation", "negative reflection"};
+        std::fprintf(stdout, "%s: %s\n", names[i], forceLook_[i] ? "on" : "off");
       }
     if (in.pressed(de::Key::Left)) manual_ = (cur - 1 + n) % n;
     if (in.pressed(de::Key::Right)) manual_ = (cur + 1) % n;
@@ -153,10 +161,11 @@ public:
     out.mesh = std::move(m);
     out.sceneIndex = scene;
     {
-      const choreo::Look look = choreo::forScene(scene, f.time, forceShear_, forceTemporal_, forceMemory_);
+      const choreo::Look look = choreo::forScene(scene, f.time, forceShear_, forceTemporal_, forceMemory_, forceLook_);
       std::copy(look.shear.m, look.shear.m + 9, out.modelTransform);
       out.temporalRefraction = look.temporal;
       out.memory = look.memory;
+      std::copy(look.look, look.look + 5, out.look);
     }
     out.scale =
         1.f + .11f * std::sin(float(f.time) * .41f + float(scene) * .37f) + .07f * f.sync.pulse; // breathing size cycle
@@ -184,6 +193,7 @@ private:
   uint64_t seed_ = 0x49574f424a454354ull;
   int manual_ = -1, lastScene_ = -1;
   bool forceShear_ = false, forceTemporal_ = false, forceMemory_ = false;
+  bool forceLook_[5] = {false, false, false, false, false};
   bool haveRecipe_ = false, recipeMode_ = false;
   int recipeArg_ = 0, recipeChoice_ = 0;
   uint32_t baseSeed_ = 0x50454646u;

@@ -2,6 +2,7 @@
 #include "Geometry.hpp"
 #include "SpecialFx.hpp"
 #include "Bloom.hpp"
+#include "LookFx.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <string>
@@ -62,6 +63,11 @@ public:
   void setTemporalRefraction(float a) { temporalAmt_ = std::clamp(a, 0.f, 1.f); }
   // 0..1 strength of the persistent memory layer (advected, diffused, hue-ageing ghosts of past frames).
   void setMemory(float a) { memoryAmt_ = std::clamp(a, 0.f, 1.f); }
+  // Five 0..1 look strengths: chromatic gravity, prediction failure, colorless matter, specular mutation, negative reflection.
+  void setLook(const float a[5]) {
+    look_ = {std::clamp(a[0], 0.f, 1.f), std::clamp(a[1], 0.f, 1.f), std::clamp(a[2], 0.f, 1.f), std::clamp(a[3], 0.f, 1.f),
+             std::clamp(a[4], 0.f, 1.f)};
+  }
   const std::string& error() const { return error_; }
 
 private:
@@ -104,6 +110,9 @@ private:
       uArtGold_ = -1, uArtFx_ = -1, uPostArt_ = -1, uPostArtOn_ = -1;
   SpecialFx fx_;
   Bloom bloom_;
+  LookFx lookFx_;
+  LookFx::Amounts look_;
+  bool lookOk_ = false;
   int uPostBloom_ = -1;
   bool bloomOk_ = false;
   float modelShear_[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};

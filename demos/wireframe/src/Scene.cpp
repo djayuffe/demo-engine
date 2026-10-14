@@ -7,7 +7,7 @@
 #include <chrono>
 #include <cmath>
 namespace {
-constexpr std::array<SceneInfo, 67> S{
+constexpr std::array<SceneInfo, 73> S{
     {{0, "600-cell projection", true, 60, "exact 600-cell + 4D projection"},
      {1, "600-cell slice", true, 30, "exact face/hyperplane intersection"},
      {2, "Gyroid", true, 6, "numerical implicit"},
@@ -75,7 +75,13 @@ constexpr std::array<SceneInfo, 67> S{
      {63, "Relational gravity", true, 12, "similarity-in-feature-space attraction, drifting features"},
      {64, "Data-collision sculpture", true, 15, "one word buffer decoded four incompatible ways"},
      {65, "Self-refuting object", true, 12, "r=F(r) with a repelling fixed point, bounded solver"},
-     {66, "Contradictory silhouette", true, 10, "visual hull of disk, cathedral and gear-star silhouettes"}}};
+     {66, "Contradictory silhouette", true, 10, "visual hull of disk, cathedral and gear-star silhouettes"},
+     {67, "Hyperbolic city", true, 20, "hyperboloid model, curvature breathing flat to negative, ruffled crochet sheet"},
+     {68, "Spherical universe", true, 20, "S3 geodesic lattice, stereographic view from a drifting observer"},
+     {69, "Geodesic lightning", true, 20, "rays in a mutating conformal metric, d/ds(n dx/ds)=grad n"},
+     {70, "Time-dilation cathedral", true, 24, "local clock field slows bays near a moving mass"},
+     {71, "Discrete-space crystal", true, 12, "lattice with dynamic bonds and wormholes, spring-relaxed"},
+     {72, "Conflict geometry", true, 12, "contours of f1-f2 for two disagreeing implicit worlds"}}};
 }
 SceneSystem::SceneSystem() : c600_(geo::cell600()), c120_(geo::cell120Vertices()) {}
 const SceneInfo& SceneSystem::info(int id) const {
@@ -152,6 +158,12 @@ Mesh3 SceneSystem::build(int id, uint64_t tick, uint64_t seed) const {
     case 64: m = geo::dataCollisionSculpture(t); break;
     case 65: m = geo::selfRefutingObject(t); break;
     case 66: m = geo::contradictorySilhouette(t); break;
+    case 67: m = geo::hyperbolicCity(t); break;
+    case 68: m = geo::sphericalUniverse(t); break;
+    case 69: m = geo::geodesicLightning(t); break;
+    case 70: m = geo::timeDilationCathedral(t); break;
+    case 71: m = geo::discreteSpaceCrystal(t); break;
+    case 72: m = geo::conflictGeometry(t); break;
     case 57:
     case 58: {
       // The renderer spins every scene about y at 0.17 rad/s; these clouds are flat-ish, so cancel the spin

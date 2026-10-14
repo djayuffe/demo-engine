@@ -114,7 +114,7 @@ int main() {
   // B18: scene-table consistency
   {
     SceneSystem ss;
-    req(ss.count() == 67, "scene count 67");
+    req(ss.count() == 73, "scene count 73");
     for (int i = 0; i < ss.count(); ++i) {
       auto& si = ss.info(i);
       req(si.id == i, "scene id==index");
@@ -131,10 +131,10 @@ int main() {
     // B7: dynamic scene tick advances with time (scene 2 = 6 Hz, use 0.2s = 1.2 ticks)
     req(SceneSystem::tickFor(ss.info(2), 0.2) > SceneSystem::tickFor(ss.info(2), 0.0), "dynamic tick advances");
   }
-  // Impossible-geometry scenes 59..66: valid, finite, duplicate-free, deterministic, edge-budgeted at several times
+  // Impossible-geometry scenes 59..72: valid, finite, duplicate-free, deterministic, edge-budgeted at several times
   {
     SceneSystem a, b;
-    for (int id = 59; id < 67; ++id)
+    for (int id = 59; id < 73; ++id)
       for (double sec : {0.0, 2.6, 17.3}) {
         const Mesh3& m = a.mesh(id, sec, 42);
         mesh(m, "impossible scene");

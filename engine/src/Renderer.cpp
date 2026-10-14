@@ -84,6 +84,8 @@ bool Renderer::createGl(const std::string& dir) {
   initTravelers(dir);
   // Non-fatal as well: without these shaders the temporal-refraction and memory effects are simply off.
   if (!fx_.init(dir, error_)) error_ = "special effects unavailable: " + error_;
+  lookOk_ = lookFx_.init(dir, error_);
+  if (!lookOk_) error_ = "look effects unavailable: " + error_;
   bloomOk_ = bloom_.init(dir, error_);
   if (!bloomOk_) error_ = "bloom unavailable: " + error_;
   glEnable(GL_DEPTH_TEST);
@@ -105,6 +107,7 @@ bool Renderer::reinit(const std::string& dir) {
   // We do NOT touch the logo image data (logos_) — only their GL textures.
   fx_.shutdown();
   bloom_.shutdown();
+  lookFx_.shutdown();
   if (hdrFbo_) glDeleteFramebuffers(1, &hdrFbo_);
   if (hdrTex_) glDeleteTextures(1, &hdrTex_);
   if (depthRbo_) glDeleteRenderbuffers(1, &depthRbo_);
@@ -320,6 +323,7 @@ bool Renderer::resizeHdr(int width, int height) {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   if (!fx_.resize(width, height, error_)) return false;
   if (bloomOk_ && !bloom_.resize(width, height, error_)) bloomOk_ = false;
+  if (lookOk_ && !lookFx_.resize(width, height, error_)) lookOk_ = false;
   return true;
 }
 // Additive lines pile up: the 600-cell projection draws ~1200 edges through the same pixels and
@@ -625,7 +629,9 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   if (!logoCapturePending_) return false;
   logoCapturePending_ = false;
   // Temporal refraction / memory layer: returns the HDR scene itself, untouched and free, when both are off.
-  const unsigned postSceneTex = fx_.apply(hdrTex_, time, float(hdrW_) / float(std::max(1, hdrH_)), temporalAmt_, memoryAmt_);
+  const float aspectHdr = float(hdrW_) / float(std::max(1, hdrH_));
+  unsigned postSceneTex = fx_.apply(hdrTex_, time, aspectHdr, temporalAmt_, memoryAmt_);
+  if (lookOk_ && postEnabled_) postSceneTex = lookFx_.apply(postSceneTex, time, aspectHdr, look_);
   const unsigned bloomTex = (bloomOk_ && postEnabled_) ? bloom_.apply(postSceneTex) : 0;
   // Art pass: the procedural background, at half resolution. Its weight in post.frag is
   // (1 - hasLogo), so it is skipped outright while a logo card fully covers the screen (and with
@@ -786,6 +792,7 @@ bool Renderer::drawScroller(float time, float beatPhase, int width, int height, 
 void Renderer::shutdown() {
   fx_.shutdown();
   bloom_.shutdown();
+  lookFx_.shutdown();
   if (artProgram_) glDeleteProgram(artProgram_);
   if (artFbo_) glDeleteFramebuffers(1, &artFbo_);
   if (artTex_) glDeleteTextures(1, &artTex_);

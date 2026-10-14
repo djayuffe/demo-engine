@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased: special effects
+- Scenes 67-72: hyperbolic city (#81), spherical universe (#82), geodesic lightning (#87/88), time-dilation cathedral (#14),
+  discrete-space crystal (#83), conflict geometry (#74). Scene count is now 73.
+- `LookFx` pass (one shader, previous-frame aware, zero cost when off): chromatic gravity (#27), prediction failure storm (#33),
+  colorless chromatic matter (#23), specular mutation (#30), negative reflection (#24). `Frame::look[5]`; keys 1-5.
+- Demo key for the temporal sphere moved from T to Y (T is the engine's ticker toggle).
 - New `SpecialFx` pass (GL 4.1, no compute/texture arrays): temporal-refraction sphere (#13, 16-frame history atlas),
   persistent memory layer (#25, advected/diffusing/hue-ageing half-res ping-pong). Returns the scene texture untouched
   (zero cost) when both are off.

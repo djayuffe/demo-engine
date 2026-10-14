@@ -79,3 +79,7 @@ Windows only exports OpenGL 1.1 from `opengl32.dll`, so `GLWin32.hpp` declares t
 `engine/src/SpecialFx.cpp` runs between the HDR capture and the post pass: a 4x4 atlas ring of past frames feeds the
 temporal-refraction sphere (`spec.frag`); `memory.frag` advects, diffuses and hue-ages a half-res feedback buffer.
 The camera shear is applied in `Renderer::cameraMvp` between rotation and view. Controlled per frame via `de::Frame`.
+
+## LookFx and Bloom
+`LookFx` (after SpecialFx, before the post pass) runs one shader over the HDR scene plus a copy of the previous frame; with every
+strength at zero it returns its input untouched. `Bloom` builds a 6-level dual-filter pyramid that post.frag samples.

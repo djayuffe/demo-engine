@@ -27,6 +27,15 @@ V3 rotX(V3 p,float a){float c=std::cos(a),s=std::sin(a);return{p.x,c*p.y-s*p.z,s
 uint32_t hash32(uint32_t x){x^=x>>16;x*=0x7feb352dU;x^=x>>15;x*=0x846ca68bU;x^=x>>16;return x;}
 float u01(uint32_t h){return float(h>>8)*(1.f/16777216.f);}
 float frac(float x){return x-std::floor(x);}
+// Centre a mesh on its bounding box and scale it so the farthest vertex sits at radius r (0 = leave alone).
+Mesh3 fit(Mesh3 m,float r){
+  if(m.v.empty())return m;
+  V3 lo=m.v[0],hi=m.v[0];
+  for(auto& p:m.v){lo={std::min(lo.x,p.x),std::min(lo.y,p.y),std::min(lo.z,p.z)};hi={std::max(hi.x,p.x),std::max(hi.y,p.y),std::max(hi.z,p.z)};}
+  V3 c=mul(add3(lo,hi),.5f);float far=1e-6f;
+  for(auto& p:m.v){p=sub(p,c);far=std::max(far,len(p));}
+  for(auto& p:m.v)p=mul(p,r/far);
+  return m;}
 // A (g+1)^3 vertex lattice that emits the exposed faces of a solid voxel set as wire quads.
 struct Lattice{
   int g;float lo,cell;Builder B;std::vector<int> id;
@@ -253,5 +262,192 @@ Mesh3 contradictorySilhouette(float t,unsigned grid){
   Mesh3 m=std::move(L.B.m);for(auto& p:m.v)p=mul(p,1.5f);
   if(m.v.empty()){Builder B;B.edge(B.add({0,0,0}),B.add({.01f,0,0}));return B.m;}
   return m;
+}
+
+// ---- scenes 67..72: spec families I, E, B, H ------------------------------------------------------
+
+// #81 Hyperbolic city: the hyperboloid model with curvature k breathing from flat to strongly negative.
+// Radius r maps to (sinh(kr)/k) round the circle and cosh height, so circumference grows exponentially and
+// the sheet must ruffle (the crochet-coral shape). Towers stand on every ring/spoke crossing.
+Mesh3 hyperbolicCity(float t){
+  Builder B;const int R=22,S=72;
+  const float k=.25f+1.35f*(.5f-.5f*std::cos(t*.35f)),rmax=2.6f;
+  auto at=[&](int ri,int si,float h)->V3{
+    float r=rmax*float(ri)/float(R),a=kTau*float(si)/float(S);
+    float rho=std::sinh(k*r)/k,z=(std::cosh(k*r)-1.f)/k;
+    // ruffle: excess circumference is absorbed by out-of-plane waves whose count grows with r
+    float w=.045f*rho*std::sin(a*(4.f+std::floor(r*3.f))+t*.8f);
+    float rr=rho*.34f;
+    return{rr*std::cos(a),(z*.34f-.9f)+w*.5f+h,rr*std::sin(a)};};
+  std::vector<uint32_t> id(static_cast<size_t>(R+1)*S);
+  for(int ri=0;ri<=R;++ri)for(int si=0;si<S;++si)id[size_t(ri)*S+si]=B.add(at(ri,si,0));
+  for(int ri=0;ri<=R;++ri)for(int si=0;si<S;++si){
+    if(ri<R)B.edge(id[size_t(ri)*S+si],id[size_t(ri+1)*S+si]);
+    B.edge(id[size_t(ri)*S+si],id[size_t(ri)*S+(si+1)%S]);}
+  for(int ri=4;ri<=R;ri+=2)for(int si=0;si<S;si+=3){
+    uint32_t h=hash32(uint32_t(ri*977+si*131));
+    if(h&3)continue;
+    float ht=.05f+.22f*u01(h>>3)*(.5f+float(ri)/float(R));
+    uint32_t top=B.add(at(ri,si,ht));B.edge(id[size_t(ri)*S+si],top);
+    uint32_t top2=B.add(at(ri,(si+1)%S,ht));B.edge(id[size_t(ri)*S+(si+1)%S],top2);B.edge(top,top2);}
+  return fit(std::move(B.m),1.9f);
+}
+
+// #82 Spherical universe: a lattice of geodesics on S^3 (hyper-latitude, polar, azimuth) seen by an
+// observer who drifts through it; stereographic projection puts the far hemisphere inside the near one.
+Mesh3 sphericalUniverse(float t){
+  Builder B;const int NC=8,NT=10,NP=18;
+  const float a1=t*.23f,a2=t*.17f;
+  auto pt=[&](int ci,int ti,int pi)->V3{
+    float chi=kPi*(float(ci)+.5f)/float(NC),th=kPi*(float(ti)+.5f)/float(NT),ph=kTau*float(pi)/float(NP);
+    float x=std::sin(chi)*std::sin(th)*std::cos(ph),y=std::sin(chi)*std::sin(th)*std::sin(ph),
+          z=std::sin(chi)*std::cos(th),w=std::cos(chi);
+    float c=std::cos(a1),s=std::sin(a1);float x2=c*x+s*w,w2=-s*x+c*w;           // 4D rotation xw
+    c=std::cos(a2);s=std::sin(a2);float y2=c*y+s*w2,w3=-s*y+c*w2;                 // 4D rotation yw
+    float d=std::max(.12f,1.02f-w3);                                              // stereographic from w
+    return{x2/d*1.3f,y2/d*1.3f,z/d*1.3f};};
+  std::vector<uint32_t> id(static_cast<size_t>(NC)*NT*NP);
+  auto I=[&](int c,int th,int p){return size_t((c*NT+th)*NP+p%NP);};
+  for(int c=0;c<NC;++c)for(int th=0;th<NT;++th)for(int p=0;p<NP;++p)id[I(c,th,p)]=B.add(pt(c,th,p));
+  for(int c=0;c<NC;++c)for(int th=0;th<NT;++th)for(int p=0;p<NP;++p){
+    B.edge(id[I(c,th,p)],id[I(c,th,p+1)]);
+    if(th+1<NT)B.edge(id[I(c,th,p)],id[I(c,th+1,p)]);
+    if(c+1<NC&&(p&1)==0)B.edge(id[I(c,th,p)],id[I(c+1,th,p)]);}
+  for(auto& v:B.m.v){float l=len(v);if(l>3.2f)v=mul(v,3.2f/l);}               // keep the far pole on screen
+  return fit(std::move(B.m),1.9f);
+}
+
+// #87/#88 Geodesic lightning: light rays in a metric whose conformal factor n(x) = exp(phi) is a set of
+// moving gaussian lenses (the metric mutates). Rays obey d/ds (n dx/ds) = grad n, integrated numerically.
+Mesh3 geodesicLightning(float t){
+  Builder B;const int rays=120,steps=110;
+  struct Lens{V3 c;float k,s;};
+  Lens L[4];
+  for(int i=0;i<4;++i){float a=t*(.21f+.07f*float(i))+float(i)*1.9f;
+    L[i]={{1.15f*std::cos(a),.7f*std::sin(a*1.3f+float(i)),1.0f*std::sin(a*.8f)},(i&1?-.9f:1.4f),.55f+.1f*float(i)};}
+  auto phi=[&](V3 p){float f=0;for(auto& l:L){V3 d=sub(p,l.c);f+=l.k*std::exp(-dot(d,d)/(l.s*l.s));}return f;};
+  for(int r=0;r<rays;++r){
+    uint32_t h=hash32(uint32_t(r)*2654435761u+7u);
+    float a=kTau*u01(h),b=std::acos(1.f-2.f*u01(hash32(h)));
+    V3 p={-2.6f,-.4f+.8f*u01(hash32(h+1))*std::sin(float(r)),0};
+    V3 d=norm({std::cos(a)*.35f+1.f,std::sin(b)*.3f*std::sin(a),std::cos(b)*.3f});
+    uint32_t prev=B.add(p);
+    for(int i=0;i<steps;++i){
+      float e=.012f;V3 g={(phi({p.x+e,p.y,p.z})-phi({p.x-e,p.y,p.z}))/(2*e),
+                           (phi({p.x,p.y+e,p.z})-phi({p.x,p.y-e,p.z}))/(2*e),
+                           (phi({p.x,p.y,p.z+e})-phi({p.x,p.y,p.z-e}))/(2*e)};
+      V3 gp=sub(g,mul(d,dot(g,d)));d=norm(add3(d,mul(gp,.045f)));
+      p=add3(p,mul(d,.046f));
+      float jit=.012f*std::sin(float(i)*1.7f+float(r)+t*9.f);               // lightning crackle
+      uint32_t cur=B.add({p.x,p.y+jit,p.z});B.edge(prev,cur);prev=cur;
+      if(len(p)>3.0f)break;}}
+  return fit(std::move(B.m),1.9f);
+}
+
+// #14 Time-dilation cathedral: pointed arches and columns; a local clock field slows time near moving
+// "mass" points, so neighbouring bays sway at visibly different phases.
+Mesh3 timeDilationCathedral(float t){
+  Builder B;const int bays=9,seg=14;
+  const float mx=2.2f*std::sin(t*.17f),mz=.4f*std::cos(t*.23f);
+  auto clock=[&](float x,float z){float dx=x-mx,dz=z-mz;return 1.f/(1.f+3.5f*std::exp(-(dx*dx+dz*dz)*.6f));};
+  float phase[bays];float acc=0;
+  for(int i=0;i<bays;++i){float x=-4.f+float(i)*1.0f;acc=t*clock(x,0)*1.6f;phase[i]=acc;}
+  std::vector<uint32_t> colL(bays),colR(bays);
+  for(int i=0;i<bays;++i){
+    float x=-4.f+float(i)*1.0f,ph=phase[i];
+    float sway=.12f*std::sin(ph+float(i)*.7f),lift=.1f*std::sin(ph*.7f+1.f);
+    uint32_t prevL=0,prevR=0;
+    for(int s=0;s<=seg;++s){
+      float u=float(s)/float(seg);
+      float w=.85f,hgt=.85f;                                                 // half span, spring height
+      for(int side=-1;side<=1;side+=2){
+        float y=-.9f+u*hgt;
+        V3 p={x+sway*u,y+lift*u,float(side)*w};
+        uint32_t id=B.add(p);
+        uint32_t& pv=(side<0?prevL:prevR);
+        if(s>0)B.edge(pv,id);else (side<0?colL:colR)[size_t(i)]=id;
+        pv=id;}
+      }
+    // pointed arch: two circular arcs of radius = span meeting at the apex
+    uint32_t apexPrev=0;
+    for(int s=0;s<=seg;++s){
+      float u=float(s)/float(seg);                                           // 0 left spring .. 1 right spring
+      float zz=-.85f+1.7f*u,half=u<.5f?u:1.f-u;
+      float ang=half*kPi*.5f*1.f;                                            // 0..pi/4 quarter-arc
+      float hy=std::sin(ang*2.f)*.85f*.9f;
+      V3 p={x+sway+.0f,-.05f+lift+hy+.0f,zz};
+      uint32_t id=B.add(p);
+      if(s>0)B.edge(apexPrev,id);
+      apexPrev=id;}
+    if(i>0){ // longitudinal ribs along the nave tie bays together at the springing and apex
+      uint32_t a=B.add({x-1.f+sway,-.9f+.85f,-.85f}),b=B.add({x+sway,-.9f+.85f,-.85f});B.edge(a,b);
+      uint32_t c=B.add({x-1.f+sway,-.9f+.85f,.85f}),d=B.add({x+sway,-.9f+.85f,.85f});B.edge(c,d);}
+  }
+  for(int i=0;i+1<bays;++i){
+    float x0=-4.f+float(i),x1=x0+1.f,sw0=.12f*std::sin(phase[i]+float(i)*.7f),sw1=.12f*std::sin(phase[i+1]+float(i+1)*.7f);
+    for(int side=-1;side<=1;side+=2)for(int lv=1;lv<=4;++lv){
+      float y=-.9f+.85f*float(lv)/4.f,z=float(side)*.85f;
+      B.edge(B.add({x0+sw0*float(lv)/4.f,y,z}),B.add({x1+sw1*float(lv)/4.f,y,z}));}
+    uint32_t a=B.add({x0+sw0,-.05f,-.85f}),b=B.add({x1+sw1,-.05f,.85f}),c=B.add({x0+sw0,-.05f,.85f}),d=B.add({x1+sw1,-.05f,-.85f});
+    uint32_t m1=B.add({(x0+x1)*.5f+.5f*(sw0+sw1),.72f,0});
+    B.edge(a,m1);B.edge(m1,b);B.edge(c,m1);B.edge(m1,d);}
+  for(auto& p:B.m.v)p=rotX(rotY(p,.7f),.28f);
+  return fit(std::move(B.m),2.0f);
+}
+
+// #83 Discrete-space crystal: a cubic lattice whose connectivity is dynamic. A moving field removes
+// bonds and grows long-range ones; a few spring-relaxation steps then let the geometry follow the graph.
+Mesh3 discreteSpaceCrystal(float t){
+  Builder B;const int n=8;const float sp=.42f;
+  const int N=n*n*n;std::vector<V3> pos(static_cast<size_t>(N)),rest(static_cast<size_t>(N));
+  auto I=[&](int x,int y,int z){return (z*n+y)*n+x;};
+  for(int z=0;z<n;++z)for(int y=0;y<n;++y)for(int x=0;x<n;++x){
+    V3 p={(float(x)-3.5f)*sp,(float(y)-3.5f)*sp,(float(z)-3.5f)*sp};pos[size_t(I(x,y,z))]=rest[size_t(I(x,y,z))]=p;}
+  std::vector<std::pair<int,int>> bonds;
+  auto field=[&](V3 p){return std::sin(p.x*2.1f+t*.7f)*std::sin(p.y*1.7f-t*.5f)+std::sin(p.z*2.3f+t*.4f)*.8f;};
+  for(int z=0;z<n;++z)for(int y=0;y<n;++y)for(int x=0;x<n;++x){
+    int a=I(x,y,z);
+    int nb[3][3]={{1,0,0},{0,1,0},{0,0,1}};
+    for(auto& d:nb){int X=x+d[0],Y=y+d[1],Z=z+d[2];if(X>=n||Y>=n||Z>=n)continue;
+      V3 mid=mul(add3(rest[size_t(a)],rest[size_t(I(X,Y,Z))]),.5f);
+      if(field(mid)>.78f)continue;                                          // bond cut
+      bonds.push_back({a,I(X,Y,Z)});}
+    V3 p=rest[size_t(a)];                                                    // wormhole bond across the crystal
+    if(field(p)<-.9f){int X=n-1-x,Y=y,Z=n-1-z;if(X!=x||Z!=z)bonds.push_back({a,I(X,Y,Z)});}}
+  for(int it=0;it<22;++it){
+    std::vector<V3> f(static_cast<size_t>(N),V3{0,0,0});
+    for(auto& b:bonds){V3 d=sub(pos[size_t(b.second)],pos[size_t(b.first)]);float l=len(d);if(l<1e-6f)continue;
+      V3 F=mul(d,(l-sp)/l*.35f);f[size_t(b.first)]=add3(f[size_t(b.first)],F);f[size_t(b.second)]=sub(f[size_t(b.second)],F);}
+    for(int i=0;i<N;++i)pos[size_t(i)]=add3(pos[size_t(i)],add3(mul(f[size_t(i)],.5f),mul(sub(rest[size_t(i)],pos[size_t(i)]),.015f)));}
+  std::vector<uint32_t> id(static_cast<size_t>(N));for(int i=0;i<N;++i)id[size_t(i)]=B.add(pos[size_t(i)]);
+  for(auto& b:bonds)B.edge(id[size_t(b.first)],id[size_t(b.second)]);
+  return fit(std::move(B.m),1.9f);
+}
+
+// #74 Conflict geometry: two implicit fields (a torus and a gyroid-warped sphere) disagree about where
+// the surface is. The difference field D = f1 - f2 is contoured on stacked slices (marching squares), so
+// the wires trace the regions where the two worlds contradict each other.
+Mesh3 conflictGeometry(float t){
+  Builder B;const int G=64,Z=22;const float half=1.5f;
+  auto f1=[&](float x,float y,float z){float q=std::sqrt(x*x+z*z)-1.0f;return std::sqrt(q*q+y*y)-.45f;};
+  auto f2=[&](float x,float y,float z){float c=std::cos(t*.4f),s=std::sin(t*.4f);float X=c*x+s*z,Zr=-s*x+c*z;
+    return std::sqrt(X*X+y*y+Zr*Zr)-1.05f+.28f*std::sin(3.f*X+t)*std::sin(3.f*y)*std::sin(3.f*Zr);};
+  for(int k=0;k<Z;++k){
+    float z=-half+2.f*half*(float(k)+.5f)/float(Z);
+    std::vector<float> D(static_cast<size_t>(G+1)*(G+1));
+    for(int j=0;j<=G;++j)for(int i=0;i<=G;++i){
+      float x=-half+2.f*half*float(i)/float(G),y=-half+2.f*half*float(j)/float(G);
+      D[size_t(j)*(G+1)+i]=f1(x,y,z)-f2(x,y,z);}
+    auto P=[&](int i,int j){return V3{-half+2.f*half*float(i)/float(G),-half+2.f*half*float(j)/float(G),z};};
+    for(int j=0;j<G;++j)for(int i=0;i<G;++i){
+      float c[4]={D[size_t(j)*(G+1)+i],D[size_t(j)*(G+1)+i+1],D[size_t(j+1)*(G+1)+i+1],D[size_t(j+1)*(G+1)+i]};
+      V3 q[4]={P(i,j),P(i+1,j),P(i+1,j+1),P(i,j+1)};
+      uint32_t pts[4];int np=0;
+      for(int e=0;e<4;++e){int e2=(e+1)&3;if((c[e]<0)!=(c[e2]<0)){float u=c[e]/(c[e]-c[e2]);
+        pts[np++]=B.add(add3(q[e],mul(sub(q[e2],q[e]),u)));}}
+      if(np==2)B.edge(pts[0],pts[1]);else if(np==4){B.edge(pts[0],pts[1]);B.edge(pts[2],pts[3]);}}
+  }
+  if(B.m.v.empty()){B.edge(B.add({0,0,0}),B.add({.01f,0,0}));}
+  return fit(std::move(B.m),1.9f);
 }
 }

@@ -28,4 +28,12 @@ Mesh3 selfRefutingObject(float t=0.f,unsigned iterations=9);
 // #8 Contradictory silhouette: the visual hull of three incompatible silhouettes (disk, cathedral, gear
 // star) seen along three axes, carved on a voxel grid and drawn as its exposed lattice faces.
 Mesh3 contradictorySilhouette(float t=0.f,unsigned grid=30);
+// Scenes 67..72 (spec families I, H, B, E): #81 hyperbolic city, #82 spherical universe, #88 geodesic lightning,
+// #14 time-dilation cathedral, #83 discrete-space crystal, #74 conflict geometry.
+Mesh3 hyperbolicCity(float t=0.f);
+Mesh3 sphericalUniverse(float t=0.f);
+Mesh3 geodesicLightning(float t=0.f);
+Mesh3 timeDilationCathedral(float t=0.f);
+Mesh3 discreteSpaceCrystal(float t=0.f);
+Mesh3 conflictGeometry(float t=0.f);
 }

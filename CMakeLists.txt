@@ -169,7 +169,7 @@ if(OpenGL_FOUND AND glfw3_FOUND)
  if(NOT EXISTS ${CMAKE_SOURCE_DIR}/engine/shaders/wire.vert)
   message(FATAL_ERROR "engine/shaders/ (wire.vert) missing; cannot build the engine")
  endif()
- add_library(de_engine engine/src/Engine.cpp engine/src/Renderer.cpp engine/src/GLUtil.cpp engine/src/SpecialFx.cpp engine/src/Bloom.cpp engine/src/Audio.cpp engine/src/GLWin32.cpp)
+ add_library(de_engine engine/src/Engine.cpp engine/src/Renderer.cpp engine/src/GLUtil.cpp engine/src/SpecialFx.cpp engine/src/Bloom.cpp engine/src/LookFx.cpp engine/src/Audio.cpp engine/src/GLWin32.cpp)
  target_include_directories(de_engine PUBLIC engine/include thirdparty)
  target_link_libraries(de_engine PUBLIC de_core ${IW_GLFW_TARGET})
  # macOS OpenGL: prefer a real dylib over the CLT SDK's -framework OpenGL (whose .tbd stub some

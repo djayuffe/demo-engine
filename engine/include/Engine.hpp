@@ -78,6 +78,8 @@ struct Frame {
   float modelTransform[9]={1,0,0,0,1,0,0,0,1};   // row-major 3x3 applied to the model before the camera (shears)
   float temporalRefraction=0.f;                   // 0..1: a glass sphere that shows the scene from other moments
   float memory=0.f;                               // 0..1: persistent, drifting ghosts of past frames
+  // 0..1 look effects: chromatic gravity, prediction failure, colorless matter, specular mutation, negative reflection
+  float look[5]={0,0,0,0,0};
   int wireStyle=0;             // 0 = electric palette, 1 = golden glimmer (additive, no depth test, gold glints)
   std::string ticker;          // text for the ticker band; empty = nothing
 };
