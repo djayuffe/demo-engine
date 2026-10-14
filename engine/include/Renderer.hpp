@@ -113,7 +113,9 @@ private:
   int uTrMVP_ = -1, uTrTime_ = -1, uTrColor_ = -1, uTrSpeed_ = -1;
   bool hasLogos_ = false;
   bool showLogos_ = true, showBackground_ = true;
-  int bgStyle_ = 0;
+  int bgStyle_ = 0;               // requested style
+  int shownStyle_ = 0;            // style actually on screen (lags the request by a fade-through-black)
+  float styleFade_ = 1.f, lastArtT_ = -1.f;
   bool showDepth_ = true;
   float ptrX_ = 0, ptrY_ = 0, ptrPulse_ = 0;
   bool logosActive() const { return hasLogos_ && showLogos_; }

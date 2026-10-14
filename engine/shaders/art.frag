@@ -23,6 +23,7 @@ uniform float uGold;
 // Background style: 0 = classic generative blend, 1 = synthwave, 2 = nebula, 3 = mandala, 4 = black hole.
 uniform int uStyle;
 uniform vec2 uPointer;   // -1..1, y up: every style reacts to it
+uniform float uFade;     // 0..1 style transition (fade through black)
 uniform float uPulse;    // click impulse 1 -> 0
 
 #include "lib/common.glsl"
@@ -71,7 +72,7 @@ void main(){
   if(uStyle>0){
     // Selectable style: a single self-contained scene, still faded out by the logo / fx amount.
     vec3 sc=styleLayer(uStyle,p,mlev,beat)*(1.0-hasLogo)*(1.0-.5*uGold);
-    FragColor=vec4(max(sc,vec3(0.)),1.0);
+    FragColor=vec4(max(sc,vec3(0.))*uFade,1.0);
     return;
   }
   float n=fbm(p*1.7+uTime*.035);
@@ -93,5 +94,5 @@ void main(){
   bg+=pal(uTime*.04+n2*.18+length(p)*.045)*tunnel*(.08+.22*uMusicLevel);
   bg+=pal(uTime*.06+p.x*.025)*matrix*(.018+.075*uMusicLevel);
   bg+=pal(uTime*.05+.3)*glimmer;
-  FragColor=vec4(bg,1.0);
+  FragColor=vec4(bg*uFade,1.0);
 }

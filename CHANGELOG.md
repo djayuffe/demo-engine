@@ -2,6 +2,8 @@
 
 ## Unreleased: special effects
 
+- Eye-candy pass: synthwave aurora curtains and sun reflection on the floor; nebula beat-driven supernova shells; mandala counter-rotating second fold; black hole spiral arms and orbiting hot spots; style changes now fade through black; `--background-style auto` cycles a new world every 40 s (V takes over).
+
 - Maximised per-layer parallax: 5 depth-mote planes (near planes slide opposite to far ones), every classic art layer and every style layer at its own depth, the wires as a mid plane, idle sway so depth lives without the mouse. `--parallax F` (0-3, default 1.6) / key **G** sets the gain.
 
 - Interactive depth: the mouse steers every background (black-hole camera, synthwave steering, per-layer nebula parallax, mandala centre, classic parallax); a click fires a shockwave. New independent depth-mote layer (3 parallax planes, near bokeh, pointer repels them) drawn in front of the wires: key **D** / `--no-depth`.

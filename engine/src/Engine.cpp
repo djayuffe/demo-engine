@@ -98,7 +98,7 @@ int run(Demo& demo, int argc, char** argv) {
   std::vector<fs::path> musicPaths;
   fs::path logoOverride;
   int bgStyle = 0;
-  bool noDepth = false;
+  bool noDepth = false, autoStyle = false;   // autoStyle: cycle the background styles by themselves
   double parallax = 1.6;   // gain on every pointer-driven depth offset (--parallax, key P)
   bool noTicker = false, noPost = false, noBackground = false, noLogo = false;
   double quality = 1.0;
@@ -117,7 +117,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --no-ticker     Start with the text ticker off (toggle with T)\n"
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
                  "  --no-background Start with the procedural background off (toggle with B)\n"
-                 "  --background-style S  classic|synthwave|nebula|mandala|blackhole (cycle with V)\n"
+                 "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole (cycle with V)\n"
                  "  --parallax F    Depth-parallax gain 0-3 (default 1.6; cycle with G)\n"
                  "  --no-depth      Start with the depth-mote layer off (toggle with D)\n"
                  "  --no-logo       Start with the logo cards off (toggle with L)\n"
@@ -165,14 +165,15 @@ int run(Demo& demo, int argc, char** argv) {
       noDepth = true;
     else if (arg == "--background-style" && i + 1 < argc) {
       const std::string v = argv[++i];
-      if (v == "classic") bgStyle = 0;
+      if (v == "auto") autoStyle = true;
+      else if (v == "classic") bgStyle = 0;
       else if (v == "synthwave") bgStyle = 1;
       else if (v == "nebula") bgStyle = 2;
       else if (v == "mandala") bgStyle = 3;
       else if (v == "blackhole") bgStyle = 4;
       else if (v.size() == 1 && v[0] >= '0' && v[0] <= '4') bgStyle = v[0] - '0';
       else {
-        std::fprintf(stderr, "--background-style: use classic|synthwave|nebula|mandala|blackhole (or 0-4)\n");
+        std::fprintf(stderr, "--background-style: use auto|classic|synthwave|nebula|mandala|blackhole (or 0-4)\n");
         return 2;
       }
     } else if (arg == "--no-logo")
@@ -315,7 +316,8 @@ int run(Demo& demo, int argc, char** argv) {
   r.setShowBackground(!noBackground);
   r.setBackgroundStyle(bgStyle);
   r.setShowDepth(!noDepth);
-  double ptrT = glfwGetTime();
+  double ptrT = glfwGetTime(), autoT = ptrT;
+  if (autoStyle) r.setBackgroundStyle(1);
   float ptrX = 0, ptrY = 0, ptrPulse = 0;
   bool mouseWas = false;
   r.setShowLogos(!noLogo);
@@ -435,11 +437,16 @@ int run(Demo& demo, int argc, char** argv) {
       parallax = kGain[(k + 1) % 5];
       std::fprintf(stdout, "parallax: %.1f\n", parallax);
     }
+    if (autoStyle && glfwGetTime() - autoT > 40.0) {   // auto mode: a new world every 40 s (V takes over)
+      autoT = glfwGetTime();
+      r.setBackgroundStyle(r.backgroundStyle() + 1);
+    }
     if (input.pressed(Key::D)) {
       r.setShowDepth(!r.showDepth());
       std::fprintf(stdout, "depth: %s\n", r.showDepth() ? "on" : "off");
     }
     if (input.pressed(Key::V)) {
+      autoStyle = false;
       static const char* const kNames[] = {"classic", "synthwave", "nebula", "mandala", "blackhole"};
       r.setBackgroundStyle(r.backgroundStyle() + 1);
       std::fprintf(stdout, "background style: %s\n", kNames[r.backgroundStyle()]);

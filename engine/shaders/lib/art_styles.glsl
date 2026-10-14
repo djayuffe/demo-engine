@@ -16,6 +16,12 @@ vec3 styleSynthwave(vec2 p,float ml,float beat){
   // sky: indigo to hot magenta at the horizon
   float sk=clamp((p.y-hor)/1.1,0.,1.);
   col=mix(vec3(.55,.06,.42),vec3(.015,.01,.09),pow(sk,.55));
+  // neon aurora curtains in the upper sky, drifting at their own depth
+  { vec2 ap=p-vec2(uPointer.x*.16,0.);
+    float cur=sin(ap.x*2.3+uTime*.35+sin(ap.x*5.+uTime*.2)*.8)*.12;
+    float band=exp(-pow((ap.y-.62-cur)*5.,2.))+.6*exp(-pow((ap.y-.85-cur*1.4)*6.,2.));
+    float ray=.55+.45*sin(ap.x*60.+uTime*.7+fbm(ap*3.)*6.);
+    col+=mix(vec3(.1,1.,.8),vec3(1.,.2,.9),.5+.5*sin(ap.x*1.5+uTime*.2))*band*ray*(.16+.25*ml)*step(hor,p.y); }
   // stars
   vec2 sp=(p-uPointer*.03)*vec2(95.,60.);          // stars: farthest plane
   float st=step(.992,hash(floor(sp)))*smoothstep(.5,.0,length(fract(sp)-.5))*(.5+.5*sin(uTime*3.+hash(floor(sp))*40.));
@@ -52,6 +58,9 @@ vec3 styleSynthwave(vec2 p,float ml,float beat){
     col=vec3(.02,0,.06)+vec3(.55,.05,.35)*exp(-h*6.)*.6;  // dark ground + horizon glow
     col+=gc*line*fade*(.9+1.2*beat);
     col+=vec3(1.,.3,.7)*exp(-h*30.)*.7;                   // bright horizon line
+    // the sun's reflection streaks down the floor, broken into bars
+    float refl=exp(-pow((p.x+uPointer.x*.06)/(.02+.5*h),2.))*smoothstep(.0,.05,h)*exp(-h*3.)*(.5+.5*sin(h*90.-uTime*3.));
+    col+=vec3(1.4,.5,.9)*refl*(.4+.6*ml);
   }
   return col;
 }
@@ -94,6 +103,11 @@ vec3 styleNebula(vec2 p,float ml,float beat){
     float fl=exp(-length(r)*38.)+.5*exp(-r.x*70.-r.y*4.)+.5*exp(-r.y*70.-r.x*4.);
     col+=vec3(1.,.9,.8)*fl*(1.+1.5*beat)*.8;
   }
+  // beat-driven supernova: an expanding shell with a hot core, wherever the pointer sits
+  { vec2 sn=p-uPointer*.4;float rr=length(sn);
+    float ph=fract(t*.12);float R=ph*1.7;
+    col+=pal(t*.05+rr)*exp(-pow((rr-R)*14.,2.))*(1.-ph)*(1.-ph)*(.35+.9*ml+.5*beat);
+    col+=vec3(1.,.8,.6)*exp(-rr*9.)*(1.-smoothstep(0.,.25,ph))*1.2; }
   // shooting star every few seconds
   float ct=floor(t*.33);float ft=fract(t*.33);
   vec2 a0=(vec2(hash(vec2(ct,1.)),hash(vec2(ct,2.)))*2.-1.)*vec2(1.5,.8);
@@ -131,6 +145,11 @@ vec3 styleMandala(vec2 p,float ml,float beat){
   col+=pal(trapP*.6+t*.03+r0*.1)*exp(-trapP*2.2)*.20*(.7+ml);
   col+=pal(trapC*.9+.4+t*.05)*exp(-trapC*14.)*.55*(.6+ml+.7*beat);
   col+=acc*(.8+1.4*ml);
+  // a second, counter-rotating, coarser fold floating in front
+  { vec2 u=rot2(p+uPointer*.25,-t*.07);float a2=atan(u.y,u.x);float s2=6.2831853/6.;a2=abs(mod(a2,s2)-s2*.5);
+    vec2 w=vec2(cos(a2),sin(a2))*length(u)*2.2;float tr=1e3;
+    for(int i=0;i<4;i++){w=abs(w)-vec2(.55,.3+.1*sin(t*.2));w=rot2(w,.8);w*=1.4;tr=min(tr,abs(w.x*.7+w.y*.7));}
+    col+=pal(t*.07+.5)*exp(-tr*12.)*.22*(.6+ml+beat*.6)*smoothstep(1.8,.3,r0); }
   // expanding beat rings
   float ring=pow(.5+.5*sin(length(p+uPointer*.30)*16.-t*(2.+3.*ml)),26.)*exp(-r0*1.1);   // ring plane sits in front of the crystal
   col+=pal(t*.06+r0)*ring*(.4+.9*beat);
@@ -187,9 +206,11 @@ vec3 styleBlackHole(vec2 p,float ml,float beat){
         float om=pow(rr,-1.5)*9.;
         float ang=atan(hp.z,hp.x)-t*om*.35;
         float turb=fbm(vec2(rr*2.4,ang*3.+rr*.6))*.7+fbm(vec2(rr*7.,ang*9.-t*.2))*.5;
-        float lanes=.5+.5*sin(rr*9.+turb*9.+sin(ang*2.)*2.);
+        float spiral=.5+.5*sin(ang*2.+log(rr)*5.5-t*.4);
+        float lanes=.5+.5*sin(rr*9.+turb*9.+sin(ang*2.)*2.)*(.55+.45*spiral);
+        float hot=pow(max(0.,sin(ang*3.-t*1.1+rr*.7)),24.)*exp(-(rr-3.)*.5);   // orbiting hot spots
         lanes=mix(.45,1.,lanes*lanes);
-        float dens=smoothstep(2.6,3.4,rr)*smoothstep(9.5,6.,rr)*(.35+turb)*lanes;
+        float dens=smoothstep(2.6,3.4,rr)*smoothstep(9.5,6.,rr)*(.35+turb)*lanes*(1.+1.6*hot);
         vec3 tang=normalize(vec3(-hp.z,0.,hp.x));
         float dop=clamp(1.+.75*dot(tang,-vel),.15,2.2);          // approaching side blazes
         float temp=pow(clamp(2.8/rr,0.,1.),.75)*dop;

@@ -8,7 +8,7 @@ public:
   struct Params {
     float time = 0, music = 0, bpm = 132, logoVisibility = 0, fxAmount = 1;
     bool hasLogos = false, gold = false;
-    float pointerX = 0, pointerY = 0, pulse = 0;
+    float fade = 1, pointerX = 0, pointerY = 0, pulse = 0;
     int style = 0;  // 0 classic, 1 synthwave, 2 nebula, 3 mandala, 4 black hole
   };
   bool init(const std::string& shaderDir, std::string& err);
@@ -20,5 +20,5 @@ public:
 private:
   unsigned prog_ = 0, fbo_ = 0, tex_ = 0, vao_ = 0, vbo_ = 0;
   int w_ = 0, h_ = 0;
-  int uTime_ = -1, uRes_ = -1, uMusic_ = -1, uBpm_ = -1, uHasLogo_ = -1, uLogoVis_ = -1, uGold_ = -1, uFx_ = -1, uStyle_ = -1, uPointer_ = -1, uPulse_ = -1;
+  int uTime_ = -1, uRes_ = -1, uMusic_ = -1, uBpm_ = -1, uHasLogo_ = -1, uLogoVis_ = -1, uGold_ = -1, uFx_ = -1, uStyle_ = -1, uPointer_ = -1, uFade_ = -1, uPulse_ = -1;
 };
