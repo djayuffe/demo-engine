@@ -98,6 +98,9 @@ void main(){
     else if(wid==5){ suv+=vec2(sin(suv.y*18.+uTime*3.),cos(suv.x*16.-uTime*2.6))*.014*wamt; }                       // liquid wobble
     else { suv=mix(suv,.5+vec2(wp.x,abs(wp.y))*vec2(1.,1.),min(wamt,1.)*.8); }                                     // mirror horizon
     suv=clamp(suv,0.0,1.0); }
+  // The wires are the middle depth plane: they slide a little with the pointer, between the background
+  // (which moves per layer) and the depth motes in front.
+  suv=clamp(suv-uPointer*.014*(1.0-hasLogo),0.0,1.0);
   // 4) Chromatic aberration (sample R/B at offset UVs, driven by pulse).
   vec2 ca=(suv-.5)*(.002+.006*beat)*(1.0-calm);
   vec3 scene=vec3(texture(uScene,suv+ca).r,texture(uScene,suv).g,texture(uScene,suv-ca).b);

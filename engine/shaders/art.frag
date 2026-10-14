@@ -67,7 +67,6 @@ void main(){
   float beat=pow(.5+.5*sin(6.2831853*uTime*uBpm/60.0),14.0);
   beat=min(1.,beat+uPulse);
   float mlev=uMusicLevel;
-  if(uStyle==0) p-=uPointer*.06*vec2(1.,1.);
   float hasLogo=max(step(.5,uHasLogo)*clamp(uLogoVis,0.,1.),1.0-clamp(uFxAmount,0.,1.));
   if(uStyle>0){
     // Selectable style: a single self-contained scene, still faded out by the logo / fx amount.

@@ -8,18 +8,20 @@ float swRidge(float x,float t){
   return h;
 }
 vec3 styleSynthwave(vec2 p,float ml,float beat){
-  p.x-=uPointer.x*.10;                       // steer: the whole world slides against the pointer
-  float hor=-.12+uPointer.y*.12;
+  float hor=-.12+uPointer.y*.18;             // horizon tilts with the pointer
+  vec2 pg=p;                                 // ground plane keeps the nearest parallax
+  pg.x-=uPointer.x*.55;
+  p.x-=uPointer.x*.12;
   vec3 col=vec3(0);
   // sky: indigo to hot magenta at the horizon
   float sk=clamp((p.y-hor)/1.1,0.,1.);
   col=mix(vec3(.55,.06,.42),vec3(.015,.01,.09),pow(sk,.55));
   // stars
-  vec2 sp=p*vec2(95.,60.);
+  vec2 sp=(p-uPointer*.03)*vec2(95.,60.);          // stars: farthest plane
   float st=step(.992,hash(floor(sp)))*smoothstep(.5,.0,length(fract(sp)-.5))*(.5+.5*sin(uTime*3.+hash(floor(sp))*40.));
   col+=vec3(.9,.8,1.)*st*sk*1.4;
   // sun with horizontal slits that widen toward the bottom
-  vec2 sc=vec2(0.,hor+.34);
+  vec2 sc=vec2(-uPointer.x*.06,hor+.34);          // sun: far
   float R=.40*(1.+.05*beat+.04*ml);
   float d=length(p-sc);
   float sy=(p.y-(hor))/(R*1.7);                    // 0 at horizon -> ~1 at sun top
@@ -31,7 +33,7 @@ vec3 styleSynthwave(vec2 p,float ml,float beat){
   // mountains (two ridge layers, neon rim light)
   for(int k=0;k<2;k++){
     float fk=float(k);
-    float rh=hor+(.05+.11*swRidge(p.x*(1.1+fk*.7)+fk*3.,fk*.9))*(1.-.35*fk);
+    float rh=hor+(.05+.11*swRidge((p.x+uPointer.x*(.20+.50*fk))*(1.1+fk*.7)+fk*3.,fk*.9))*(1.-.35*fk);   // two ridges, two depths
     float edge=exp(-abs(p.y-rh)*(70.+fk*30.))*(.9+.8*beat);
     if(p.y<rh&&p.y>hor) col=mix(col,vec3(.01,0,.04),.96);
     col+=mix(vec3(.1,.9,1.2),vec3(1.2,.2,.9),fk)*edge*.8;
@@ -41,7 +43,7 @@ vec3 styleSynthwave(vec2 p,float ml,float beat){
     float h=hor-p.y;
     float z=.42/h;
     float sp2=uTime*(1.1+1.6*ml);
-    vec2 g=vec2(p.x*z*.9,z+sp2);
+    vec2 g=vec2((pg.x)*z*.9,z+sp2);
     vec2 gl=abs(fract(g)-.5);
     float w=.02+.12*h;
     float line=smoothstep(w,.0,min(gl.x,gl.y)*.5+0.0)+smoothstep(w*2.,0.,min(gl.x,gl.y))*.25;
@@ -66,7 +68,7 @@ vec3 styleNebula(vec2 p,float ml,float beat){
   for(int i=0;i<3;i++){
     float fi=float(i);
     float sc=1.0+fi*.9;
-    vec2 q=rot2(p-uPointer*(.05+.09*fi),fi*.7+t*.01)*sc*.9+vec2(fi*13.,t*(.012+.01*fi));   // each gas layer parallaxes differently
+    vec2 q=rot2(p-uPointer*(.04+.22*fi*fi*.5+.10*fi),fi*.7+t*.01)*sc*.9+vec2(fi*13.,t*(.012+.01*fi));   // each gas layer parallaxes differently
     float d=nebDensity(q,t+fi*20.);
     float d2=nebDensity(q+L*.12,t+fi*20.);
     float lit=clamp((d-d2)*5.5+.35,0.,1.6);               // cheap directional light
@@ -78,13 +80,14 @@ vec3 styleNebula(vec2 p,float ml,float beat){
   // two parallax star layers + bright flared stars
   for(int i=0;i<2;i++){
     float fi=float(i);
-    vec2 sp=(p-uPointer*(.03+.16*fi)+vec2(t*(.012+.02*fi),0.))*(55.+fi*70.);
+    vec2 sp=(p-uPointer*(.02+.34*fi)+vec2(t*(.012+.02*fi),0.))*(55.+fi*70.);
     vec2 id=floor(sp);float h=hash(id+fi*31.);
     float tw=.6+.4*sin(t*(2.+h*5.)+h*60.);
     float s=step(.985-fi*.004,h)*smoothstep(.45,.0,length(fract(sp)-.5))*tw;
     col+=mix(vec3(.7,.8,1.),vec3(1.,.8,.6),hash(id+3.))*s*(i==0?1.6:.9);
   }
-  vec2 bs=p*7.+vec2(t*.03,0.);vec2 bid=floor(bs);vec2 bf=fract(bs)-.5;
+  // flared stars: nearest plane
+  vec2 bs=(p-uPointer*.55)*7.+vec2(t*.03,0.);vec2 bid=floor(bs);vec2 bf=fract(bs)-.5;
   float bh=hash(bid+90.);
   if(bh>.9){
     vec2 o=(vec2(hash(bid+1.),hash(bid+2.))-.5)*.5;vec2 r=abs(bf-o);
@@ -104,7 +107,7 @@ vec3 styleNebula(vec2 p,float ml,float beat){
 // ---- 3: MANDALA -- folded kaleidoscope of iridescent neon crystal, orbit-trap shaded ----
 vec3 styleMandala(vec2 p,float ml,float beat){
   float t=uTime;
-  p-=uPointer*.35;                            // the mandala follows the pointer
+  p-=uPointer*.55;                            // the mandala follows the pointer
   float r0=length(p);
   vec2 q=rot2(p,t*.05+.15*sin(t*.2)+uPointer.x*.6);
   float seg=6.2831853/10.;
@@ -129,7 +132,7 @@ vec3 styleMandala(vec2 p,float ml,float beat){
   col+=pal(trapC*.9+.4+t*.05)*exp(-trapC*14.)*.55*(.6+ml+.7*beat);
   col+=acc*(.8+1.4*ml);
   // expanding beat rings
-  float ring=pow(.5+.5*sin(r0*16.-t*(2.+3.*ml)),26.)*exp(-r0*1.1);
+  float ring=pow(.5+.5*sin(length(p+uPointer*.30)*16.-t*(2.+3.*ml)),26.)*exp(-r0*1.1);   // ring plane sits in front of the crystal
   col+=pal(t*.06+r0)*ring*(.4+.9*beat);
   return col*smoothstep(2.6,.4,r0)+vec3(.0,.0,.01);
 }

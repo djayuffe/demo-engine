@@ -99,6 +99,7 @@ int run(Demo& demo, int argc, char** argv) {
   fs::path logoOverride;
   int bgStyle = 0;
   bool noDepth = false;
+  double parallax = 1.6;   // gain on every pointer-driven depth offset (--parallax, key P)
   bool noTicker = false, noPost = false, noBackground = false, noLogo = false;
   double quality = 1.0;
   bool qualityGiven = false;
@@ -117,6 +118,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
                  "  --no-background Start with the procedural background off (toggle with B)\n"
                  "  --background-style S  classic|synthwave|nebula|mandala|blackhole (cycle with V)\n"
+                 "  --parallax F    Depth-parallax gain 0-3 (default 1.6; cycle with G)\n"
                  "  --no-depth      Start with the depth-mote layer off (toggle with D)\n"
                  "  --no-logo       Start with the logo cards off (toggle with L)\n"
                  "  --quality F     Render the HDR target at F of screen resolution (0.25-1.0)\n"
@@ -130,7 +132,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --version       Print version and exit\n"
                  "  -h, --help      Show this help\n"
                  "%s"
-                 "Keys: T ticker, B background, V background style, D depth layer, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
+                 "Keys: T ticker, B background, V background style, D depth layer, G parallax gain, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
                  cfg.title.c_str(), cfg.version.c_str(), cfg.binaryName.c_str(), cfg.defaultBpm, demo.usage().c_str());
   };
   for (int i = 1; i < argc; i++) {
@@ -152,7 +154,14 @@ int run(Demo& demo, int argc, char** argv) {
       noPost = true;
     else if (arg == "--no-background")
       noBackground = true;
-    else if (arg == "--no-depth")
+    else if (arg == "--parallax" && i + 1 < argc) {
+      const double v = std::atof(argv[++i]);
+      if (!std::isfinite(v)) {
+        std::fprintf(stderr, "--parallax: not a finite number\n");
+        return 2;
+      }
+      parallax = std::clamp(v, 0.0, 3.0);
+    } else if (arg == "--no-depth")
       noDepth = true;
     else if (arg == "--background-style" && i + 1 < argc) {
       const std::string v = argv[++i];
@@ -413,7 +422,18 @@ int run(Demo& demo, int argc, char** argv) {
       if (mouse && !mouseWas) ptrPulse = 1.f;
       mouseWas = mouse;
       ptrPulse *= std::exp(-dt * 1.6f);
-      r.setPointer(ptrX, ptrY, ptrPulse);
+      // Idle sway keeps the depth alive when the mouse is still; the gain scales the whole thing.
+      const float sx = .22f * std::sin(float(now) * .23f) + .08f * std::sin(float(now) * .61f);
+      const float sy = .16f * std::cos(float(now) * .19f) + .06f * std::cos(float(now) * .53f);
+      r.setPointer((ptrX + sx) * float(parallax), (ptrY + sy) * float(parallax), ptrPulse);
+    }
+    if (input.pressed(Key::G)) {
+      static const double kGain[] = {0.0, 0.8, 1.6, 2.4, 3.0};
+      int k = 0;
+      for (int j = 0; j < 5; j++)
+        if (std::fabs(kGain[j] - parallax) < .05) k = j;
+      parallax = kGain[(k + 1) % 5];
+      std::fprintf(stdout, "parallax: %.1f\n", parallax);
     }
     if (input.pressed(Key::D)) {
       r.setShowDepth(!r.showDepth());
