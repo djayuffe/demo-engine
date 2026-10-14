@@ -1,12 +1,13 @@
 #include "Scene.hpp"
 #include "AdvancedGeometry.hpp"
 #include "ShowpieceGeometry.hpp"
+#include "ImpossibleGeometry.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 namespace {
-constexpr std::array<SceneInfo,59> S{{
+constexpr std::array<SceneInfo,67> S{{
  {0,"600-cell projection",true,60,"exact 600-cell + 4D projection"},{1,"600-cell slice",true,30,"exact face/hyperplane intersection"},
  {2,"Gyroid",true,6,"numerical implicit"},{3,"Schwarz P",true,6,"numerical implicit"},{4,"Schwarz D",true,6,"numerical implicit"},{5,"Neovius",true,6,"numerical implicit"},
  {6,"Hopf fibres",false,1,"parametric S3 stereographic projection"},{7,"Boy surface",false,1,"analytic immersion"},{8,"Superformula",true,15,"parametric"},
@@ -22,7 +23,11 @@ constexpr std::array<SceneInfo,59> S{{
  {51,"Geodesic dome",true,20,"icosphere subdivision with breathing bump"},{52,"Tube trefoil",false,1,"trefoil knot swept as a wire tube"},
  {53,"DNA helix",true,30,"double helix with base-pair rungs"},{54,"Atom orbits",true,30,"nucleus, tilted electron rings and electrons"},
  {55,"Wave terrain",true,30,"rippling wire ocean grid"},{56,"Platonic compound",true,30,"icosahedron + dual dodecahedron + stella octangula"},
- {57,"Golden Galaxy",true,30,"uber256-lab GALAXY: de Jong attractor orbit cloud"},{58,"Golden Cliff",true,30,"uber256-lab CLIFF: Clifford attractor orbit cloud"}
+ {57,"Golden Galaxy",true,30,"uber256-lab GALAXY: de Jong attractor orbit cloud"},{58,"Golden Cliff",true,30,"uber256-lab CLIFF: Clifford attractor orbit cloud"},
+ {59,"Noncommutative lattice",true,20,"Heisenberg group: X^iY^j vs Y^jX^i sheets joined by the commutator"},{60,"Holonomy sphere",true,20,"parallel transport round latitude loops, rotation 2pi(1-cos th)"},
+ {61,"Motion-only sculpture",true,30,"dash velocities of a hidden rotating trefoil among decoys"},{62,"Atomic collision field",true,8,"integer scatter through a nonlinear address function (CPU atomicAdd model)"},
+ {63,"Relational gravity",true,12,"similarity-in-feature-space attraction, drifting features"},{64,"Data-collision sculpture",true,15,"one word buffer decoded four incompatible ways"},
+ {65,"Self-refuting object",true,12,"r=F(r) with a repelling fixed point, bounded solver"},{66,"Contradictory silhouette",true,10,"visual hull of disk, cathedral and gear-star silhouettes"}
 }};
 }
 SceneSystem::SceneSystem():c600_(geo::cell600()),c120_(geo::cell120Vertices()){}
@@ -44,7 +49,8 @@ Mesh3 SceneSystem::build(int id,uint64_t tick,uint64_t seed)const{
   case 9:m=geo::project4D(c120_,t*.09f,t*.13f,8.5f,t*.07f,t*.11f);break;case 10:m=geo::cliffordTorus(56,30,2.2f);break;case 11:m=geo::hyperbolicBall(7,20,.9f);break;
   case 12:m=geo::quaternionJulia(24,8,.055f,{-.2f,.7f,.05f*std::sin(t*.1f),0});break;case 13:m=geo::lissajousKnot(1800,3,4,7,.4f+t*.03f);break;case 14:m=geo::strangeAttractor(14000,.004f);break;case 15:m=geo::discoveredObject(seed+tick,88,44);break;
   case 16:m=geo::mobiusStrip();break;case 17:m=geo::kleinBottle();break;case 18:m=geo::enneperSurface();break;case 19:m=geo::helicoidSurface();break;case 20:m=geo::catenoidSurface();break;case 21:m=geo::diniSurface();break;case 22:m=geo::pseudosphere();break;case 23:m=geo::romanSurface();break;case 24:m=geo::crossCap();break;case 25:m=geo::torusKnot(1800,3,7,.72f,.28f);break;case 26:m=geo::vivianiCurve();break;case 27:m=geo::sphericalSpiral();break;case 28:m=geo::hypotrochoidKnot(1800,5,3,5+.3f*std::sin(t*.2f));break;case 29:m=geo::duffingAttractor();break;case 30:m=geo::rosslerAttractor();break;case 31:m=geo::thomasAttractor();break;case 32:m=geo::sierpinskiTetrahedron(5);break;case 33:m=geo::exoticImplicit(geo::ExoticImplicitKind::Heart,25,t*.1f);break;case 34:m=geo::exoticImplicit(geo::ExoticImplicitKind::BarthSexticLike,25);break;case 35:m=geo::exoticImplicit(geo::ExoticImplicitKind::TangleCube,25,t*.1f);break;case 36:m=geo::exoticImplicit(geo::ExoticImplicitKind::ChmutovLike,25);break;case 37:m=geo::exoticImplicit(geo::ExoticImplicitKind::CayleyCubic,25);break;case 38:m=geo::exoticImplicit(geo::ExoticImplicitKind::KummerLike,25);break;case 39:m=geo::exoticImplicit(geo::ExoticImplicitKind::Goursat,25);break;case 40:m=geo::exoticImplicit(geo::ExoticImplicitKind::BlobLattice,25,t*.12f);break;
-  case 51:m=geo::geodesicDome(3,1.4f,.09f*std::sin(t*.8f));break;case 52:m=geo::tubeTrefoil();break;case 53:m=geo::dnaHelix(90,t*.8f);break;case 54:m=geo::atomOrbits(96,t);break;case 55:m=geo::waveTerrain(48,t);break;case 56:m=geo::platonicCompound(t);break;case 57:case 58:{
+  case 51:m=geo::geodesicDome(3,1.4f,.09f*std::sin(t*.8f));break;case 52:m=geo::tubeTrefoil();break;case 53:m=geo::dnaHelix(90,t*.8f);break;case 54:m=geo::atomOrbits(96,t);break;case 55:m=geo::waveTerrain(48,t);break;case 56:m=geo::platonicCompound(t);break;case 59:m=geo::noncommutativeLattice(17,t);break;case 60:m=geo::holonomySphere(t);break;case 61:m=geo::motionOnlySculpture(t);break;case 62:m=geo::atomicCollisionField(t);break;case 63:m=geo::relationalGravity(t);break;case 64:m=geo::dataCollisionSculpture(t);break;case 65:m=geo::selfRefutingObject(t);break;case 66:m=geo::contradictorySilhouette(t);break;
+  case 57:case 58:{
     // The renderer spins every scene about y at 0.17 rad/s; these clouds are flat-ish, so cancel the spin
     // and keep a gentle +-0.5 rad sway instead, or the camera would keep seeing them edge-on.
     float yaw=-.17f*t+.5f*std::sin(.3f*t);

@@ -29,7 +29,7 @@ public:
     return false;
   }
   std::string usage() const override {
-    return "  --scene N       Start on scene N in manual mode (0-58; Space returns to auto)\n"
+    return "  --scene N       Start on scene N in manual mode (0-66; Space returns to auto)\n"
            "  --recipe N      Start in recipe mode with curated recipe N (0-29)\n"
            "Keys: Left/Right cycle scenes, Space back to auto, R recipe mode,\n"
            "      Up/Down cycle recipe, P re-roll mutation\n";
@@ -83,14 +83,14 @@ public:
     for(int k=0;k<rc.stageCount;k++)
       if(rc.stages[k].useSecondary){secondary=m.v.empty()?nullptr:&scenes_.meshAsync((scene+1)%n,f.time,seed_);break;}
     // The golden orbit clouds (57-58) are never warped in auto mode: their motion is the attractor's own morph.
-    if(scene>=57&&!recipeMode_&&!haveRecipe_)recipeName="Golden glimmer";
+    if((scene==57||scene==58)&&!recipeMode_&&!haveRecipe_)recipeName="Golden glimmer";
     else if(pureForm&&!recipeMode_&&!haveRecipe_)recipeName="Pure form";else applyRecipe(m,rc,ec,secondary);
 
     out.mesh=std::move(m);
     out.sceneIndex=scene;
     out.scale=1.f+.11f*std::sin(float(f.time)*.41f+float(scene)*.37f)+.07f*f.sync.pulse;   // breathing size cycle
     out.lineWidth=1.f+f.sync.pulse;
-    if(scene>=57){out.wireStyle=1;out.travelers=false;out.scale*=.8f;}   // golden orbit clouds: dense right out to the rim
+    if(scene==57||scene==58){out.wireStyle=1;out.travelers=false;out.scale*=.8f;}   // golden orbit clouds: dense right out to the rim
     auto&si=scenes_.info(scene);
     char idx[16];std::snprintf(idx,sizeof idx,"[%02d]",scene);
     out.ticker=std::string(idx)+" "+std::string(si.name)+"  -  "+std::string(si.provenance);

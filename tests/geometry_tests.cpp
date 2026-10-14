@@ -1,5 +1,7 @@
+#include <set>
 #include "Geometry.hpp"
 #include "AdvancedGeometry.hpp"
+#include "ImpossibleGeometry.hpp"
 #include "Image.hpp"
 #include "Scene.hpp"
 #include "TextScroller.hpp"
@@ -37,7 +39,7 @@ int main(){
   { Timeline rt(120); auto before=rt.sample(10.0); rt.retempo(10.0,140); auto after=rt.sample(10.0); req(std::fabs(after.beat-before.beat)<1e-9,"retempo keeps the beat continuous");
     auto later=rt.sample(13.0); req(std::fabs(later.beat-(before.beat+3.0*140.0/60.0))<1e-9,"retempo uses the new BPM afterwards"); }
   // B18: scene-table consistency
-  { SceneSystem ss;req(ss.count()==59,"scene count 59");
+  { SceneSystem ss;req(ss.count()==67,"scene count 67");
     for(int i=0;i<ss.count();++i){auto&si=ss.info(i);req(si.id==i,"scene id==index");req(!si.name.empty(),"scene name non-empty");
       req(si.dynamic?si.updateHz>0:true,"scene updateHz sane");
       const auto&m=ss.mesh(i,0.0,42);req(!m.v.empty(),"scene mesh non-empty");
@@ -47,6 +49,15 @@ int main(){
     req(SceneSystem::tickFor(ss.info(6),99.0)==0,"static scene tick=0");
     // B7: dynamic scene tick advances with time (scene 2 = 6 Hz, use 0.2s = 1.2 ticks)
     req(SceneSystem::tickFor(ss.info(2),0.2)>SceneSystem::tickFor(ss.info(2),0.0),"dynamic tick advances");}
+  // Impossible-geometry scenes 59..66: valid, finite, duplicate-free, deterministic, edge-budgeted at several times
+  { SceneSystem a,b;
+    for(int id=59;id<67;++id)for(double sec:{0.0,2.6,17.3}){
+      const Mesh3& m=a.mesh(id,sec,42);mesh(m,"impossible scene");req(m.e.size()<20000,"impossible scene edge budget");
+      std::set<std::pair<uint32_t,uint32_t>> seen;for(auto&e:m.e)req(seen.insert(std::minmax(e.a,e.b)).second,"impossible scene duplicate edge");
+      const Mesh3& m2=b.mesh(id,sec,42);req(m.v.size()==m2.v.size()&&m.e.size()==m2.e.size(),"impossible scene deterministic");}
+    // commutator gap is zero on the axes and non-zero off them
+    Mesh3 nc=geo::noncommutativeLattice(5,0.f);req(std::fabs(nc.v[2*(2*5+2)].y-nc.v[2*(2*5+2)+1].y)<1e-6f,"noncommutative lattice: centre commutes");
+    req(std::fabs(nc.v[2*(4*5+4)].y-nc.v[2*(4*5+4)+1].y)>.1f,"noncommutative lattice: corner does not commute"); }
   // Text scroller: font + scroll math
   { req(textfont::glyphCount()==95,"font 95 glyphs");
     req(textfont::width()==5&&textfont::height()==7,"font 5x7");

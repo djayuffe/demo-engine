@@ -80,7 +80,7 @@ target_include_directories(de_core PUBLIC engine/include thirdparty)
 iw_warnings(de_core)
 
 # --- Wireframe demo content (scenes + procedural geometry; no GL) ----------
-add_library(wireframe_content demos/wireframe/src/Scene.cpp demos/wireframe/src/AdvancedGeometry.cpp demos/wireframe/src/ShowpieceGeometry.cpp)
+add_library(wireframe_content demos/wireframe/src/Scene.cpp demos/wireframe/src/AdvancedGeometry.cpp demos/wireframe/src/ShowpieceGeometry.cpp demos/wireframe/src/ImpossibleGeometry.cpp)
 target_include_directories(wireframe_content PUBLIC demos/wireframe/include)
 target_link_libraries(wireframe_content PUBLIC de_core)
 # SceneSystem builds meshes on worker threads (std::async).
