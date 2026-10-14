@@ -91,7 +91,7 @@ public:
   const std::string& error() const { return error_; }
 
 private:
-  void setWireWidth(float lineWidth, float music) const;
+  float setWireWidth(float lineWidth, float music) const;   // returns the effective width in pixels
   void cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const;
   bool createGl(const std::string& shaderDir);
   bool initPost(const std::string& shaderDir);

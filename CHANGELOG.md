@@ -2,6 +2,9 @@
 
 ## Unreleased: special effects
 
+- Wire exposure accounts for wide-wire width (`WireGain.hpp`, test B26): the density gain was calibrated for 1-pixel lines, but the geometry-shader wires are 1.4-9 px wide (wider on Retina), so dense scenes deposited several times the light. Dense scenes are now pulled back toward 1-pixel energy; sparse scenes keep their bright strokes. At 1440x900: scene 3 pure-white pixels 1.7% -> 1.3%, scene 4 0.6% -> 0.4%; the gain grows with resolution.
+- Quality audit: all 73 scenes rendered on the deterministic clock and ranked by blow-out and darkness; no scene now exceeds 9% pure-white pixels at intro time (the dark outliers are scenes still growing in).
+
 - Fixed white blow-out in dense scenes: measured with a deterministic clock, the gloss glints were the main cause (scene 4: 16.8% of pixels pure white -> 7.1%, scene 64: 12.0% -> 4.5%, now equal to the gloss-off picture). Glints now only spike from a bright point into darker surroundings and are soft-saturated; a hue-preserving highlight knee on the wire layer keeps dense bundles coloured.
 - `--fixed-step S`: deterministic show clock (frame N is at N*S s), bit-identical repeat renders for captures and A/B checks.
 - Director compositions: on about one cut in three (more often in calm music) the director leaves out one secondary object of the new world (never its centrepiece), on top of your own `--hide`/F-key choices, so return visits differ.

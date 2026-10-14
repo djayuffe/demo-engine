@@ -1,4 +1,5 @@
 #include "Renderer.hpp"
+#include "WireGain.hpp"
 #include "TextScroller.hpp"
 #include "Image.hpp"
 #include "GLUtil.hpp"
@@ -296,14 +297,6 @@ bool Renderer::resizeHdr(int width, int height) {
   if (lookOk_ && !lookFx_.resize(width, height, error_)) lookOk_ = false;
   return true;
 }
-// Additive lines pile up: the 600-cell projection draws ~1200 edges through the same pixels and
-// burns out to white, while a sparse scene needs the full strength. Scale each line by the square
-// root of the density (about constant total energy) and never brighten above 1.
-static float wireGainFor(int indexCount) {
-  float lines = float(std::max(1, indexCount / 2));
-  return std::clamp(0.80f * std::sqrt(500.f / lines), 0.05f,
-                    1.0f); // dense recipe scenes reach tens of thousands of lines
-}
 bool Renderer::upload(const Mesh3& m) {
   // renderable() is the O(edges) check the GPU needs; the duplicate-edge check (geo::validate) is for
   // tests and generators, and was the most expensive part of every upload.
@@ -337,7 +330,7 @@ bool Renderer::upload(const Mesh3& m) {
 // Wire thickness: ~1.4 px at 900 px render height, growing with the beat and the music, scaled with the render
 // resolution so wires look the same at any --quality and on Retina. Falls back to glLineWidth without the
 // geometry stage (where >1 is invalid in some core profiles; glGetError is drained by callers).
-void Renderer::setWireWidth(float lineWidth, float music) const {
+float Renderer::setWireWidth(float lineWidth, float music) const {
   const float px = std::clamp((1.4f + .8f * (lineWidth - 1.f) + .8f * music) * float(std::max(hdrH_, 1)) / 900.f, 1.f, 9.f);
   if (wideWires_) {
     if (uViewport_ >= 0) glUniform2f(uViewport_, float(std::max(hdrW_, 1)), float(std::max(hdrH_, 1)));
@@ -345,6 +338,7 @@ void Renderer::setWireWidth(float lineWidth, float music) const {
   } else {
     glLineWidth(px);
   }
+  return wideWires_ ? px : 1.f;   // core profiles (macOS) only honour 1-pixel GL lines
 }
 void Renderer::cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const {
   cam::mvp(t, aspect, scale, musicLevel, modelShear_, M);
@@ -379,8 +373,8 @@ bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex
     if (uTime_ >= 0) glUniform1f(uTime_, t);
     if (uMusicLevel_ >= 0) glUniform1f(uMusicLevel_, ml);
     glUniform3f(uColor_, 1.2f + .75f * ml, 1.55f + .35f * ml, 2.1f + 1.1f * ml);
-    if (uGain_ >= 0) glUniform1f(uGain_, wireGainFor(edgeCount_) * (1.f - .22f * logoVis_));
-    setWireWidth(lineWidth, ml);
+    const float wpx = setWireWidth(lineWidth, ml);
+    if (uGain_ >= 0) glUniform1f(uGain_, wiregain::forWidth(edgeCount_, wpx, wideWires_) * (1.f - .22f * logoVis_));
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
     glBlendEquation(GL_FUNC_ADD);
@@ -408,8 +402,8 @@ bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex
   if (uTime_ >= 0) glUniform1f(uTime_, t);
   if (uMusicLevel_ >= 0) glUniform1f(uMusicLevel_, ml);
   glUniform3f(uColor_, 1.2f + .75f * ml, 1.55f + .35f * ml, 2.1f + 1.1f * ml);
-  if (uGain_ >= 0) glUniform1f(uGain_, wireGainFor(edgeCount_));
-  setWireWidth(lineWidth, ml);
+  const float wpx = setWireWidth(lineWidth, ml);
+  if (uGain_ >= 0) glUniform1f(uGain_, wiregain::forWidth(edgeCount_, wpx, wideWires_));
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ONE);
   glBlendEquation(GL_FUNC_ADD);

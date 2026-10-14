@@ -14,6 +14,7 @@
 #include "BackgroundStyle.hpp"
 #include "AdaptiveRes.hpp"
 #include "Director.hpp"
+#include "WireGain.hpp"
 #include "LogoShow.hpp"
 #include "Describe.hpp"
 #include "WindowSpec.hpp"
@@ -131,6 +132,17 @@ int main() {
       bounded = bounded && std::fabs(sx) <= .30001f && std::fabs(sy) <= .22001f;
     }
     req(bounded, "idle sway is bounded");
+  }
+  // B26: wire exposure with wide lines
+  {
+    req(wiregain::base(1000) == wiregain::forWidth(1000, 4.f, false), "1-px lines keep the density gain");
+    req(std::fabs(wiregain::forWidth(400, 3.f, true) - wiregain::base(400)) < 1e-6f, "sparse scenes keep bright wide strokes");
+    const float dense1 = wiregain::forWidth(4000, 1.f, true), dense3 = wiregain::forWidth(4000, 3.f, true);
+    req(std::fabs(dense1 - wiregain::base(4000)) < 1e-6f && dense3 < dense1 * .5f, "dense wide wires are dimmed towards 1-px energy");
+    req(dense3 * 3.f > dense1 * .9f, "but not below the 1-px light per pixel row");
+    bool mono = true;
+    for (int n = 600; n < 6000; n += 200) mono = mono && wiregain::forWidth(n + 200, 2.5f, true) <= wiregain::forWidth(n, 2.5f, true) + 1e-6f;
+    req(mono, "more lines never get brighter");
   }
   // B25: the auto-director
   {
