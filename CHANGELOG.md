@@ -2,6 +2,8 @@
 
 ## Unreleased: special effects
 
+- Gloss finish (key **O** / `--no-gloss`): a specular sweep that glides over mid-bright detail every 7.5 s, four-point diagonal glints thrown by the brightest highlights (sampled from the bloom), and a pulsing glass-bezel rim light. It never pushes already-blown pixels further.
+
 - Per-object switches in every background style: F1..F12 toggle the current style's objects (classic: organism, ink, glass, rose, julia, moire, turing, contour, poincare, kifs, ribbons, ambient; synthwave: sun, mountains, grid, stars, aurora, reflection, sky; nebula: gas, stars, flares, supernova, comets, dust; mandala: crystal, neon, folds, mirror, rings; blackhole: disk, photonring, jets, galaxy, stars; hyperspace: walls, streaks, glow, flash). `--hide a,b` starts with objects off; V and F-keys print the current switches. Test B24.
 
 - Adaptive background resolution: a frame-time governor (`AdaptiveRes.hpp`, test B23) steps the background pass from 1/2 to 1/3 to 1/4 of the HDR size when the demo cannot hold ~45 fps, and tries finer again after 20 s of headroom. `--no-adaptive` pins it at 1/2.

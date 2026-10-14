@@ -32,6 +32,8 @@ public:
   void setPointer(float x, float y, float pulse) { ptrX_ = x; ptrY_ = y; ptrPulse_ = pulse; }
   void setArtDivisor(int d) { art_.setDivisor(d, error_); }   // background resolution = HDR size / d
   bgstyle::Objects& objects() { return objects_; }   // per-style object switches (F1..F12)
+  void setShowGloss(bool on) { showGloss_ = on; }
+  bool showGloss() const { return showGloss_; }
   void setShowDepth(bool on) { showDepth_ = on; }
   bool showDepth() const { return showDepth_; }
   int logoCount() const { return (int)logos_.size(); }
@@ -119,7 +121,7 @@ private:
   int bgStyle_ = 0;               // requested style
   bgstyle::Fade styleFade_;       // style actually on screen (lags the request by a fade-through-black)
   float lastArtT_ = -1.f;
-  bool showDepth_ = true;
+  bool showDepth_ = true, showGloss_ = true;
   bgstyle::Objects objects_;
   float ptrX_ = 0, ptrY_ = 0, ptrPulse_ = 0;
   bool logosActive() const { return hasLogos_ && showLogos_; }
@@ -129,7 +131,7 @@ private:
   bool postEnabled_ = true;
   float fxAmount_ = 1.f;
   int wireStyle_ = 0;
-  int uStyle_ = -1, uPostGold_ = -1, uPostBgStyle_ = -1, uPostPtr_ = -1, uPostPulse_ = -1, uPostDepth_ = -1;
+  int uStyle_ = -1, uPostGold_ = -1, uPostBgStyle_ = -1, uPostPtr_ = -1, uPostPulse_ = -1, uPostDepth_ = -1, uPostGloss_ = -1;
   // Art pass (procedural background) at half resolution, see shaders/art.frag.
   ArtPass art_;
   int uPostArt_ = -1, uPostArtOn_ = -1;

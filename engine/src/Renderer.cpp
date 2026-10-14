@@ -250,6 +250,7 @@ bool Renderer::initPost(const std::string& dir) {
   uPostPtr_ = glGetUniformLocation(postProgram_, "uPointer");
   uPostPulse_ = glGetUniformLocation(postProgram_, "uPulse");
   uPostDepth_ = glGetUniformLocation(postProgram_, "uDepth");
+  uPostGloss_ = glGetUniformLocation(postProgram_, "uGloss");
   uPostArt_ = glGetUniformLocation(postProgram_, "uArt");
   uPostBloom_ = glGetUniformLocation(postProgram_, "uBloom");
   uPostArtOn_ = glGetUniformLocation(postProgram_, "uArtOn");
@@ -619,6 +620,7 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   if (uPostPtr_ >= 0) glUniform2f(uPostPtr_, ptrX_, ptrY_);
   if (uPostPulse_ >= 0) glUniform1f(uPostPulse_, ptrPulse_);
   if (uPostDepth_ >= 0) glUniform1f(uPostDepth_, showDepth_ ? 1.f : 0.f);
+  if (uPostGloss_ >= 0) glUniform1f(uPostGloss_, showGloss_ ? 1.f : 0.f);
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, art_.texture());
   if (uPostArt_ >= 0) glUniform1i(uPostArt_, 1);

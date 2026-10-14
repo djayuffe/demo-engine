@@ -32,6 +32,7 @@ uniform float uArtOn;
 uniform float uBgStyle;
 uniform vec2 uPointer;   // -1..1, y up
 uniform float uPulse;    // click shockwave 1 -> 0
+uniform float uGloss;    // gloss layer (specular sweep + star glints) on/off
 uniform float uDepth;    // independent depth-mote layer on/off
 uniform sampler2D uBloom;
 
@@ -135,6 +136,31 @@ void main(){
   // already computed above (before the warps).
   vec3 hdr=(1.0-hasLogo)*bg*(1.0-.75*uGold) + scene*mix(1.35,1.0,hasLogo) + bloom*(.32+uMusicLevel*.70)*mix(1.0,.30,hasLogo);   // little glow over a logo card: it washes out
   hdr+=(streak+rays)*(1.0-.85*hasLogo);
+  // GLOSS: a polished-glass finish. (1) a specular sweep glides across the picture every few seconds
+  // and only catches what is already bright (wires, objects), like light rolling over chrome; (2) the
+  // brightest highlights throw four-point diagonal glints, sampled from the blurred bloom so they
+  // follow the glow; (3) a faint pulse of rim light on the screen edge, like a glass bezel.
+  if(uGloss>.5){
+    float glum=dot(hdr,vec3(.2126,.7152,.0722));
+    float sph=fract(uTime/7.5);
+    float spos=mix(-2.2,2.2,sph);
+    float sd=dot(p,normalize(vec2(1.,.55)));
+    float sweep=exp(-pow((sd-spos)*2.6,2.))+.45*exp(-pow((sd-spos+.35)*7.,2.));
+    vec3 g=vec3(1.0,.93,.82)*sweep*smoothstep(.12,.9,glum)*(1.-smoothstep(1.2,2.6,glum))*(.45+.6*beat+.4*mlev);   // catches mid-bright detail, never pushes blown pixels further
+    float gs=uResolution.y/900.;
+    vec3 gl=vec3(0.);
+    for(int i=1;i<=3;i++){
+      vec2 d=px*float(i)*11.*gs;
+      float wgt=1./float(i);
+      gl+=wgt*(max(texture(uBloom,suv+vec2(d.x,d.y)).rgb-.42,0.)+max(texture(uBloom,suv+vec2(-d.x,d.y)).rgb-.42,0.)
+              +max(texture(uBloom,suv+vec2(d.x,-d.y)).rgb-.42,0.)+max(texture(uBloom,suv+vec2(-d.x,-d.y)).rgb-.42,0.));
+    }
+    g+=gl*vec3(.85,.95,1.25)*.5*(.6+beat)*(1.-smoothstep(1.4,3.,glum));
+    vec2 ea=abs(uv-.5)*2.;
+    float rim=pow(max(ea.x,ea.y),9.)*(.12+.12*sin(uTime*.9))*(.5+mlev);
+    g+=pal(uTime*.05+uv.x*.3)*rim;
+    hdr+=g*(1.0-.85*hasLogo)*uFxAmount;
+  }
   if(uDepth>.5&&uFxAmount>.001) hdr+=depthMotes(p,uPointer*vec2(uResolution.x/max(uResolution.y,1.),1.),uPulse,uTime,mlev,beat)*(1.0-.8*hasLogo)*uFxAmount;
   hdr+=(1.0-hasLogo)*(1.0-uGold)*pal(length(p)*.08+uTime*.02)*pow(max(scene.r,max(scene.g,scene.b)),2.2)*(.45+uMusicLevel);
 
