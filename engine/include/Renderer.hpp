@@ -117,7 +117,7 @@ private:
   bool postEnabled_ = true;
   float fxAmount_ = 1.f;
   int wireStyle_ = 0;
-  int uStyle_ = -1, uPostGold_ = -1;
+  int uStyle_ = -1, uPostGold_ = -1, uPostBgStyle_ = -1;
   // Art pass (procedural background) at half resolution, see shaders/art.frag.
   ArtPass art_;
   int uPostArt_ = -1, uPostArtOn_ = -1;

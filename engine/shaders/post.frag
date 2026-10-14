@@ -27,6 +27,9 @@ uniform float uFxAmount;
 uniform float uGold;
 uniform sampler2D uArt;   // the art pass (half resolution), see art.frag
 uniform float uArtOn;
+// Selected background style (0 = classic). Styled backgrounds keep their own palette: the hue drift,
+// solarize and posterize grade is mostly held back so a pink synthwave sun stays pink.
+uniform float uBgStyle;
 uniform sampler2D uBloom;
 
 #include "lib/common.glsl"
@@ -163,7 +166,7 @@ void main(){
   hdr=aces(hdr*(.92+.38*mlev)*mix(1.0,.74,hasLogo));
 
   // --- Wild colour grading (black breaks only): hue drift, solarize on the downbeat, neon posterize ---
-  { float k=1.0-calm;
+  { float k=(1.0-calm)*(uBgStyle>.5?.12:1.0);
     float ha=uTime*.12*k;float ch=cos(ha),sh=sin(ha);
     mat3 hue=mat3(.299+.701*ch+.168*sh,.299-.299*ch-.328*sh,.299-.3*ch+1.25*sh,
                   .587-.587*ch+.33*sh,.587+.413*ch+.035*sh,.587-.588*ch-1.05*sh,
