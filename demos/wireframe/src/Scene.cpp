@@ -7,90 +7,221 @@
 #include <chrono>
 #include <cmath>
 namespace {
-constexpr std::array<SceneInfo,67> S{{
- {0,"600-cell projection",true,60,"exact 600-cell + 4D projection"},{1,"600-cell slice",true,30,"exact face/hyperplane intersection"},
- {2,"Gyroid",true,6,"numerical implicit"},{3,"Schwarz P",true,6,"numerical implicit"},{4,"Schwarz D",true,6,"numerical implicit"},{5,"Neovius",true,6,"numerical implicit"},
- {6,"Hopf fibres",false,1,"parametric S3 stereographic projection"},{7,"Boy surface",false,1,"analytic immersion"},{8,"Superformula",true,15,"parametric"},
- {9,"120-cell projection",true,60,"exact dual incidence + 4D projection"},{10,"Clifford torus",false,1,"parametric S3 stereographic projection"},
- {11,"Hyperbolic ball",false,1,"artistic Poincare-ball visualization"},{12,"Quaternion Julia slice",true,3,"numerical escape-boundary lattice"},
- {13,"Lissajous knot",true,15,"parametric curve"},{14,"Lorenz attractor",false,1,"numerical trajectory"},{15,"Discovered object",true,.125,"deterministic seeded harmonic surface"},
- {16,"Mobius strip",false,1,"parametric non-orientable surface"},{17,"Klein bottle",false,1,"parametric immersion"},{18,"Enneper surface",false,1,"minimal surface"},{19,"Helicoid",false,1,"minimal ruled surface"},{20,"Catenoid",false,1,"minimal surface"},{21,"Dini surface",false,1,"constant-negative-curvature surface"},{22,"Pseudosphere",false,1,"tractricoid surface"},{23,"Roman surface",false,1,"Steiner RP2 immersion"},{24,"Cross-cap",false,1,"RP2 immersion"},{25,"Torus knot",true,15,"parametric algebraic knot"},{26,"Viviani curve",false,1,"sphere-cylinder intersection curve"},{27,"Spherical spiral",false,1,"parametric spherical loxodrome-like wire"},{28,"Hypotrochoid knot",true,15,"parametric spatial roulette"},{29,"Duffing attractor",false,1,"numerical chaotic trajectory"},{30,"Rossler attractor",false,1,"numerical chaotic trajectory"},{31,"Thomas attractor",false,1,"numerical cyclic chaotic trajectory"},{32,"Sierpinski tetrahedron",false,1,"recursive fractal tetrahedral complex"},{33,"Heart algebraic",true,4,"numerical algebraic isosurface"},{34,"Barth sextic-like",false,1,"icosahedral-inspired sextic visualization"},{35,"Tanglecube",true,4,"numerical quartic isosurface"},{36,"Chmutov-like",false,1,"Chebyshev-inspired algebraic visualization"},{37,"Cayley cubic",false,1,"numerical cubic isosurface"},{38,"Kummer-like",false,1,"quartic nodal-inspired visualization"},{39,"Goursat surface",false,1,"numerical quartic isosurface"},{40,"Blob lattice",true,4,"periodic implicit field"},
- {41,"Unknown supercage crown",true,12,"ported unknown-wireframe-lab procedural object"},{42,"Unknown knot-bundle reactor",true,12,"ported unknown-wireframe-lab procedural object"},
- {43,"Unknown phyllotaxis vortex",true,12,"ported unknown-wireframe-lab procedural object"},{44,"Unknown ruled singularity fan",true,12,"ported unknown-wireframe-lab procedural object"},
- {45,"Unknown prime-lobed lantern",true,12,"ported unknown-wireframe-lab procedural object"},{46,"Unknown aperiodic orbit nest",true,12,"ported unknown-wireframe-lab procedural object"},
- {47,"Unknown superformula organism",true,12,"ported unknown-wireframe-lab procedural object"},{48,"Unknown knot lattice 13",true,12,"ported unknown-wireframe-lab procedural object"},
- {49,"Unknown golden spiral skeleton",true,12,"ported unknown-wireframe-lab procedural object"},{50,"Unknown twisted ruled shell",true,12,"ported unknown-wireframe-lab procedural object"},
- {51,"Geodesic dome",true,20,"icosphere subdivision with breathing bump"},{52,"Tube trefoil",false,1,"trefoil knot swept as a wire tube"},
- {53,"DNA helix",true,30,"double helix with base-pair rungs"},{54,"Atom orbits",true,30,"nucleus, tilted electron rings and electrons"},
- {55,"Wave terrain",true,30,"rippling wire ocean grid"},{56,"Platonic compound",true,30,"icosahedron + dual dodecahedron + stella octangula"},
- {57,"Golden Galaxy",true,30,"uber256-lab GALAXY: de Jong attractor orbit cloud"},{58,"Golden Cliff",true,30,"uber256-lab CLIFF: Clifford attractor orbit cloud"},
- {59,"Noncommutative lattice",true,20,"Heisenberg group: X^iY^j vs Y^jX^i sheets joined by the commutator"},{60,"Holonomy sphere",true,20,"parallel transport round latitude loops, rotation 2pi(1-cos th)"},
- {61,"Motion-only sculpture",true,30,"dash velocities of a hidden rotating trefoil among decoys"},{62,"Atomic collision field",true,8,"integer scatter through a nonlinear address function (CPU atomicAdd model)"},
- {63,"Relational gravity",true,12,"similarity-in-feature-space attraction, drifting features"},{64,"Data-collision sculpture",true,15,"one word buffer decoded four incompatible ways"},
- {65,"Self-refuting object",true,12,"r=F(r) with a repelling fixed point, bounded solver"},{66,"Contradictory silhouette",true,10,"visual hull of disk, cathedral and gear-star silhouettes"}
-}};
+constexpr std::array<SceneInfo, 67> S{
+    {{0, "600-cell projection", true, 60, "exact 600-cell + 4D projection"},
+     {1, "600-cell slice", true, 30, "exact face/hyperplane intersection"},
+     {2, "Gyroid", true, 6, "numerical implicit"},
+     {3, "Schwarz P", true, 6, "numerical implicit"},
+     {4, "Schwarz D", true, 6, "numerical implicit"},
+     {5, "Neovius", true, 6, "numerical implicit"},
+     {6, "Hopf fibres", false, 1, "parametric S3 stereographic projection"},
+     {7, "Boy surface", false, 1, "analytic immersion"},
+     {8, "Superformula", true, 15, "parametric"},
+     {9, "120-cell projection", true, 60, "exact dual incidence + 4D projection"},
+     {10, "Clifford torus", false, 1, "parametric S3 stereographic projection"},
+     {11, "Hyperbolic ball", false, 1, "artistic Poincare-ball visualization"},
+     {12, "Quaternion Julia slice", true, 3, "numerical escape-boundary lattice"},
+     {13, "Lissajous knot", true, 15, "parametric curve"},
+     {14, "Lorenz attractor", false, 1, "numerical trajectory"},
+     {15, "Discovered object", true, .125, "deterministic seeded harmonic surface"},
+     {16, "Mobius strip", false, 1, "parametric non-orientable surface"},
+     {17, "Klein bottle", false, 1, "parametric immersion"},
+     {18, "Enneper surface", false, 1, "minimal surface"},
+     {19, "Helicoid", false, 1, "minimal ruled surface"},
+     {20, "Catenoid", false, 1, "minimal surface"},
+     {21, "Dini surface", false, 1, "constant-negative-curvature surface"},
+     {22, "Pseudosphere", false, 1, "tractricoid surface"},
+     {23, "Roman surface", false, 1, "Steiner RP2 immersion"},
+     {24, "Cross-cap", false, 1, "RP2 immersion"},
+     {25, "Torus knot", true, 15, "parametric algebraic knot"},
+     {26, "Viviani curve", false, 1, "sphere-cylinder intersection curve"},
+     {27, "Spherical spiral", false, 1, "parametric spherical loxodrome-like wire"},
+     {28, "Hypotrochoid knot", true, 15, "parametric spatial roulette"},
+     {29, "Duffing attractor", false, 1, "numerical chaotic trajectory"},
+     {30, "Rossler attractor", false, 1, "numerical chaotic trajectory"},
+     {31, "Thomas attractor", false, 1, "numerical cyclic chaotic trajectory"},
+     {32, "Sierpinski tetrahedron", false, 1, "recursive fractal tetrahedral complex"},
+     {33, "Heart algebraic", true, 4, "numerical algebraic isosurface"},
+     {34, "Barth sextic-like", false, 1, "icosahedral-inspired sextic visualization"},
+     {35, "Tanglecube", true, 4, "numerical quartic isosurface"},
+     {36, "Chmutov-like", false, 1, "Chebyshev-inspired algebraic visualization"},
+     {37, "Cayley cubic", false, 1, "numerical cubic isosurface"},
+     {38, "Kummer-like", false, 1, "quartic nodal-inspired visualization"},
+     {39, "Goursat surface", false, 1, "numerical quartic isosurface"},
+     {40, "Blob lattice", true, 4, "periodic implicit field"},
+     {41, "Unknown supercage crown", true, 12, "ported unknown-wireframe-lab procedural object"},
+     {42, "Unknown knot-bundle reactor", true, 12, "ported unknown-wireframe-lab procedural object"},
+     {43, "Unknown phyllotaxis vortex", true, 12, "ported unknown-wireframe-lab procedural object"},
+     {44, "Unknown ruled singularity fan", true, 12, "ported unknown-wireframe-lab procedural object"},
+     {45, "Unknown prime-lobed lantern", true, 12, "ported unknown-wireframe-lab procedural object"},
+     {46, "Unknown aperiodic orbit nest", true, 12, "ported unknown-wireframe-lab procedural object"},
+     {47, "Unknown superformula organism", true, 12, "ported unknown-wireframe-lab procedural object"},
+     {48, "Unknown knot lattice 13", true, 12, "ported unknown-wireframe-lab procedural object"},
+     {49, "Unknown golden spiral skeleton", true, 12, "ported unknown-wireframe-lab procedural object"},
+     {50, "Unknown twisted ruled shell", true, 12, "ported unknown-wireframe-lab procedural object"},
+     {51, "Geodesic dome", true, 20, "icosphere subdivision with breathing bump"},
+     {52, "Tube trefoil", false, 1, "trefoil knot swept as a wire tube"},
+     {53, "DNA helix", true, 30, "double helix with base-pair rungs"},
+     {54, "Atom orbits", true, 30, "nucleus, tilted electron rings and electrons"},
+     {55, "Wave terrain", true, 30, "rippling wire ocean grid"},
+     {56, "Platonic compound", true, 30, "icosahedron + dual dodecahedron + stella octangula"},
+     {57, "Golden Galaxy", true, 30, "uber256-lab GALAXY: de Jong attractor orbit cloud"},
+     {58, "Golden Cliff", true, 30, "uber256-lab CLIFF: Clifford attractor orbit cloud"},
+     {59, "Noncommutative lattice", true, 20, "Heisenberg group: X^iY^j vs Y^jX^i sheets joined by the commutator"},
+     {60, "Holonomy sphere", true, 20, "parallel transport round latitude loops, rotation 2pi(1-cos th)"},
+     {61, "Motion-only sculpture", true, 30, "dash velocities of a hidden rotating trefoil among decoys"},
+     {62, "Atomic collision field", true, 8,
+      "integer scatter through a nonlinear address function (CPU atomicAdd model)"},
+     {63, "Relational gravity", true, 12, "similarity-in-feature-space attraction, drifting features"},
+     {64, "Data-collision sculpture", true, 15, "one word buffer decoded four incompatible ways"},
+     {65, "Self-refuting object", true, 12, "r=F(r) with a repelling fixed point, bounded solver"},
+     {66, "Contradictory silhouette", true, 10, "visual hull of disk, cathedral and gear-star silhouettes"}}};
 }
-SceneSystem::SceneSystem():c600_(geo::cell600()),c120_(geo::cell120Vertices()){}
-const SceneInfo& SceneSystem::info(int id)const{return S[std::clamp(id,0,int(S.size()-1))];}
-int SceneSystem::count()const{return int(S.size());}
-uint64_t SceneSystem::tickFor(const SceneInfo& si,double seconds){
-  return si.dynamic?uint64_t(std::floor(std::max(0.0,seconds)*si.updateHz)):0;
+SceneSystem::SceneSystem() : c600_(geo::cell600()), c120_(geo::cell120Vertices()) {}
+const SceneInfo& SceneSystem::info(int id) const {
+  return S[std::clamp(id, 0, int(S.size() - 1))];
 }
-Mesh3 SceneSystem::build(int id,uint64_t tick,uint64_t seed)const{
+int SceneSystem::count() const {
+  return int(S.size());
+}
+uint64_t SceneSystem::tickFor(const SceneInfo& si, double seconds) {
+  return si.dynamic ? uint64_t(std::floor(std::max(0.0, seconds) * si.updateHz)) : 0;
+}
+Mesh3 SceneSystem::build(int id, uint64_t tick, uint64_t seed) const {
   // Pure: reads only the immutable polytopes, so it can run on a worker thread.
   // B7 fix: use quantized tick (not raw seconds) for all time-dependent params,
   // so the cache actually hits at the scene's declared update rate.
-  auto& si=info(id);
-  float t=float(tick)/float(std::max(1.0,si.updateHz));
+  auto& si = info(id);
+  float t = float(tick) / float(std::max(1.0, si.updateHz));
   Mesh3 m;
-  switch(id){case 0:m=geo::project4D(c600_,t*.17f,t*.29f,3.4f,t*.09f,t*.13f);break;case 1:m=geo::sliceFaces4D(c600_,{.31f,.47f,.59f,.57f},std::sin(t*.31f)*1.45f);break;
-  case 2:m=geo::implicitSurface(geo::ImplicitKind::Gyroid,25,std::sin(t*.22f)*.25f,t*.08f);break;case 3:m=geo::implicitSurface(geo::ImplicitKind::SchwarzP,25,0,t*.1f);break;case 4:m=geo::implicitSurface(geo::ImplicitKind::SchwarzD,24,0,t*.08f);break;case 5:m=geo::implicitSurface(geo::ImplicitKind::Neovius,24,0,t*.07f);break;
-  case 6:m=geo::hopfFibres(42,112,2.3f);break;case 7:m=geo::boySurface(84,44,.95f);break;case 8:m=geo::superformula(96,48,5.f+2.f*std::sin(t*.13f),3.f+2.f*std::sin(t*.17f),.38f,1.6f,1.6f);break;
-  case 9:m=geo::project4D(c120_,t*.09f,t*.13f,8.5f,t*.07f,t*.11f);break;case 10:m=geo::cliffordTorus(56,30,2.2f);break;case 11:m=geo::hyperbolicBall(7,20,.9f);break;
-  case 12:m=geo::quaternionJulia(24,8,.055f,{-.2f,.7f,.05f*std::sin(t*.1f),0});break;case 13:m=geo::lissajousKnot(1800,3,4,7,.4f+t*.03f);break;case 14:m=geo::strangeAttractor(14000,.004f);break;case 15:m=geo::discoveredObject(seed+tick,88,44);break;
-  case 16:m=geo::mobiusStrip();break;case 17:m=geo::kleinBottle();break;case 18:m=geo::enneperSurface();break;case 19:m=geo::helicoidSurface();break;case 20:m=geo::catenoidSurface();break;case 21:m=geo::diniSurface();break;case 22:m=geo::pseudosphere();break;case 23:m=geo::romanSurface();break;case 24:m=geo::crossCap();break;case 25:m=geo::torusKnot(1800,3,7,.72f,.28f);break;case 26:m=geo::vivianiCurve();break;case 27:m=geo::sphericalSpiral();break;case 28:m=geo::hypotrochoidKnot(1800,5,3,5+.3f*std::sin(t*.2f));break;case 29:m=geo::duffingAttractor();break;case 30:m=geo::rosslerAttractor();break;case 31:m=geo::thomasAttractor();break;case 32:m=geo::sierpinskiTetrahedron(5);break;case 33:m=geo::exoticImplicit(geo::ExoticImplicitKind::Heart,25,t*.1f);break;case 34:m=geo::exoticImplicit(geo::ExoticImplicitKind::BarthSexticLike,25);break;case 35:m=geo::exoticImplicit(geo::ExoticImplicitKind::TangleCube,25,t*.1f);break;case 36:m=geo::exoticImplicit(geo::ExoticImplicitKind::ChmutovLike,25);break;case 37:m=geo::exoticImplicit(geo::ExoticImplicitKind::CayleyCubic,25);break;case 38:m=geo::exoticImplicit(geo::ExoticImplicitKind::KummerLike,25);break;case 39:m=geo::exoticImplicit(geo::ExoticImplicitKind::Goursat,25);break;case 40:m=geo::exoticImplicit(geo::ExoticImplicitKind::BlobLattice,25,t*.12f);break;
-  case 51:m=geo::geodesicDome(3,1.4f,.09f*std::sin(t*.8f));break;case 52:m=geo::tubeTrefoil();break;case 53:m=geo::dnaHelix(90,t*.8f);break;case 54:m=geo::atomOrbits(96,t);break;case 55:m=geo::waveTerrain(48,t);break;case 56:m=geo::platonicCompound(t);break;case 59:m=geo::noncommutativeLattice(17,t);break;case 60:m=geo::holonomySphere(t);break;case 61:m=geo::motionOnlySculpture(t);break;case 62:m=geo::atomicCollisionField(t);break;case 63:m=geo::relationalGravity(t);break;case 64:m=geo::dataCollisionSculpture(t);break;case 65:m=geo::selfRefutingObject(t);break;case 66:m=geo::contradictorySilhouette(t);break;
-  case 57:case 58:{
-    // The renderer spins every scene about y at 0.17 rad/s; these clouds are flat-ish, so cancel the spin
-    // and keep a gentle +-0.5 rad sway instead, or the camera would keep seeing them edge-on.
-    float yaw=-.17f*t+.5f*std::sin(.3f*t);
-    m=geo::goldenOrbit(id==57?geo::OrbitMap::DeJong:geo::OrbitMap::Clifford,t,yaw);break;}
-  case 41:case 42:case 43:case 44:case 45:case 46:case 47:case 48:case 49:case 50:m=geo::unknownLabObject(unsigned(id-41),56,t);break;default:m=geo::discoveredObject(seed+tick,88,44);break;}
+  switch (id) {
+    case 0: m = geo::project4D(c600_, t * .17f, t * .29f, 3.4f, t * .09f, t * .13f); break;
+    case 1: m = geo::sliceFaces4D(c600_, {.31f, .47f, .59f, .57f}, std::sin(t * .31f) * 1.45f); break;
+    case 2: m = geo::implicitSurface(geo::ImplicitKind::Gyroid, 25, std::sin(t * .22f) * .25f, t * .08f); break;
+    case 3: m = geo::implicitSurface(geo::ImplicitKind::SchwarzP, 25, 0, t * .1f); break;
+    case 4: m = geo::implicitSurface(geo::ImplicitKind::SchwarzD, 24, 0, t * .08f); break;
+    case 5: m = geo::implicitSurface(geo::ImplicitKind::Neovius, 24, 0, t * .07f); break;
+    case 6: m = geo::hopfFibres(42, 112, 2.3f); break;
+    case 7: m = geo::boySurface(84, 44, .95f); break;
+    case 8:
+      m = geo::superformula(96, 48, 5.f + 2.f * std::sin(t * .13f), 3.f + 2.f * std::sin(t * .17f), .38f, 1.6f, 1.6f);
+      break;
+    case 9: m = geo::project4D(c120_, t * .09f, t * .13f, 8.5f, t * .07f, t * .11f); break;
+    case 10: m = geo::cliffordTorus(56, 30, 2.2f); break;
+    case 11: m = geo::hyperbolicBall(7, 20, .9f); break;
+    case 12: m = geo::quaternionJulia(24, 8, .055f, {-.2f, .7f, .05f * std::sin(t * .1f), 0}); break;
+    case 13: m = geo::lissajousKnot(1800, 3, 4, 7, .4f + t * .03f); break;
+    case 14: m = geo::strangeAttractor(14000, .004f); break;
+    case 15: m = geo::discoveredObject(seed + tick, 88, 44); break;
+    case 16: m = geo::mobiusStrip(); break;
+    case 17: m = geo::kleinBottle(); break;
+    case 18: m = geo::enneperSurface(); break;
+    case 19: m = geo::helicoidSurface(); break;
+    case 20: m = geo::catenoidSurface(); break;
+    case 21: m = geo::diniSurface(); break;
+    case 22: m = geo::pseudosphere(); break;
+    case 23: m = geo::romanSurface(); break;
+    case 24: m = geo::crossCap(); break;
+    case 25: m = geo::torusKnot(1800, 3, 7, .72f, .28f); break;
+    case 26: m = geo::vivianiCurve(); break;
+    case 27: m = geo::sphericalSpiral(); break;
+    case 28: m = geo::hypotrochoidKnot(1800, 5, 3, 5 + .3f * std::sin(t * .2f)); break;
+    case 29: m = geo::duffingAttractor(); break;
+    case 30: m = geo::rosslerAttractor(); break;
+    case 31: m = geo::thomasAttractor(); break;
+    case 32: m = geo::sierpinskiTetrahedron(5); break;
+    case 33: m = geo::exoticImplicit(geo::ExoticImplicitKind::Heart, 25, t * .1f); break;
+    case 34: m = geo::exoticImplicit(geo::ExoticImplicitKind::BarthSexticLike, 25); break;
+    case 35: m = geo::exoticImplicit(geo::ExoticImplicitKind::TangleCube, 25, t * .1f); break;
+    case 36: m = geo::exoticImplicit(geo::ExoticImplicitKind::ChmutovLike, 25); break;
+    case 37: m = geo::exoticImplicit(geo::ExoticImplicitKind::CayleyCubic, 25); break;
+    case 38: m = geo::exoticImplicit(geo::ExoticImplicitKind::KummerLike, 25); break;
+    case 39: m = geo::exoticImplicit(geo::ExoticImplicitKind::Goursat, 25); break;
+    case 40: m = geo::exoticImplicit(geo::ExoticImplicitKind::BlobLattice, 25, t * .12f); break;
+    case 51: m = geo::geodesicDome(3, 1.4f, .09f * std::sin(t * .8f)); break;
+    case 52: m = geo::tubeTrefoil(); break;
+    case 53: m = geo::dnaHelix(90, t * .8f); break;
+    case 54: m = geo::atomOrbits(96, t); break;
+    case 55: m = geo::waveTerrain(48, t); break;
+    case 56: m = geo::platonicCompound(t); break;
+    case 59: m = geo::noncommutativeLattice(17, t); break;
+    case 60: m = geo::holonomySphere(t); break;
+    case 61: m = geo::motionOnlySculpture(t); break;
+    case 62: m = geo::atomicCollisionField(t); break;
+    case 63: m = geo::relationalGravity(t); break;
+    case 64: m = geo::dataCollisionSculpture(t); break;
+    case 65: m = geo::selfRefutingObject(t); break;
+    case 66: m = geo::contradictorySilhouette(t); break;
+    case 57:
+    case 58: {
+      // The renderer spins every scene about y at 0.17 rad/s; these clouds are flat-ish, so cancel the spin
+      // and keep a gentle +-0.5 rad sway instead, or the camera would keep seeing them edge-on.
+      float yaw = -.17f * t + .5f * std::sin(.3f * t);
+      m = geo::goldenOrbit(id == 57 ? geo::OrbitMap::DeJong : geo::OrbitMap::Clifford, t, yaw);
+      break;
+    }
+    case 41:
+    case 42:
+    case 43:
+    case 44:
+    case 45:
+    case 46:
+    case 47:
+    case 48:
+    case 49:
+    case 50: m = geo::unknownLabObject(unsigned(id - 41), 56, t); break;
+    default: m = geo::discoveredObject(seed + tick, 88, 44); break;
+  }
   return m;
 }
-void SceneSystem::collect(Slot& s){
-  if(s.job.valid()&&s.job.wait_for(std::chrono::seconds(0))==std::future_status::ready){s.mesh=s.job.get();s.tick=s.jobTick;s.ready=true;}
+void SceneSystem::collect(Slot& s) {
+  if (s.job.valid() && s.job.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+    s.mesh = s.job.get();
+    s.tick = s.jobTick;
+    s.ready = true;
+  }
 }
-const Mesh3& SceneSystem::mesh(int id,double seconds,uint64_t seed){
-  id=std::clamp(id,0,count()-1);
-  const uint64_t tick=tickFor(info(id),seconds);
-  Slot& s=cache_[id];
-  if(s.job.valid()){s.mesh=s.job.get();s.tick=s.jobTick;s.ready=true;}   // settle any in-flight build first
-  if(!s.ready||s.tick!=tick){s.mesh=build(id,tick,seed);s.tick=tick;s.ready=true;}
+const Mesh3& SceneSystem::mesh(int id, double seconds, uint64_t seed) {
+  id = std::clamp(id, 0, count() - 1);
+  const uint64_t tick = tickFor(info(id), seconds);
+  Slot& s = cache_[id];
+  if (s.job.valid()) {
+    s.mesh = s.job.get();
+    s.tick = s.jobTick;
+    s.ready = true;
+  } // settle any in-flight build first
+  if (!s.ready || s.tick != tick) {
+    s.mesh = build(id, tick, seed);
+    s.tick = tick;
+    s.ready = true;
+  }
   return s.mesh;
 }
-const Mesh3& SceneSystem::meshAsync(int id,double seconds,uint64_t seed){
-  id=std::clamp(id,0,count()-1);
-  const uint64_t tick=tickFor(info(id),seconds);
-  Slot& s=cache_[id];
+const Mesh3& SceneSystem::meshAsync(int id, double seconds, uint64_t seed) {
+  id = std::clamp(id, 0, count() - 1);
+  const uint64_t tick = tickFor(info(id), seconds);
+  Slot& s = cache_[id];
   collect(s);
-  if(!s.ready){                                        // never built: start it if needed, and never wait
-    if(!s.job.valid()){s.jobTick=tick;s.job=std::async(std::launch::async,[this,id,tick,seed]{return build(id,tick,seed);});}
-    static const Mesh3 empty;                         // the caller keeps showing its previous mesh meanwhile
+  if (!s.ready) { // never built: start it if needed, and never wait
+    if (!s.job.valid()) {
+      s.jobTick = tick;
+      s.job = std::async(std::launch::async, [this, id, tick, seed] { return build(id, tick, seed); });
+    }
+    static const Mesh3 empty; // the caller keeps showing its previous mesh meanwhile
     return empty;
   }
-  if(s.tick!=tick&&!s.job.valid()){                    // stale: show it one more tick, build the new one off-thread
-    s.jobTick=tick;
-    s.job=std::async(std::launch::async,[this,id,tick,seed]{return build(id,tick,seed);});
+  if (s.tick != tick && !s.job.valid()) { // stale: show it one more tick, build the new one off-thread
+    s.jobTick = tick;
+    s.job = std::async(std::launch::async, [this, id, tick, seed] { return build(id, tick, seed); });
   }
   return s.mesh;
 }
-void SceneSystem::prefetch(int id,double seconds,uint64_t seed){
-  id=std::clamp(id,0,count()-1);
-  Slot& s=cache_[id];
+void SceneSystem::prefetch(int id, double seconds, uint64_t seed) {
+  id = std::clamp(id, 0, count() - 1);
+  Slot& s = cache_[id];
   collect(s);
-  if(s.ready||s.job.valid())return;
-  const uint64_t tick=tickFor(info(id),seconds);
-  s.jobTick=tick;
-  s.job=std::async(std::launch::async,[this,id,tick,seed]{return build(id,tick,seed);});
+  if (s.ready || s.job.valid()) return;
+  const uint64_t tick = tickFor(info(id), seconds);
+  s.jobTick = tick;
+  s.job = std::async(std::launch::async, [this, id, tick, seed] { return build(id, tick, seed); });
 }

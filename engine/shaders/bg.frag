@@ -14,8 +14,8 @@ uniform float uMusicLevel;
 vec2 coverUv(vec2 uv, float texAR, float scrAR){
   // texAR = texture aspect, scrAR = screen aspect.
   vec2 c=vec2(1.0);
-  if(scrAR>texAR){ c.x=texAR/scrAR; }   // screen wider -> crop top/bottom
-  else           { c.y=scrAR/texAR; }   // screen taller -> crop sides
+  if(scrAR>texAR){ c.y=texAR/scrAR; }   // screen wider -> show the full width, crop top/bottom
+  else           { c.x=scrAR/texAR; }   // screen taller -> show the full height, crop the sides
   return (uv-0.5)*c+0.5;
 }
 void main(){

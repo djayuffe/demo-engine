@@ -22,6 +22,12 @@
 
 ## 1.3.0 - Golden glimmer and golden orbits
 - Engine: `Frame::wireStyle` and `Renderer::setWireStyle`. Style 1, golden glimmer, draws wires additively without depth test (point and orbit clouds accumulate light), twinkles each dash in gold with a sweeping shimmer band, and makes the post pass add gold horizontal-plus-vertical glints, tint the light rays gold, quiet the art background and switch off warps, colour grading and the rainbow tint.
+- Refactor: `.clang-format` plus reformatting of the dense one-line sources (object code verified byte-identical before and after); `applyEffect`'s 280-line switch split into six family functions; `tools/golden.cpp` bit-exact regression hashes.
+- Perf: `VertexWeld` hashed-grid welding replaces the O(n) vertex scan in both marching-tetrahedra builders (gyroid n=96: 54 s -> 1.2 s, identical meshes).
+- Fix: Mobius strip and Klein bottle seams close along the surface identification (no stray full-width edges); Boy surface seam glued numerically.
+- Fix: `bg.frag` cover-fit cropped the wrong axis, stretching logo cards on any window that is not the card's aspect ratio.
+- Fix: scroller measures only the characters it uploads (no blank scroll for text over 512 chars); logo upload ignores stale GL errors; mutateRecipe seed cast no longer undefined behaviour; Makefile stamp target compared an always-empty make variable and reconfigured every run.
+- Docs: `sceneIndex` is documented as reserved (the logo card is chosen by time).
 - Wireframe demo: scenes 59-66, eight "impossible" wire objects adapted from a 100-effect design list to what the CPU-built GL 4.1 wireframe path can show: Noncommutative lattice (#86, Heisenberg commutator), Holonomy sphere (#90, parallel transport), Motion-only sculpture (#55), Atomic collision field (#61, CPU model of atomicAdd scatter), Relational gravity (#77), Data-collision sculpture (#37), Self-refuting object (#48, repelling fixed point, bounded solver) and Contradictory silhouette (#8, visual hull of three incompatible silhouettes). 67 scenes in total; the golden-orbit render style is now limited to scenes 57-58.
 - Wireframe demo: scenes 57 Golden Galaxy and 58 Golden Cliff, ports of GALAXY.COM (de Jong attractor) and CLIFF.COM (Clifford attractor) from uber256-lab with the original constants, start points and parameter morph. 59 scenes in total.
 

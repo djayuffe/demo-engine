@@ -1,0 +1,16 @@
+# Layout only: formatting never changes the compiled output of this project.
+BasedOnStyle: LLVM
+IndentWidth: 2
+ColumnLimit: 120
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: All
+AllowShortCaseLabelsOnASingleLine: true
+PointerAlignment: Left
+SpaceAfterCStyleCast: false
+SortIncludes: false
+IndentCaseLabels: true
+BreakBeforeBraces: Attach
+NamespaceIndentation: None

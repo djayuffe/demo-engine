@@ -61,11 +61,11 @@ stamp:
 	if [ ! -d $(BUILD_DIR) ] || \
 	    [ ! -f $(BUILD_DIR)/CMakeCache.txt ] || \
 	    [ ! -f $(STAMP) ] || \
-	    [ "$(cached)" != "$(TYPE)" ] || \
+	    [ "$$cached" != "$(TYPE)" ] || \
 	    [ $(STAMP) -ot CMakeLists.txt ] || \
 	    [ $(STAMP) -ot Makefile ]; then \
-	  if [ -n "$(cached)" ] && [ "$(cached)" != "$(TYPE)" ]; then \
-	    echo "build type changed $(cached) -> $(TYPE), reconfiguring"; \
+	  if [ -n "$$cached" ] && [ "$$cached" != "$(TYPE)" ]; then \
+	    echo "build type changed $$cached -> $(TYPE), reconfiguring"; \
 	  fi; \
 	  rm -rf $(BUILD_DIR); \
 	  $(CMAKE) -S . -B $(BUILD_DIR) $(CMAKE_FLAGS); \

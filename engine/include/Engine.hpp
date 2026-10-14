@@ -70,7 +70,7 @@ private:
 struct Frame {
   Mesh3 mesh;                  // the wire mesh to draw this frame; empty = keep showing the previous one
   uint64_t revision=0;         // 0 = always re-upload; otherwise only upload when it changes
-  int sceneIndex=0;            // selects the logo card; also seeds per-scene variation in the post pass
+  int sceneIndex=0;            // reserved: the logo card is chosen by time (Renderer::drawBackground), not by scene
   float scale=1.f;             // extra scale on top of the engine's auto-fit
   float lineWidth=1.f;
   bool travelers=true;         // draw the octahedra weaving through the mesh

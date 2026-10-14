@@ -48,12 +48,12 @@ Keeping GL-free code in separate libraries lets tests and CI run headless: `geom
 `Demo::update` is called once per frame on the main thread and must fill a `Frame`:
 - `mesh` is a `Mesh3` (vertices plus index-pair edges). It must have finite vertices, in-range indices and no self or duplicate edges, otherwise `Renderer::upload` (which checks `geo::renderable`: finite, in range, no self edges) rejects it, the previous mesh stays on screen and the error is reported once. Duplicate edges are drawn, just twice as bright; `geo::validate` also catches them and belongs in your tests.
 - `revision` lets a static mesh skip the upload: set a non-zero counter that changes only when the mesh does. `0` means "re-upload every frame", which is always correct.
-- `sceneIndex` selects which logo card shows and varies the post pass per scene.
+- `sceneIndex` is reserved and currently unused by the renderer: the logo card is chosen by the time-driven logo show, not by the scene.
 - `ticker` is shown in the bottom band, if non-empty and the ticker is on.
 
 ## Rendering pipeline (`engine/src/Renderer.cpp`, `engine/shaders/`)
 - **HDR target**: RGBA16F colour plus depth, sized by `--quality`. Lines use additive `GL_ONE, GL_ONE` blending, so overlaps glow instead of occluding. Wire gain is `clamp(0.80 * sqrt(500 / lines), 0.05, 1)` so dense meshes do not burn out.
-- **`bg.frag`**: draws the logo card (two slots cross-fade when `sceneIndex` changes), zoomed to cover the screen, scaled by the logo-show opacity.
+- **`bg.frag`**: draws the current logo card, cover-fitted to the screen (the cropped axis follows the screen/card aspect ratio), scaled by the logo-show opacity.
 - **Logo show** (`Renderer::drawBackground`): a time-driven 14.5 s cycle (fade in 1 s, hold 3.5 s, fade out 1 s, black 9 s) producing `logoVis_`, which scales the card, trims wire gain and is sent to the post shader as `uLogoVis`. With no logo cards the show is simply absent.
 - **`wire.*`**: object-space colour cycling and music-reactive highlights, or (`Frame::wireStyle = 1`) golden glimmer: twinkling gold dashes drawn without depth test so clouds accumulate light, with `uGold` in the post pass adding gold cross glints, tinting the light rays gold and turning warps and colour grading off.
 - **`traveler.*`**: a small octahedron mesh with a per-vertex lane index; the vertex shader moves each traveller on its own path.
