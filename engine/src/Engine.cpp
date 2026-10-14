@@ -13,6 +13,7 @@
 #include <GL/glext.h>
 #endif
 #include "Engine.hpp"
+#include "RenderScale.hpp"
 #include "Renderer.hpp"
 #include "WindowSpec.hpp"
 #include <algorithm>
@@ -98,6 +99,7 @@ int run(Demo& demo, int argc, char** argv) {
   fs::path logoOverride;
   bool noTicker = false, noPost = false;
   double quality = 1.0;
+  bool qualityGiven = false;
   int winW = 0, winH = 0;
   bool fullscreen = false;
   std::string screenshotPath;
@@ -149,6 +151,7 @@ int run(Demo& demo, int argc, char** argv) {
         return 2;
       }
       quality = std::clamp(v, 0.25, 1.0);
+      qualityGiven = true;
     } else if (arg == "--logos" && i + 1 < argc)
       logoOverride = argv[++i];
     else if (arg == "--window" && i + 1 < argc) {
@@ -273,6 +276,8 @@ int run(Demo& demo, int argc, char** argv) {
     return 3;
   }
   r.setRenderScale(float(quality));
+  // Default: cap the HDR target to a pixel budget (Retina/4K); an explicit --quality means "exactly this".
+  r.setMaxHdrPixels(qualityGiven ? 0.0 : rscale::kDefaultBudget);
   r.setPostEnabled(!noPost);
   r.setFxAmount(cfg.fxAmount);
   if (cfg.logoShow) {

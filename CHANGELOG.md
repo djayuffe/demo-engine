@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased: special effects
+- macOS/Apple Silicon: the HDR target is capped to ~3.1 MP by default (a 2880x1800 Retina framebuffer renders at ~0.77 scale and is upsampled);
+  an explicit `--quality F` is honoured exactly. Release builds on arm64 use -O3 and -mcpu=native. See `RenderScale.hpp`.
 - Background gallery: four new slow, painterly layers in `lib/art_layers.glsl` that surface in waves: topographic contour flow, a
   Poincare-disk hyperbolic tiling on a sliding Moebius map, a kaleidoscopic IFS lace and auroral ribbons. `tools/artshot.cpp` dumps the
   background at chosen times for review.

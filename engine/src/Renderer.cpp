@@ -24,6 +24,7 @@
 #pragma GCC diagnostic pop
 #endif
 #include "Camera.hpp"
+#include "RenderScale.hpp"
 #include "LogoShow.hpp"
 namespace {
 using glutil::linkProgram;
@@ -242,8 +243,9 @@ bool Renderer::resizeHdr(int width, int height) {
   // the 3D wireframe, travelers, and the post/FX pass) runs at a fraction of
   // screen resolution on weak GPUs. The post pass upscales to the full-screen
   // default framebuffer. 1.0 = native.
-  width = std::max(1, (int)std::lround(width * renderScale_));
-  height = std::max(1, (int)std::lround(height * renderScale_));
+  const double sc = rscale::effective(width, height, renderScale_, maxHdrPixels_);
+  width = std::max(1, (int)std::lround(width * sc));
+  height = std::max(1, (int)std::lround(height * sc));
   if (width == hdrW_ && height == hdrH_ && hdrFbo_) return true;
   hdrW_ = width;
   hdrH_ = height;

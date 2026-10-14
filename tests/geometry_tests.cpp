@@ -10,6 +10,7 @@
 #include "Effects.hpp"
 #include "Choreography.hpp"
 #include "Camera.hpp"
+#include "RenderScale.hpp"
 #include "LogoShow.hpp"
 #include "Describe.hpp"
 #include "WindowSpec.hpp"
@@ -101,6 +102,15 @@ int main() {
     req(std::fabs(after.beat - before.beat) < 1e-9, "retempo keeps the beat continuous");
     auto later = rt.sample(13.0);
     req(std::fabs(later.beat - (before.beat + 3.0 * 140.0 / 60.0)) < 1e-9, "retempo uses the new BPM afterwards");
+  }
+  // B21: render-scale pixel budget
+  {
+    req(rscale::effective(1920, 1080, 1.0, rscale::kDefaultBudget) == 1.0, "1080p is under the pixel budget");
+    const double s = rscale::effective(2880, 1800, 1.0, rscale::kDefaultBudget);
+    req(s < .8 && s > .7, "Retina 2880x1800 is scaled to about 3.1 MP");
+    req(std::fabs(2880 * s * 1800 * s - rscale::kDefaultBudget) < 2e4, "capped target meets the budget");
+    req(rscale::effective(2880, 1800, .5, rscale::kDefaultBudget) == .5, "explicit lower quality is kept");
+    req(rscale::effective(2880, 1800, 1.0, 0) == 1.0, "no budget means the user scale exactly");
   }
   // B20: camera field of view, logo show, scene description
   {

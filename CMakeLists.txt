@@ -60,6 +60,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
+# Apple Silicon: tune for the host CPU (Apple clang accepts -mcpu=native on arm64) and optimise hard.
+if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64" OR (APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "arm64"))
+  include(CheckCXXCompilerFlag)
+  check_cxx_compiler_flag("-mcpu=native" IW_HAS_MCPU_NATIVE)
+  if(IW_HAS_MCPU_NATIVE AND NOT CMAKE_CROSSCOMPILING)
+    add_compile_options("$<$<CONFIG:Release>:-mcpu=native>")
+  endif()
+  add_compile_options("$<$<CONFIG:Release>:-O3>")
+endif()
 option(IW_BUILD_TESTS "Build the engine and wireframe-demo tests" ON)
 # Off by default so a fresh toolchain (new Apple clang / MSVC) can't break a
 # user's first build over an unrelated new warning. CI sets this ON to keep the

@@ -48,6 +48,8 @@ public:
   // upscales to the full-screen default framebuffer. 1.0 = native (default).
   void setRenderScale(float s) { renderScale_ = std::clamp(s, 0.25f, 1.0f); }
   float renderScale() const { return renderScale_; }
+  // Pixel budget for the HDR target (0 = unlimited): the scale is capped so the target never exceeds it.
+  void setMaxHdrPixels(double px) { maxHdrPixels_ = px; }
   // When true, the screen-space FX post pass is skipped entirely: the captured
   // HDR frame is blitted straight to the screen. Faster, useful for debugging.
   void setPostEnabled(bool on) { postEnabled_ = on; }
@@ -99,6 +101,7 @@ private:
   bool hasLogos_ = false;
   bool logoCapturePending_ = false;
   float renderScale_ = 1.f;
+  double maxHdrPixels_ = 0;
   bool postEnabled_ = true;
   float fxAmount_ = 1.f;
   int wireStyle_ = 0;
