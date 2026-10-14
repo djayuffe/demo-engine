@@ -1,4 +1,7 @@
 #include "Geometry.hpp"
+#include <vector>
+#include <utility>
+#include <complex>
 #include "VertexWeld.hpp"
 #include <algorithm>
 #include <array>
@@ -121,41 +124,52 @@ Mesh3 torus(unsigned A, unsigned B, float R, float r) {
   gridEdges(m, A, B, true, true);
   return m;
 }
+// Boy's surface from the Bryant-Kusner parametrisation of the unit disk: a polar grid (rings x angles) is pushed
+// through three complex rational functions and inverted in the unit sphere. Unlike the older Apery (u,v) grid, whose
+// whole u=pi/2 ring collapsed to one point and stretched the cells near it, the disk grid is uniform and closes
+// exactly: boundary points w and -w are the same point, so the rim ring is welded antipodally (no seam edges).
 Mesh3 boySurface(unsigned U, unsigned V, float scale) {
-  U = std::max(8u, U);
-  V = std::max(4u, V);
+  const unsigned rings = std::max(6u, U / 2), half = std::max(4u, V);   // angles around the disk = 2*half
+  const unsigned A = 2 * half;
   Mesh3 m;
-  for (unsigned i = 0; i < U; i++)
-    for (unsigned j = 0; j < V; j++) {
-      float u = PI * i / U, v = 2 * PI * j / V;
-      float cu = std::cos(u), s2 = std::sqrt(2.f);
-      float den = 2.f - s2 * std::sin(3 * u) * std::sin(2 * v);
-      float x = (s2 * cu * cu * std::cos(2 * v) + cu * std::sin(2 * v)) / den;
-      float y = (s2 * cu * cu * std::sin(2 * v) - cu * std::cos(2 * v)) / den;
-      float z = (3.f * cu * cu) / den - 1.f;
-      m.v.push_back({scale * x, scale * y, scale * z});
+  using C = std::complex<float>;
+  const float s5 = std::sqrt(5.f);
+  auto point = [&](float r, float th) {
+    const C w = std::polar(r, th), w3 = w * w * w, w4 = w3 * w, w6 = w3 * w3;
+    C den = w6 + s5 * w3 - C(1.f, 0.f);
+    if (std::abs(den) < 1e-5f) den = C(1e-5f, 0.f);          // a pole maps to the origin after inversion
+    const float g1 = -1.5f * ((w * (C(1.f, 0.f) - w4)) / den).imag();
+    const float g2 = -1.5f * ((w * (C(1.f, 0.f) + w4)) / den).real();
+    const float g3 = ((C(1.f, 0.f) + w6) / den).imag() - .5f;
+    const float d = std::max(g1 * g1 + g2 * g2 + g3 * g3, 1e-9f);
+    return V3{g1 / d, g2 / d, g3 / d};
+  };
+  std::vector<V3> raw;
+  std::vector<std::vector<unsigned>> idx(rings + 1, std::vector<unsigned>(A));
+  // ring 0 is the centre (one vertex); rings 1..rings-1 are full circles; the last ring has only `half` distinct points
+  raw.push_back(point(0.f, 0.f));
+  for (unsigned i = 0; i < A; ++i) idx[0][i] = 0;
+  for (unsigned r = 1; r <= rings; ++r) {
+    const float rad = float(r) / float(rings);
+    for (unsigned j = 0; j < A; ++j) {
+      if (r == rings && j >= half) { idx[r][j] = idx[r][j - half]; continue; }   // antipodal weld on the rim
+      raw.push_back(point(rad, 2.f * PI * float(j) / float(A)));
+      idx[r][j] = unsigned(raw.size() - 1);
     }
-  // u runs over [0,pi); the surface closes by gluing u=pi back to u=0 with the v circle shifted and
-  // possibly mirrored. Find that gluing numerically and close the seam along it, not straight across.
-  gridEdges(m, U, V, false, true);
-  unsigned bestK = 0;
-  bool bestFlip = false;
-  float bestErr = 1e30f;
-  for (int flip = 0; flip < 2; flip++)
-    for (unsigned k = 0; k < V; k++) {
-      float err = 0;
-      for (unsigned j = 0; j < V; j++) {
-        V3 a = m.v[(U - 1) * V + j], b = m.v[flip ? (k + V - j) % V : (j + k) % V];
-        float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-        err += dx * dx + dy * dy + dz * dz;
-      }
-      if (err < bestErr) {
-        bestErr = err;
-        bestK = k;
-        bestFlip = flip;
-      }
+  }
+  float far = 1e-6f;
+  for (auto& p : raw) far = std::max(far, std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z));
+  for (auto& p : raw) m.v.push_back({scale * p.x / far * 1.25f, scale * p.y / far * 1.25f, scale * p.z / far * 1.25f});
+  std::set<std::pair<unsigned, unsigned>> seen;
+  auto edge = [&](unsigned a, unsigned b) {
+    if (a == b) return;
+    if (seen.insert(std::minmax(a, b)).second) m.e.push_back({a, b});
+  };
+  for (unsigned r = 1; r <= rings; ++r)
+    for (unsigned j = 0; j < A; ++j) {
+      edge(idx[r][j], idx[r][(j + 1) % A]);          // ring
+      edge(idx[r - 1][j], idx[r][j]);                // spoke
     }
-  for (unsigned j = 0; j < V; j++) m.e.push_back({(U - 1) * V + j, bestFlip ? (bestK + V - j) % V : (j + bestK) % V});
   return m;
 }
 Mesh3 hopfFibres(unsigned F, unsigned S, float pw) {

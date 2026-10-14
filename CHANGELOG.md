@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased: special effects
+- Outstanding fixes: Boy's surface rebuilt on the Bryant-Kusner disk parametrisation (uniform cells, exact antipodal rim weld; the old
+  u=pi/2 ring collapsed to a point and stretched the mesh). Scene 65 gets pole vertices (no open caps), 63 gets more agents, a soft
+  wall and capped relationship edges, 64 is thinned from a hairball, 61 has denser longer trails. Golden hashes: every effect, recipe and
+  mutation hash is unchanged; only scenes 7, 60, 61, 63, 64, 65 differ (intended) plus the new 67-72.
 - macOS/Apple Silicon: the HDR target is capped to ~3.1 MP by default (a 2880x1800 Retina framebuffer renders at ~0.77 scale and is upsampled);
   an explicit `--quality F` is honoured exactly. Release builds on arm64 use -O3 and -mcpu=native. See `RenderScale.hpp`.
 - Background gallery: four new slow, painterly layers in `lib/art_layers.glsl` that surface in waves: topographic contour flow, a

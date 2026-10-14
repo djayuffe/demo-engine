@@ -113,7 +113,7 @@ Mesh3 motionOnlySculpture(float t,unsigned dots){
   dots=std::clamp(dots,200u,12000u);Builder B;
   auto theta=[](float tt){return .9f*tt-1.8f*std::cos(.5f*tt);};  // d/dt = .9+.9 sin(.5t) >= 0: stop-and-go
   auto curve=[](float u){return V3{.38f*(std::sin(u)+2.f*std::sin(2.f*u)),.38f*(std::cos(u)-2.f*std::cos(2.f*u)),-.38f*std::sin(3.f*u)};};
-  const float dt=.16f,a1=theta(t),a0=theta(t-dt);
+  const float dt=.21f,a1=theta(t),a0=theta(t-dt);
   auto spin=[](V3 p,float a){return rotY(rotX(p,.35f),a);};
   for(unsigned i=0;i<dots;++i){
     uint32_t h=hash32(i*3u+11u);
@@ -182,17 +182,21 @@ Mesh3 relationalGravity(float t,unsigned agents,unsigned steps){
       V3 a=sub(mul(acc[i],1.f/float(N)*14.f),mul(p[i],.1f));
       vel[i]=mul(add3(vel[i],mul(a,.07f)),.86f);
       float sp=len(vel[i]);if(sp>.35f)vel[i]=mul(vel[i],.35f/sp);
-      p[i]=add3(p[i],vel[i]);}}
+      p[i]=add3(p[i],vel[i]);
+      float pl=len(p[i]);if(pl>2.f)p[i]=mul(p[i],2.f/pl);}}      // soft wall: no agent is ever flung out of frame
   Builder B;std::vector<uint32_t> node(N);
   for(unsigned i=0;i<N;++i){node[i]=B.add(p[i]);
     V3 dir=norm({f[i*4],f[i*4+1],f[i*4+2]},{1,0,0});B.edge(node[i],B.add(add3(p[i],mul(dir,.07f))));}
   for(unsigned i=0;i<N;++i){
-    int b1=-1,b2=-1;float d1=.9f,d2=.9f;
-    for(unsigned j=0;j<N;++j){if(j==i||sm[size_t(i)*N+j]<.6f)continue;float d=len(sub(p[i],p[j]));
+    int b1=-1,b2=-1;float d1=1.0f,d2=1.0f;
+    for(unsigned j=0;j<N;++j){if(j==i||sm[size_t(i)*N+j]<.5f)continue;float d=len(sub(p[i],p[j]));
       if(d<d1){b2=b1;d2=d1;b1=int(j);d1=d;}else if(d<d2){b2=int(j);d2=d;}}
     if(b1>=0)B.edge(node[i],node[unsigned(b1)]);
-    if(b2>=0)B.edge(node[i],node[unsigned(b2)]);}
-  return B.m;
+    if(b2>=0)B.edge(node[i],node[unsigned(b2)]);
+    int best=-1;float bs=.82f;                                       // the most similar agent anywhere: a long "relationship" edge
+    for(unsigned j=0;j<N;++j)if(j!=i&&sm[size_t(i)*N+j]>bs&&len(sub(p[i],p[j]))<1.5f){bs=sm[size_t(i)*N+j];best=int(j);}
+    if(best>=0&&(i&1)==0)B.edge(node[i],node[unsigned(best)]);}
+  return fit(std::move(B.m),1.9f);
 }
 
 Mesh3 dataCollisionSculpture(float t,unsigned words){
@@ -214,7 +218,7 @@ Mesh3 dataCollisionSculpture(float t,unsigned words){
     B.edge(A[i],Bi[i]);B.edge(Bi[i],C[i]);}
   for(unsigned i=0;i<W;++i){                                        // reading D: the same bits as graph links
     B.edge(A[i],A[(i+1)%W]);
-    unsigned j=((buf[i]>>16)*2654435761u>>7)%W;B.edge(Bi[i],Bi[j]);}
+    unsigned j=((buf[i]>>16)*2654435761u>>7)%W;if((i&1)==0)B.edge(Bi[i],Bi[j]);}
   return B.m;
 }
 
@@ -241,6 +245,11 @@ Mesh3 selfRefutingObject(float t,unsigned iterations){
     id[size_t(i)*C+c]=B.add({rr*std::sin(th(i))*std::cos(p),rr*std::cos(th(i)),rr*std::sin(th(i))*std::sin(p)});}
   for(int i=0;i<R;++i)for(int c=0;c<C;++c){uint32_t v=id[size_t(i)*C+c];
     B.edge(v,id[size_t(i)*C+(c+1)%C]);if(i+1<R)B.edge(v,id[size_t(i+1)*C+c]);}
+  // close the poles: one vertex at the mean radius of each end ring, spoked to every column
+  for(int pole=0;pole<2;++pole){
+    int row=pole?R-1:0;float mean=0;for(int c=0;c<C;++c)mean+=r[size_t(row)*C+c];mean=mean/float(C)*S;
+    uint32_t pv=B.add({0,pole?-mean:mean,0});
+    for(int c=0;c<C;c+=3)B.edge(pv,id[size_t(row)*C+c]);}
   return B.m;
 }
 
