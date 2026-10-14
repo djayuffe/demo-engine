@@ -120,7 +120,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --no-ticker     Start with the text ticker off (toggle with T)\n"
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
                  "  --no-background Start with the procedural background off (toggle with B)\n"
-                 "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole (cycle with V)\n"
+                 "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole|hyperspace (cycle with V)\n"
                  "  --parallax F    Depth-parallax gain 0-3 (default 1.6; cycle with G)\n"
                  "  --no-depth      Start with the depth-mote layer off (toggle with D)\n"
                  "  --no-logo       Start with the logo cards off (toggle with L)\n"
@@ -172,7 +172,7 @@ int run(Demo& demo, int argc, char** argv) {
       if (st == -1) autoStyle = true;
       else if (st >= 0) bgStyle = st;
       else {
-        std::fprintf(stderr, "--background-style: use auto|classic|synthwave|nebula|mandala|blackhole (or 0-4)\n");
+        std::fprintf(stderr, "--background-style: use auto|classic|synthwave|nebula|mandala|blackhole|hyperspace (or 0-5)\n");
         return 2;
       }
     } else if (arg == "--no-logo")

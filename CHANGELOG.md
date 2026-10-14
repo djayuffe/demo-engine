@@ -2,6 +2,8 @@
 
 ## Unreleased: special effects
 
+- Sixth style `hyperspace`: warp tunnel with six depth shells of streaking stars, ribbed energy walls, a pointer-steered vanishing point, speed and flashes driven by the music.
+
 - Key **C** saves the current frame as `demo-<date>-<time>.png` in the working directory; key **H** prints the key list.
 
 - Polish: background-style parsing, the fade state machine, parallax-gain cycle and idle sway moved into the pure, unit-tested `BackgroundStyle.hpp` (test B22); black hole ray-march exits early once the disk is opaque; calmer synthwave aurora.

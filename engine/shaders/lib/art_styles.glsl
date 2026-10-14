@@ -234,9 +234,50 @@ vec3 styleBlackHole(vec2 p,float ml,float beat){
   return col;
 }
 
+// ---- 5: HYPERSPACE -- a warp tunnel: streaking stars on many depth shells, ribbed energy walls,
+//         a vanishing point you steer with the pointer, beat flashes and speed that follows the music ----
+vec3 styleHyperspace(vec2 p,float ml,float beat){
+  float t=uTime;
+  vec2 vp=uPointer*.35;                                   // vanishing point
+  vec2 q=p-vp;
+  float r=length(q),a=atan(q.y,q.x);
+  float speed=.55+1.4*ml+.9*beat;
+  vec3 col=vec3(.003,.004,.014);
+  // energy walls: nebula tunnel with ribs rushing outward
+  float z=1./max(r,.05);
+  float zz=z+t*speed*.6;
+  float ribs=pow(.5+.5*sin(zz*5.),6.)*smoothstep(.0,.5,r);
+  float vein=fbm(vec2(a*3.2+t*.07,zz*.7))*fbm(vec2(a*6.1-t*.05,zz*1.3+4.));
+  col+=pal(zz*.04+a*.08+t*.02)*(ribs*.10+vein*.55)*smoothstep(.05,.9,r)*exp(-r*.55)*(.6+ml);
+  // star streaks: shells at different depths; each star is a radial line whose length grows with speed
+  for(int i=0;i<6;i++){
+    float fi=float(i);
+    float depth=1.+fi*.55;
+    float sectors=110.+fi*40.;
+    float ang=a*sectors/6.2831853;
+    float id=floor(ang);
+    float h=hash(vec2(id,fi*13.7));
+    if(h<.38) continue;
+    float lane=fract(ang)-.5;
+    float rr=fract(h*7.+t*speed*.22/depth+fi*.31);   // radial position cycles outward
+    float rad=rr*rr*1.9*depth*.8;
+    float len=(.10+.55*speed)*(.25+rr)*depth*.6;
+    float along=r-rad;
+    float width=(.0018+.0045*rr)/depth;
+    float streak=smoothstep(width,.0,abs(lane)*r*6.2831853/sectors)*pow(smoothstep(len,0.,along),1.6)*step(0.,along);
+    vec3 sc=mix(vec3(.6,.8,1.4),pal(h*4.+t*.05),.45);
+    col+=sc*streak*(.6+1.6*rr)*(1.4-fi*.12)*(.7+ml);
+  }
+  // vanishing-point glow and beat flash
+  col+=pal(t*.08)*exp(-r*5.)*(.25+.7*ml+.9*beat);
+  col+=vec3(.9,.95,1.2)*exp(-r*14.)*(.5+1.2*beat);
+  return col;
+}
+
 vec3 styleLayer(int style,vec2 p,float ml,float beat){
   if(style==1) return styleSynthwave(p,ml,beat);
   if(style==2) return styleNebula(p,ml,beat);
   if(style==4) return styleBlackHole(p,ml,beat);
+  if(style==5) return styleHyperspace(p,ml,beat);
   return styleMandala(p,ml,beat);
 }

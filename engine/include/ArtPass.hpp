@@ -9,7 +9,7 @@ public:
     float time = 0, music = 0, bpm = 132, logoVisibility = 0, fxAmount = 1;
     bool hasLogos = false, gold = false;
     float fade = 1, pointerX = 0, pointerY = 0, pulse = 0;
-    int style = 0;  // 0 classic, 1 synthwave, 2 nebula, 3 mandala, 4 black hole
+    int style = 0;  // 0 classic, 1 synthwave, 2 nebula, 3 mandala, 4 black hole, 5 hyperspace
   };
   bool init(const std::string& shaderDir, std::string& err);
   bool resize(int hdrWidth, int hdrHeight, std::string& err);  // target is half the HDR size

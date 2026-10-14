@@ -6,9 +6,9 @@
 #include <string>
 
 namespace bgstyle {
-constexpr int kCount = 5;
+constexpr int kCount = 6;
 inline const char* name(int s) {
-  static const char* const k[kCount] = {"classic", "synthwave", "nebula", "mandala", "blackhole"};
+  static const char* const k[kCount] = {"classic", "synthwave", "nebula", "mandala", "blackhole", "hyperspace"};
   return k[((s % kCount) + kCount) % kCount];
 }
 // "auto" -> -1 (caller turns auto-cycling on); a name or a digit 0..4 -> that style; anything else -> -2.
