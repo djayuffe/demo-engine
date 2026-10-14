@@ -20,9 +20,12 @@ uniform float uFxAmount;
 // 1 while a golden-glimmer scene is on: gold-tinted streaks plus vertical streaks (cross glints),
 // a quieter art background and a warm grade.
 uniform float uGold;
+// Background style: 0 = classic generative blend, 1 = synthwave, 2 = nebula, 3 = mandala.
+uniform int uStyle;
 
 #include "lib/common.glsl"
 #include "lib/art_layers.glsl"
+#include "lib/art_styles.glsl"
 
 // ---- Ambient layers: each returns its additive contribution (before the shared weights in main) ----
 float starField(vec2 p){return step(.996,hash(floor((p+2.)*vec2(120.,70.)+floor(uTime*.25))));}
@@ -62,6 +65,12 @@ void main(){
   float beat=pow(.5+.5*sin(6.2831853*uTime*uBpm/60.0),14.0);
   float mlev=uMusicLevel;
   float hasLogo=max(step(.5,uHasLogo)*clamp(uLogoVis,0.,1.),1.0-clamp(uFxAmount,0.,1.));
+  if(uStyle>0){
+    // Selectable style: a single self-contained scene, still faded out by the logo / fx amount.
+    vec3 sc=styleLayer(uStyle,p,mlev,beat)*(1.0-hasLogo)*(1.0-.5*uGold);
+    FragColor=vec4(max(sc,vec3(0.)),1.0);
+    return;
+  }
   float n=fbm(p*1.7+uTime*.035);
   float n2=fbm(p*3.1+vec2(uTime*.05,-uTime*.025));
   float star=starField(p);

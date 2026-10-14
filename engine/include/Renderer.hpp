@@ -25,6 +25,8 @@ public:
   bool showLogos() const { return showLogos_; }
   void setShowBackground(bool on) { showBackground_ = on; }
   bool showBackground() const { return showBackground_; }
+  void setBackgroundStyle(int s) { bgStyle_ = ((s % 4) + 4) % 4; }  // 0 classic, 1 synthwave, 2 nebula, 3 mandala
+  int backgroundStyle() const { return bgStyle_; }
   int logoCount() const { return (int)logos_.size(); }
   // Draw a full-screen logo backdrop behind the wireframe (crossfades on
   // scene change, subtle Ken Burns). logoComposite=true renders into the HDR
@@ -107,6 +109,7 @@ private:
   int uTrMVP_ = -1, uTrTime_ = -1, uTrColor_ = -1, uTrSpeed_ = -1;
   bool hasLogos_ = false;
   bool showLogos_ = true, showBackground_ = true;
+  int bgStyle_ = 0;
   bool logosActive() const { return hasLogos_ && showLogos_; }
   bool logoCapturePending_ = false;
   float renderScale_ = 1.f;

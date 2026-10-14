@@ -576,6 +576,7 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
     ap.fxAmount = fxAmount_;
     ap.hasLogos = logosActive();
     ap.gold = wireStyle_ == 1;
+    ap.style = bgStyle_;
     art_.render(ap);
   }
   // In both logo and no-logo mode the HDR buffer now holds the wireframe +

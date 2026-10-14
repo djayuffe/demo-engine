@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased: special effects
+
+- Three selectable background styles: `synthwave` (striped sun, neon grid, ridgeline), `nebula` (parallax self-shadowed gas, flared stars, shooting stars), `mandala` (folded orbit-trap kaleidoscope). `--background-style classic|synthwave|nebula|mandala`, key **V** cycles.
 - Background and logo switches: keys B (procedural background) and L (logo cards) toggle at runtime; `--no-background` and `--no-logo` start with them off.
 - Signal packets: with the geometry stage every wire knows its position along itself, so each carries a travelling pulse (own speed and phase,
   faster with the music): the whole mesh reads as circuitry with data flowing through it.
