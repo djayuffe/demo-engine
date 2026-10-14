@@ -1,5 +1,6 @@
 #pragma once
 #include "Geometry.hpp"
+#include "SpecialFx.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <string>
@@ -53,9 +54,17 @@ public:
   // Wire look: 0 = the default electric palette, 1 = golden glimmer (no depth test, so orbit clouds
   // accumulate light additively; gold twinkle in wire.frag; gold cross glints in post.frag).
   void setWireStyle(int s) { wireStyle_ = std::clamp(s, 0, 1); }
+  // Model-space transform applied to the wireframe and travelers before the camera: a row-major 3x3
+  // (identity by default). The noncommutative-camera effect drives it with products of shears.
+  void setModelTransform(const float m3[9]) { std::copy(m3, m3 + 9, modelShear_); }
+  // 0..1 strength of the temporal-refraction sphere (a glass sphere showing the scene from other moments).
+  void setTemporalRefraction(float a) { temporalAmt_ = std::clamp(a, 0.f, 1.f); }
+  // 0..1 strength of the persistent memory layer (advected, diffused, hue-ageing ghosts of past frames).
+  void setMemory(float a) { memoryAmt_ = std::clamp(a, 0.f, 1.f); }
   const std::string& error() const { return error_; }
 
 private:
+  void cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const;
   bool createGl(const std::string& shaderDir);
   bool initPost(const std::string& shaderDir);
   bool initArt(const std::string& shaderDir);
@@ -92,6 +101,9 @@ private:
   int artW_ = 0, artH_ = 0;
   int uArtTime_ = -1, uArtRes_ = -1, uArtMusic_ = -1, uArtBpm_ = -1, uArtHasLogo_ = -1, uArtLogoVis_ = -1,
       uArtGold_ = -1, uArtFx_ = -1, uPostArt_ = -1, uPostArtOn_ = -1;
+  SpecialFx fx_;
+  float modelShear_[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  float temporalAmt_ = 0.f, memoryAmt_ = 0.f;
   std::string error_;
   struct Logo {
     unsigned tex = 0;

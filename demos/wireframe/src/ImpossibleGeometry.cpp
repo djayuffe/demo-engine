@@ -88,7 +88,7 @@ Mesh3 holonomySphere(float t){
     auto arrow=[&](float ph,float scale){
       float al=.5f+hol*ph;V3 p=P(th,ph,R*1.01f);
       V3 et{std::cos(th)*std::cos(ph),-std::sin(th),std::cos(th)*std::sin(ph)},ef{-std::sin(ph),0.f,std::cos(ph)};
-      V3 v=add3(mul(et,std::cos(al)),mul(ef,std::sin(al))),nrm=norm(cross(norm(p),v)),L0=mul(v,.2f*scale);
+      V3 v=add3(mul(et,std::cos(al)),mul(ef,std::sin(al))),nrm=norm(cross(norm(p),v)),L0=mul(v,.38f*scale);
       uint32_t a=B.add(p),b=B.add(add3(p,L0)),h1=B.add(add3(add3(p,mul(L0,.62f)),mul(nrm,.05f*scale))),h2=B.add(sub(add3(p,mul(L0,.62f)),mul(nrm,.05f*scale)));
       B.edge(a,b);B.edge(b,h1);B.edge(b,h2);};
     for(unsigned s=0;s<=M;++s){

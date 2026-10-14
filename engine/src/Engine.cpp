@@ -396,6 +396,9 @@ int run(Demo& demo, int argc, char** argv) {
     }
     const float scale = std::min(1.48f, 1.92f / lastRadius) * frame.scale;
     r.setWireStyle(frame.wireStyle);
+    r.setModelTransform(frame.modelTransform);
+    r.setTemporalRefraction(frame.temporalRefraction);
+    r.setMemory(frame.memory);
     // 1) wireframe (+ logo backdrop) into the HDR target, 2) travellers, 3) post pass, 4) ticker.
     if (!r.draw(float(fi.time), W, H, float(W) / float(H), frame.sceneIndex, scale, frame.lineWidth, music.level)) {
       std::fprintf(stderr, "Renderer draw failed: %s\n", r.error().c_str());

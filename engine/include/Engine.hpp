@@ -74,6 +74,10 @@ struct Frame {
   float scale=1.f;             // extra scale on top of the engine's auto-fit
   float lineWidth=1.f;
   bool travelers=true;         // draw the octahedra weaving through the mesh
+  // Experimental renderer features (see ARCHITECTURE.md). All default to off.
+  float modelTransform[9]={1,0,0,0,1,0,0,0,1};   // row-major 3x3 applied to the model before the camera (shears)
+  float temporalRefraction=0.f;                   // 0..1: a glass sphere that shows the scene from other moments
+  float memory=0.f;                               // 0..1: persistent, drifting ghosts of past frames
   int wireStyle=0;             // 0 = electric palette, 1 = golden glimmer (additive, no depth test, gold glints)
   std::string ticker;          // text for the ticker band; empty = nothing
 };

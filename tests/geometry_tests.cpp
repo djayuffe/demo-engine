@@ -8,6 +8,7 @@
 #include "TextScroller.hpp"
 #include "Timeline.hpp"
 #include "Effects.hpp"
+#include "Choreography.hpp"
 #include "WindowSpec.hpp"
 #include <chrono>
 #include <thread>
@@ -97,6 +98,18 @@ int main() {
     req(std::fabs(after.beat - before.beat) < 1e-9, "retempo keeps the beat continuous");
     auto later = rt.sample(13.0);
     req(std::fabs(later.beat - (before.beat + 3.0 * 140.0 / 60.0)) < 1e-9, "retempo uses the new BPM afterwards");
+  }
+  // B19: noncommutative camera choreography
+  {
+    using namespace choreo;
+    req(shearResidual(noncommutativeCamera(0.0)) < 1e-6f, "camera starts at identity");
+    req(shearResidual(noncommutativeCamera(20.0)) < 1e-6f, "camera returns to identity each cycle");
+    req(shearResidual(noncommutativeCamera(16.0)) > .05f, "undoing moves in order leaves a commutator residual");
+    M3 ab = shearA(.5f) * shearB(.7f), ba = shearB(.7f) * shearA(.5f);
+    req(shearResidual(lerp(ab, ba, 1.f)) == shearResidual(ba) && std::fabs(ab.m[0] - ba.m[0]) > .1f, "shears do not commute");
+    req(forScene(5, 3.0, false, false, false).temporal == 0.f && forScene(5, 3.0, false, false, false).memory == 0.f,
+        "no special effects in ordinary scenes");
+    req(forScene(5, 3.0, false, true, true).temporal > 0.f && forScene(5, 3.0, false, true, true).memory > 0.f, "keys force effects");
   }
   // B18: scene-table consistency
   {

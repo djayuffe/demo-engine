@@ -74,3 +74,8 @@ Windows only exports OpenGL 1.1 from `opengl32.dll`, so `GLWin32.hpp` declares t
 
 ## Testing
 `tests/geometry_tests.cpp` is a single executable of `req(cond, message)` checks that exits non-zero on the first failure. Visual layers are verified with `--screenshot PATH --frames N` captures, which also work in CI.
+
+## SpecialFx
+`engine/src/SpecialFx.cpp` runs between the HDR capture and the post pass: a 4x4 atlas ring of past frames feeds the
+temporal-refraction sphere (`spec.frag`); `memory.frag` advects, diffuses and hue-ages a half-res feedback buffer.
+The camera shear is applied in `Renderer::cameraMvp` between rotation and view. Controlled per frame via `de::Frame`.

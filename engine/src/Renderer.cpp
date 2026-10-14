@@ -1,19 +1,7 @@
 #include "Renderer.hpp"
 #include "TextScroller.hpp"
 #include "Image.hpp"
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
-#ifdef __APPLE__
-#include <OpenGL/gl3.h>
-#elif defined(_WIN32)
-#include "GLWin32.hpp"
-#else
-#ifndef GL_GLEXT_PROTOTYPES
-#define GL_GLEXT_PROTOTYPES 1
-#endif
-#include <GL/gl.h>
-#include <GL/glext.h>
-#endif
+#include "GLUtil.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -36,57 +24,9 @@
 #pragma GCC diagnostic pop
 #endif
 namespace {
-std::string readText(const std::string& p) {
-  std::ifstream f(p);
-  if (!f) return {};
-  std::ostringstream s;
-  s << f.rdbuf();
-  return s.str();
-}
-bool shader(GLuint& out, GLenum type, const std::string& s, std::string& err) {
-  out = glCreateShader(type);
-  const char* p = s.c_str();
-  glShaderSource(out, 1, &p, nullptr);
-  glCompileShader(out);
-  GLint ok = 0;
-  glGetShaderiv(out, GL_COMPILE_STATUS, &ok);
-  if (!ok) {
-    GLint n = 0;
-    glGetShaderiv(out, GL_INFO_LOG_LENGTH, &n);
-    std::string log(std::max(1, n), '\0');
-    glGetShaderInfoLog(out, n, nullptr, log.data());
-    err = log;
-    glDeleteShader(out);
-    out = 0;
-    return false;
-  }
-  return true;
-}
-GLuint linkProgram(const std::string& vs, const std::string& fs, std::string& err) {
-  GLuint v = 0, f = 0;
-  if (!shader(v, GL_VERTEX_SHADER, vs, err) || !shader(f, GL_FRAGMENT_SHADER, fs, err)) {
-    if (v) glDeleteShader(v);
-    if (f) glDeleteShader(f);
-    return 0;
-  }
-  GLuint p = glCreateProgram();
-  glAttachShader(p, v);
-  glAttachShader(p, f);
-  glLinkProgram(p);
-  glDeleteShader(v);
-  glDeleteShader(f);
-  GLint ok = 0;
-  glGetProgramiv(p, GL_LINK_STATUS, &ok);
-  if (!ok) {
-    GLint n = 0;
-    glGetProgramiv(p, GL_INFO_LOG_LENGTH, &n);
-    err.resize(std::max(1, n));
-    glGetProgramInfoLog(p, n, nullptr, err.data());
-    glDeleteProgram(p);
-    return 0;
-  }
-  return p;
-}
+using glutil::linkProgram;
+using glutil::readText;
+using glutil::setupFullscreenVao;
 void perspective(float* m, float fovy, float aspect, float zn, float zf) {
   float f = 1 / std::tan(fovy * .5f);
   for (int i = 0; i < 16; i++) m[i] = 0;
@@ -102,22 +42,6 @@ void mul(float* o, const float* a, const float* b) {
     for (int rr = 0; rr < 4; rr++)
       for (int k = 0; k < 4; k++) r[c * 4 + rr] += a[k * 4 + rr] * b[c * 4 + k];
   std::copy(r, r + 16, o);
-}
-// Set up a VAO for the "no-VBO fullscreen triangle" idiom (the vertex shader
-// generates positions from gl_VertexID). glDrawArrays on a VAO with NO enabled
-// vertex attribute is GL_INVALID_OPERATION, so a 0-byte ARRAY_BUFFER + a
-// dummy vertex attribute pointer are required even though the shader ignores
-// them. This is the fix for post/scroller/bg, which previously drew on empty
-// VAOs (invalid GL, nothing rendered).
-void setupFullscreenVao(unsigned& vao, unsigned& vbo) {
-  glGenVertexArrays(1, &vao);
-  glGenBuffers(1, &vbo);
-  glBindVertexArray(vao);
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-  glBindVertexArray(0);
 }
 } // namespace
 // Create all GL objects (programs, VAOs, buffers, textures, HDR FBO). Called by
@@ -158,6 +82,8 @@ bool Renderer::createGl(const std::string& dir) {
   if (!initScroller(dir)) error_ = "scroller shader unavailable (no marquee): " + error_;
   initBackground(dir);
   initTravelers(dir);
+  // Non-fatal as well: without these shaders the temporal-refraction and memory effects are simply off.
+  if (!fx_.init(dir, error_)) error_ = "special effects unavailable: " + error_;
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LEQUAL);
   return true;
@@ -175,6 +101,7 @@ bool Renderer::reinit(const std::string& dir) {
   // Delete only the GL objects that survived the context loss (they're invalid
   // handles now, but deleting them is the correct cleanup before re-creating).
   // We do NOT touch the logo image data (logos_) — only their GL textures.
+  fx_.shutdown();
   if (hdrFbo_) glDeleteFramebuffers(1, &hdrFbo_);
   if (hdrTex_) glDeleteTextures(1, &hdrTex_);
   if (depthRbo_) glDeleteRenderbuffers(1, &depthRbo_);
@@ -387,6 +314,7 @@ bool Renderer::resizeHdr(int width, int height) {
     return false;
   }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  if (!fx_.resize(width, height, error_)) return false;
   return true;
 }
 // Additive lines pile up: the 600-cell projection draws ~1200 edges through the same pixels and
@@ -424,20 +352,20 @@ bool Renderer::upload(const Mesh3& m) {
   if (eb) glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, (GLsizeiptr)eb, m.e.data()); // Edge{a,b} is already an index pair
   return true;
 }
-bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex, float scale, float lineWidth,
-                    float musicLevel) {
-  if (!resizeHdr(width, height)) return false;
-  float ml = std::clamp(musicLevel, 0.f, 1.f);
-  float fly = std::sin(t * .19f), zoom = std::sin(t * .23f + 1.7f),
-        breath = 1.f + .075f * std::sin(t * .83f) + .12f * ml;
+// The camera shared by the wireframe and the travelers, so both live in the same 3D space.
+// modelShear_ (row-major 3x3, identity by default) is applied to the model first: it is how the
+// noncommutative-camera effect shears the world.
+void Renderer::cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const {
+  const float ml = std::clamp(musicLevel, 0.f, 1.f);
+  const float fly = std::sin(t * .19f), zoom = std::sin(t * .23f + 1.7f),
+              breath = 1.f + .075f * std::sin(t * .83f) + .12f * ml;
   float P[16],
-      V[16] = {
-          1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, .22f * fly, .14f * std::cos(t * .13f), -4.25f + .52f * zoom - .28f * ml,
-          1};
+      V[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, .22f * fly, .14f * std::cos(t * .13f),
+               -4.25f + .52f * zoom - .28f * ml, 1};
   float Ry[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
-        Rx[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}, R[16], X[16], M[16];
-  float cy = std::cos(t * .17f), sy = std::sin(t * .17f), cx = std::cos(.27f * std::sin(t * .11f)),
-        sx = std::sin(.27f * std::sin(t * .11f));
+        Rx[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}, G[16] = {0}, R[16], RG[16], X[16];
+  const float cy = std::cos(t * .17f), sy = std::sin(t * .17f), cx = std::cos(.27f * std::sin(t * .11f)),
+              sx = std::sin(.27f * std::sin(t * .11f));
   Ry[0] = cy * scale * breath;
   Ry[2] = -sy * scale * breath;
   Ry[8] = sy * scale * breath;
@@ -447,11 +375,22 @@ bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex
   Rx[6] = sx;
   Rx[9] = -sx;
   Rx[10] = cx;
+  for (int r = 0; r < 3; ++r)
+    for (int c = 0; c < 3; ++c) G[c * 4 + r] = modelShear_[r * 3 + c];   // row-major 3x3 -> column-major 4x4
+  G[15] = 1.f;
   perspective(P, (52.f + 3.f * std::sin(t * .07f) - 2.f * ml) * 3.14159265f / 180.f, std::max(.05f, aspect), .05f,
               100.f);
   mul(R, Ry, Rx);
-  mul(X, V, R);
+  mul(RG, R, G);
+  mul(X, V, RG);
   mul(M, P, X);
+}
+bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex, float scale, float lineWidth,
+                    float musicLevel) {
+  if (!resizeHdr(width, height)) return false;
+  float ml = std::clamp(musicLevel, 0.f, 1.f);
+  float M[16];
+  cameraMvp(t, aspect, scale, ml, M);
   if (hasLogos_) {
     // Logo section: the logo is the BACKDROP. Draw it FIRST into the HDR FBO
     // (opaque, no depth), then the wireframe + travelers render ADDITIVELY on
@@ -641,46 +580,9 @@ bool Renderer::drawTravelers(float time, int width, int height, float aspect, fl
   if (!travelerProgram_) return false;
   (void)width;
   (void)height;
-  // Reuse the same view/projection the wireframe used so travelers sit inside
-  // the same 3D space. Reconstruct from the same params as draw().
-  float fly = std::sin(time * .19f), zoom = std::sin(time * .23f + 1.7f),
-        breath = 1.f + .075f * std::sin(time * .83f) + .12f * std::clamp(musicLevel, 0.f, 1.f);
-  float P[16], V[16] = {1,
-                        0,
-                        0,
-                        0,
-                        0,
-                        1,
-                        0,
-                        0,
-                        0,
-                        0,
-                        1,
-                        0,
-                        .22f * fly,
-                        .14f * std::cos(time * .13f),
-                        -4.25f + .52f * zoom - .28f * std::clamp(musicLevel, 0.f, 1.f),
-                        1};
-  float Ry[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
-        Rx[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}, R[16], X[16], M[16];
-  float cy = std::cos(time * .17f), sy = std::sin(time * .17f), cx = std::cos(.27f * std::sin(time * .11f)),
-        sx = std::sin(.27f * std::sin(time * .11f));
-  Ry[0] = cy * scale * breath;
-  Ry[2] = -sy * scale * breath;
-  Ry[8] = sy * scale * breath;
-  Ry[10] = cy * scale * breath;
-  Ry[5] = scale * breath;
-  Rx[5] = cx;
-  Rx[6] = sx;
-  Rx[9] = -sx;
-  Rx[10] = cx;
-  // FOV must match draw() exactly (incl. the -2.f*ml music term) so the
-  // travelers share the wireframe's camera.
-  perspective(P, (52.f + 3.f * std::sin(time * .07f) - 2.f * std::clamp(musicLevel, 0.f, 1.f)) * 3.14159265f / 180.f,
-              std::max(.05f, aspect), .05f, 100.f);
-  mul(R, Ry, Rx);
-  mul(X, V, R);
-  mul(M, P, X);
+  // Same camera as draw(), so the travelers sit inside the wireframe's 3D space.
+  float M[16];
+  cameraMvp(time, aspect, scale, musicLevel, M);
   // In logo mode the travelers are captured into the HDR buffer (additive) so
   // the post/FX pass sees them. In no-logo mode they also capture to the HDR
   // buffer (the post pass runs AFTER travelers, not inside draw()).
@@ -717,6 +619,8 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
                               float bpm) {
   if (!logoCapturePending_) return false;
   logoCapturePending_ = false;
+  // Temporal refraction / memory layer: returns the HDR scene itself, untouched and free, when both are off.
+  const unsigned postSceneTex = fx_.apply(hdrTex_, time, float(hdrW_) / float(std::max(1, hdrH_)), temporalAmt_, memoryAmt_);
   // Art pass: the procedural background, at half resolution. Its weight in post.frag is
   // (1 - hasLogo), so it is skipped outright while a logo card fully covers the screen (and with
   // --no-post, which never shows it).
@@ -746,7 +650,7 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   glViewport(0, 0, width, height);
   glUseProgram(postProgram_);
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, hdrTex_);
+  glBindTexture(GL_TEXTURE_2D, postSceneTex);
   if (uPostScene_ >= 0) glUniform1i(uPostScene_, 0);
   if (uPostTime_ >= 0) glUniform1f(uPostTime_, time);
   // The post pass runs on the HDR buffer (hdrW_ x hdrH_), not the screen. Pass
@@ -871,6 +775,7 @@ bool Renderer::drawScroller(float time, float beatPhase, int width, int height, 
   return true;
 }
 void Renderer::shutdown() {
+  fx_.shutdown();
   if (artProgram_) glDeleteProgram(artProgram_);
   if (artFbo_) glDeleteFramebuffers(1, &artFbo_);
   if (artTex_) glDeleteTextures(1, &artTex_);

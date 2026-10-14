@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased: special effects
+- New `SpecialFx` pass (GL 4.1, no compute/texture arrays): temporal-refraction sphere (#13, 16-frame history atlas),
+  persistent memory layer (#25, advected/diffusing/hue-ageing half-res ping-pong). Returns the scene texture untouched
+  (zero cost) when both are off.
+- Noncommutative camera (#86): `Frame::modelTransform` 3x3 driven by shear products (`Choreography.hpp`); scene 59.
+- `Frame` gains `modelTransform`, `temporalRefraction`, `memory`. Demo keys: N, T, M toggle the effects in any scene.
+- Scene 60 holonomy arrows enlarged; choreography unit tests added.
+
 ## 1.5.0 - Optimised, playlists
 ### Performance
 - Effects: sort-based duplicate removal only after the four effects that can create duplicates; a 60,000-edge budget (copy/echo chains reached 404,000 edges); a stage with non-finite output is undone.
