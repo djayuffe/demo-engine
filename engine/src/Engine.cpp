@@ -13,6 +13,7 @@
 #include <GL/glext.h>
 #endif
 #include "Engine.hpp"
+#include "AdaptiveRes.hpp"
 #include "BackgroundStyle.hpp"
 #include "RenderScale.hpp"
 #include "Renderer.hpp"
@@ -102,6 +103,7 @@ int run(Demo& demo, int argc, char** argv) {
   int bgStyle = 0;
   bool fixedPointer = false;   // --pointer X,Y: pin the pointer (screenshots, parallax checks)
   float fixedX = 0, fixedY = 0;
+  bool adaptive = true;      // frame-time governor for the background resolution (--no-adaptive)
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
   bool noDepth = false, autoStyle = false;   // autoStyle: cycle the background styles by themselves
   double parallax = 1.6;   // gain on every pointer-driven depth offset (--parallax, key P)
@@ -125,6 +127,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole|hyperspace (cycle with V)\n"
                  "  --parallax F    Depth-parallax gain 0-3 (default 1.6; cycle with G)\n"
                  "  --pointer X,Y   Pin the pointer, -1..1 (screenshots, parallax checks)\n"
+                 "  --no-adaptive   Keep the background at fixed half resolution (default: governed by frame time)\n"
                  "  --no-depth      Start with the depth-mote layer off (toggle with D)\n"
                  "  --no-logo       Start with the logo cards off (toggle with L)\n"
                  "  --quality F     Render the HDR target at F of screen resolution (0.25-1.0)\n"
@@ -176,7 +179,9 @@ int run(Demo& demo, int argc, char** argv) {
       fixedPointer = true;
       fixedX = std::clamp(px, -1.f, 1.f);
       fixedY = std::clamp(py, -1.f, 1.f);
-    } else if (arg == "--no-depth")
+    } else if (arg == "--no-adaptive")
+      adaptive = false;
+    else if (arg == "--no-depth")
       noDepth = true;
     else if (arg == "--background-style" && i + 1 < argc) {
       const std::string v = argv[++i];
@@ -327,6 +332,7 @@ int run(Demo& demo, int argc, char** argv) {
   r.setShowBackground(!noBackground);
   r.setBackgroundStyle(bgStyle);
   r.setShowDepth(!noDepth);
+  adaptive::Governor governor;
   double ptrT = glfwGetTime(), autoT = ptrT;
   if (autoStyle) r.setBackgroundStyle(1);
   float ptrX = 0, ptrY = 0, ptrPulse = 0;
@@ -397,6 +403,10 @@ int run(Demo& demo, int argc, char** argv) {
     fi.time = showTime;
     fi.musicPath = music.active ? audio.trackPath(std::max(0, music.track)).string() : std::string();
     fi.dt = now - lastNow;
+    if (adaptive && frameCount > 30 && governor.update(float(fi.dt))) {
+      r.setArtDivisor(governor.divisor);
+      std::fprintf(stdout, "background resolution: 1/%d (frame time %.1f ms)\n", governor.divisor, governor.ema * 1000.f);
+    }
     lastNow = now;
     fi.frame = frameCount;
     fi.bpm = bpm;

@@ -2,6 +2,8 @@
 
 ## Unreleased: special effects
 
+- Adaptive background resolution: a frame-time governor (`AdaptiveRes.hpp`, test B23) steps the background pass from 1/2 to 1/3 to 1/4 of the HDR size when the demo cannot hold ~45 fps, and tries finer again after 20 s of headroom. `--no-adaptive` pins it at 1/2.
+
 - Robustness: the style pass sanitises NaN/Inf and clamps HDR output before it can reach bloom; `--pointer X,Y` pins the pointer for screenshots and parallax checks.
 
 - Sixth style `hyperspace`: warp tunnel with six depth shells of streaking stars, ribbed energy walls, a pointer-steered vanishing point, speed and flashes driven by the music.

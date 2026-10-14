@@ -30,6 +30,7 @@ public:
   int backgroundStyle() const { return bgStyle_; }
   // Pointer in -1..1 (y up) and a 0..1 click pulse: the backgrounds react to it, the depth layer is pushed by it.
   void setPointer(float x, float y, float pulse) { ptrX_ = x; ptrY_ = y; ptrPulse_ = pulse; }
+  void setArtDivisor(int d) { art_.setDivisor(d, error_); }   // background resolution = HDR size / d
   void setShowDepth(bool on) { showDepth_ = on; }
   bool showDepth() const { return showDepth_; }
   int logoCount() const { return (int)logos_.size(); }

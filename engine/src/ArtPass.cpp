@@ -27,8 +27,10 @@ bool ArtPass::init(const std::string& dir, std::string& err) {
 }
 
 bool ArtPass::resize(int hdrWidth, int hdrHeight, std::string& err) {
-  w_ = std::max(1, hdrWidth / 2);
-  h_ = std::max(1, hdrHeight / 2);
+  hdrW_ = hdrWidth;
+  hdrH_ = hdrHeight;
+  w_ = std::max(1, hdrWidth / div_);
+  h_ = std::max(1, hdrHeight / div_);
   if (!fbo_) glGenFramebuffers(1, &fbo_);
   if (!tex_) glGenTextures(1, &tex_);
   glBindTexture(GL_TEXTURE_2D, tex_);
@@ -43,6 +45,13 @@ bool ArtPass::resize(int hdrWidth, int hdrHeight, std::string& err) {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   if (!ok) err = "art framebuffer incomplete";
   return ok;
+}
+
+bool ArtPass::setDivisor(int d, std::string& err) {
+  d = std::clamp(d, 1, 8);
+  if (d == div_ || hdrW_ <= 0) return true;
+  div_ = d;
+  return resize(hdrW_, hdrH_, err);
 }
 
 void ArtPass::render(const Params& p) {

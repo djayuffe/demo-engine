@@ -12,6 +12,7 @@
 #include "Camera.hpp"
 #include "RenderScale.hpp"
 #include "BackgroundStyle.hpp"
+#include "AdaptiveRes.hpp"
 #include "LogoShow.hpp"
 #include "Describe.hpp"
 #include "WindowSpec.hpp"
@@ -129,6 +130,24 @@ int main() {
       bounded = bounded && std::fabs(sx) <= .30001f && std::fabs(sy) <= .22001f;
     }
     req(bounded, "idle sway is bounded");
+  }
+  // B23: background frame-time governor
+  {
+    adaptive::Governor g;
+    for (int i = 0; i < 600; i++) g.update(1.f / 60.f);
+    req(g.divisor == 2, "steady 60 fps keeps the background at half resolution");
+    adaptive::Governor s;
+    int drops = 0;
+    for (int i = 0; i < 2000; i++) drops += s.update(1.f / 20.f);
+    req(s.divisor == adaptive::Governor::kMax && drops == 2, "sustained 20 fps steps down to the coarsest, once per step");
+    adaptive::Governor r2;
+    for (int i = 0; i < 300; i++) r2.update(1.f / 20.f);
+    req(r2.divisor > 2, "slow frames lower the resolution");
+    for (int i = 0; i < 9000; i++) r2.update(1.f / 120.f);
+    req(r2.divisor == 2, "long headroom restores the resolution");
+    adaptive::Governor sp;
+    for (int i = 0; i < 300; i++) sp.update(i % 60 == 0 ? .2f : 1.f / 60.f);
+    req(sp.divisor == 2, "an occasional hitch does not degrade quality");
   }
   // B21: render-scale pixel budget
   {
