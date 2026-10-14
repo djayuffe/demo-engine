@@ -22,6 +22,9 @@ uniform float uFxAmount;
 uniform float uGold;
 // Background style: 0 = classic generative blend, 1 = synthwave, 2 = nebula, 3 = mandala, 4 = black hole, 5 = hyperspace.
 uniform int uStyle;
+uniform int uObjects;    // bitmask of the ENABLED objects of the current style (bit k = object k; see BackgroundStyle.hpp)
+bool on(int k){return ((uObjects>>k)&1)!=0;}
+float e(int k){return float((uObjects>>k)&1);}
 uniform vec2 uPointer;   // -1..1, y up: every style reacts to it
 uniform float uFade;     // 0..1 style transition (fade through black)
 uniform float uPulse;    // click impulse 1 -> 0
@@ -88,12 +91,13 @@ void main(){
   float glimmer=glimmerField(p);
   vec3 bg=vec3(.0015,.003,.013);
   bg+=artLayer(p,mlev,beat)*.52*pow(1.0-hasLogo,3.0)*(1.0-.65*uGold);
-  bg+=pal(n*.32+uTime*.015)*neb;
-  bg+=pal(p.y*.08+uTime*.035+n2*.15)*aurora*(.045+.16*uMusicLevel);
-  bg+=vec3(.35,.55,1.2)*(star*.22+grid);
-  bg+=vec3(.7,.8,1.0)*dust;
-  bg+=pal(uTime*.04+n2*.18+length(p)*.045)*tunnel*(.08+.22*uMusicLevel);
-  bg+=pal(uTime*.06+p.x*.025)*matrix*(.018+.075*uMusicLevel);
-  bg+=pal(uTime*.05+.3)*glimmer;
+  float amb=e(11);
+  bg+=pal(n*.32+uTime*.015)*neb*amb;
+  bg+=pal(p.y*.08+uTime*.035+n2*.15)*aurora*(.045+.16*uMusicLevel)*amb;
+  bg+=vec3(.35,.55,1.2)*(star*.22+grid)*amb;
+  bg+=vec3(.7,.8,1.0)*dust*amb;
+  bg+=pal(uTime*.04+n2*.18+length(p)*.045)*tunnel*(.08+.22*uMusicLevel)*amb;
+  bg+=pal(uTime*.06+p.x*.025)*matrix*(.018+.075*uMusicLevel)*amb;
+  bg+=pal(uTime*.05+.3)*glimmer*amb;
   FragColor=vec4(bg*uFade,1.0);
 }

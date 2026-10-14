@@ -103,6 +103,7 @@ int run(Demo& demo, int argc, char** argv) {
   int bgStyle = 0;
   bool fixedPointer = false;   // --pointer X,Y: pin the pointer (screenshots, parallax checks)
   float fixedX = 0, fixedY = 0;
+  std::string hideList;       // --hide: objects to start switched off
   bool adaptive = true;      // frame-time governor for the background resolution (--no-adaptive)
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
   bool noDepth = false, autoStyle = false;   // autoStyle: cycle the background styles by themselves
@@ -127,6 +128,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole|hyperspace (cycle with V)\n"
                  "  --parallax F    Depth-parallax gain 0-3 (default 1.6; cycle with G)\n"
                  "  --pointer X,Y   Pin the pointer, -1..1 (screenshots, parallax checks)\n"
+                 "  --hide A,B,..   Start with background objects off, e.g. sun,grid,jets (F1-F12 toggle live)\n"
                  "  --no-adaptive   Keep the background at fixed half resolution (default: governed by frame time)\n"
                  "  --no-depth      Start with the depth-mote layer off (toggle with D)\n"
                  "  --no-logo       Start with the logo cards off (toggle with L)\n"
@@ -141,7 +143,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --version       Print version and exit\n"
                  "  -h, --help      Show this help\n"
                  "%s"
-                 "Keys: T ticker, B background, V background style, D depth layer, G parallax gain, C capture PNG, H key list, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
+                 "Keys: T ticker, B background, V background style, D depth layer, F1-F12 background objects, G parallax gain, C capture PNG, H key list, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
                  cfg.title.c_str(), cfg.version.c_str(), cfg.binaryName.c_str(), cfg.defaultBpm, demo.usage().c_str());
   };
   for (int i = 1; i < argc; i++) {
@@ -179,7 +181,9 @@ int run(Demo& demo, int argc, char** argv) {
       fixedPointer = true;
       fixedX = std::clamp(px, -1.f, 1.f);
       fixedY = std::clamp(py, -1.f, 1.f);
-    } else if (arg == "--no-adaptive")
+    } else if (arg == "--hide" && i + 1 < argc)
+      hideList = argv[++i];
+    else if (arg == "--no-adaptive")
       adaptive = false;
     else if (arg == "--no-depth")
       noDepth = true;
@@ -332,6 +336,8 @@ int run(Demo& demo, int argc, char** argv) {
   r.setShowBackground(!noBackground);
   r.setBackgroundStyle(bgStyle);
   r.setShowDepth(!noDepth);
+  if (!hideList.empty())
+    for (const auto& u : r.objects().hide(hideList)) std::fprintf(stderr, "--hide: no background object named '%s'\n", u.c_str());
   adaptive::Governor governor;
   double ptrT = glfwGetTime(), autoT = ptrT;
   if (autoStyle) r.setBackgroundStyle(1);
@@ -450,6 +456,9 @@ int run(Demo& demo, int argc, char** argv) {
       bgstyle::sway(now, sx, sy);
       r.setPointer((ptrX + sx) * float(parallax), (ptrY + sy) * float(parallax), ptrPulse);
     }
+    for (int k = 0; k < 12; k++)   // F1..F12: switch object k of the current style
+      if (input.pressed(Key::F1 + k) && r.objects().toggle(r.backgroundStyle(), k))
+        std::fprintf(stdout, "%s: %s\n", bgstyle::name(r.backgroundStyle()), r.objects().describe(r.backgroundStyle()).c_str());
     if (input.pressed(Key::C)) captureNow = true;
     if (input.pressed(Key::H))
       std::fprintf(stdout,
@@ -470,7 +479,8 @@ int run(Demo& demo, int argc, char** argv) {
     if (input.pressed(Key::V)) {
       autoStyle = false;
       r.setBackgroundStyle(r.backgroundStyle() + 1);
-      std::fprintf(stdout, "background style: %s\n", bgstyle::name(r.backgroundStyle()));
+      std::fprintf(stdout, "background style: %s   objects  %s\n", bgstyle::name(r.backgroundStyle()),
+                   r.objects().describe(r.backgroundStyle()).c_str());
     }
     if (input.pressed(Key::L)) {
       r.setShowLogos(!r.showLogos());

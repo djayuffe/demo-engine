@@ -31,6 +31,7 @@ public:
   // Pointer in -1..1 (y up) and a 0..1 click pulse: the backgrounds react to it, the depth layer is pushed by it.
   void setPointer(float x, float y, float pulse) { ptrX_ = x; ptrY_ = y; ptrPulse_ = pulse; }
   void setArtDivisor(int d) { art_.setDivisor(d, error_); }   // background resolution = HDR size / d
+  bgstyle::Objects& objects() { return objects_; }   // per-style object switches (F1..F12)
   void setShowDepth(bool on) { showDepth_ = on; }
   bool showDepth() const { return showDepth_; }
   int logoCount() const { return (int)logos_.size(); }
@@ -119,6 +120,7 @@ private:
   bgstyle::Fade styleFade_;       // style actually on screen (lags the request by a fade-through-black)
   float lastArtT_ = -1.f;
   bool showDepth_ = true;
+  bgstyle::Objects objects_;
   float ptrX_ = 0, ptrY_ = 0, ptrPulse_ = 0;
   bool logosActive() const { return hasLogos_ && showLogos_; }
   bool logoCapturePending_ = false;

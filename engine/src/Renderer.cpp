@@ -585,6 +585,7 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
       const float dt = lastArtT_ < 0.f ? 0.f : time - lastArtT_;
       lastArtT_ = time;
       ap.fade = styleFade_.step(bgStyle_, dt);
+    ap.objects = objects_.get(styleFade_.shown);
       ap.style = styleFade_.shown;
     }
     ap.pointerX = ptrX_;

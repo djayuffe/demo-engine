@@ -131,6 +131,20 @@ int main() {
     }
     req(bounded, "idle sway is bounded");
   }
+  // B24: per-style objects
+  {
+    bgstyle::Objects o;
+    req(o.get(1) == bgstyle::kAllOn && o.enabled(1, 0), "all objects start on");
+    req(o.toggle(1, 0) && !o.enabled(1, 0) && o.enabled(2, 0), "toggle affects only that style");
+    req(o.toggle(1, 0) && o.enabled(1, 0), "toggle twice restores");
+    req(!o.toggle(5, 4) && !o.toggle(0, 12) && !o.toggle(1, -1), "out-of-range objects are rejected");
+    const auto unk = o.hide("sun,stars,nope,,jets");
+    req(unk.size() == 1 && unk[0] == "nope", "--hide reports unknown names");
+    req(!o.enabled(1, 0) && !o.enabled(1, 3) && !o.enabled(2, 1) && !o.enabled(4, 4) && !o.enabled(4, 2), "--hide switches a name off in every style that has it");
+    req(o.enabled(1, 1) && o.enabled(3, 0), "other objects stay on");
+    req(bgstyle::elements(0).size() == 12 && bgstyle::elements(3).size() == 5, "object lists sized as the shaders expect");
+    req(o.describe(1).find("F1:sun(off)") != std::string::npos && o.describe(1).find("F2:mountains") != std::string::npos, "status line text");
+  }
   // B23: background frame-time governor
   {
     adaptive::Governor g;

@@ -141,44 +141,44 @@ vec3 artLayer(vec2 p,float ml,float beat){
   float breath=.5+.5*sin(uTime*.55)+.6*beat*.3;
   p+=.07*vec2(sin(p.y*2.3+uTime*.4),cos(p.x*2.0-uTime*.33))*(.6+breath)+.05*ml*vec2(sin(uTime*1.3+p.y*4.),cos(uTime*1.1+p.x*4.));
   p*=1.0+.06*breath;
-  vec3 organism=blob3D(p+uPointer*.10,ml,beat);   // nearest: the organism slides against the pointer
+  vec3 organism=on(0)?blob3D(p+uPointer*.10,ml,beat):vec3(0.);   // nearest: the organism slides against the pointer
   float t=uTime;
   // Three styles cross-fade slowly so the break never looks the same twice.
   float w0=.5+.5*sin(t*.11),w1=.5+.5*sin(t*.11+2.094),w2=.5+.5*sin(t*.11+4.189);
   float ws=w0+w1+w2;w0/=ws;w1/=ws;w2/=ws;
   vec3 c=vec3(0);
   // A: neon ink filaments
-  float ink=pow(inkFlow((p-uPointer*.30)*1.15,t),6.0);
+  float ink=on(1)?pow(inkFlow((p-uPointer*.30)*1.15,t),6.0):0.;
   c+=w0*pal(ink*.35+t*.02+p.x*.05)*ink*(.55+.9*ml);
   // B: cracked-glass voronoi with beat-lit seams
   float ve=voroEdge(rot2(p-uPointer*.18,t*.03)*3.2);
   float seam=exp(-ve*9.0);
-  c+=w1*pal(ve*.5+t*.03)*seam*(.35+.9*ml+.8*beat);
+  c+=e(2)*w1*pal(ve*.5+t*.03)*seam*(.35+.9*ml+.8*beat);
   // C: kaleidoscopic rose rings
   vec2 k=p-uPointer*.12;float a=atan(k.y,k.x),r=length(k);
   float seg=6.2831853/8.;a=abs(mod(a+t*.05,seg)-seg*.5);
   vec2 kp=vec2(cos(a),sin(a))*r;
   float rose=pow(.5+.5*sin(kp.x*14.-t*.9+sin(kp.y*9.+t*.4)*2.),22.)
             +pow(.5+.5*sin(kp.y*11.+t*.7+kp.x*4.),30.);
-  c+=w2*pal(r*.2-t*.03)*rose*(.35+.9*ml);
+  c+=e(3)*w2*pal(r*.2-t*.03)*rose*(.35+.9*ml);
   // D: orbit-trap Julia fractal, E: moire op-art, F: Turing spots; they surface in slow waves.
   float wD=smoothstep(.2,.9,.5+.5*sin(t*.07+1.));
   float wE=smoothstep(.45,.95,.5+.5*sin(t*.09+3.));
   float wF=smoothstep(.45,.95,.5+.5*sin(t*.06+5.));
-  c+=wD*pal(t*.03+r*.15)*juliaTrap((p-uPointer*.22)*1.25,t)*(.5+.9*ml);
-  c+=wE*pal(t*.05+p.x*.1)*moire(p-uPointer*.40,t)*(.28+.6*ml);
-  c+=wF*pal(t*.04-p.y*.1)*turing(p-uPointer*.26,t)*(.3+.7*ml+.5*beat);
+  c+=e(4)*wD*pal(t*.03+r*.15)*juliaTrap((p-uPointer*.22)*1.25,t)*(.5+.9*ml);
+  c+=e(5)*wE*pal(t*.05+p.x*.1)*moire(p-uPointer*.40,t)*(.28+.6*ml);
+  c+=e(6)*wF*pal(t*.04-p.y*.1)*turing(p-uPointer*.26,t)*(.3+.7*ml+.5*beat);
   // G..J: the gallery layers, each on its own slow wave (skipped outright while their weight is ~0)
   float wG=smoothstep(.45,.95,.5+.5*sin(t*.05+.7));
   float wH=smoothstep(.55,.97,.5+.5*sin(t*.043+2.2));
   float wI=smoothstep(.55,.97,.5+.5*sin(t*.057+4.1));
   float wJ=smoothstep(.45,.95,.5+.5*sin(t*.071+5.9));
-  if(wG>.002) c+=wG*pal(t*.02+p.y*.12)*contourFlow(p-uPointer*.34,t)*(.8+1.2*ml);
-  if(wH>.002) c+=wH*pal(t*.025+r*.2+.5)*poincare(p-uPointer*.08,t)*(1.0+1.2*ml+.6*beat);
-  if(wI>.002) c+=wI*pal(t*.03-r*.1+.2)*kifs(p-uPointer*.16,t)*(.7+1.0*ml);
-  if(wJ>.002) c+=wJ*pal(t*.04+p.x*.08+.65)*ribbons(p-uPointer*.48,t)*(.9+1.2*ml);
+  if(on(7)&&wG>.002) c+=wG*pal(t*.02+p.y*.12)*contourFlow(p-uPointer*.34,t)*(.8+1.2*ml);
+  if(on(8)&&wH>.002) c+=wH*pal(t*.025+r*.2+.5)*poincare(p-uPointer*.08,t)*(1.0+1.2*ml+.6*beat);
+  if(on(9)&&wI>.002) c+=wI*pal(t*.03-r*.1+.2)*kifs(p-uPointer*.16,t)*(.7+1.0*ml);
+  if(on(10)&&wJ>.002) c+=wJ*pal(t*.04+p.x*.08+.65)*ribbons(p-uPointer*.48,t)*(.9+1.2*ml);
   // soft iridescent mist so the dark never goes flat
-  c+=pal(fbm((p-uPointer*.55)*.9+t*.02)+t*.01)*.035*(.6+ml);
+  c+=pal(fbm((p-uPointer*.55)*.9+t*.02)+t*.01)*.035*(.6+ml)*e(11);
   // Uneven, drifting light pools: some regions glow while others sink into darkness.
   float pools=smoothstep(.15,.85,fbm(p*.7+vec2(uTime*.04,-uTime*.03)));
   return (c*smoothstep(2.4,.2,r)*.9)*(.25+1.5*pools)+organism*(.55+.45*pools);
