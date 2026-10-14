@@ -184,6 +184,20 @@ int main() {
       inRange = inRange && o.gain >= .99f && o.gain <= 2.21f;
     }
     req(inRange, "parallax gain stays within 1.0..2.2");
+    // compositions: never drop the centrepiece (object 0), vary across cuts, deterministic
+    director::Director m, m2;
+    int sparse = 0;
+    bool keepsCentre = true, same = true;
+    for (int i = 0; i < 300; i++) {
+      const int a = m.composeFor(6, .5f), b = m2.composeFor(6, .5f);
+      same = same && a == b;
+      keepsCentre = keepsCentre && (a & 1);
+      if (a != 0xFFFF) { ++sparse; unsigned off = unsigned(~a) & 0x3Fu, n = 0;
+        for (; off; off &= off - 1) ++n;
+        req(n == 1, "a sparse composition drops exactly one object"); }
+    }
+    req(keepsCentre && same && sparse > 50 && sparse < 150, "compositions vary, keep the centrepiece, are deterministic");
+    req(m.composeFor(2, .5f) == 0xFFFF, "tiny worlds are never thinned");
   }
   // B24: per-style objects
   {

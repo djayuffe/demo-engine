@@ -134,6 +134,13 @@ void main(){
   // procedural background (it would wash out the picture) and use a lower
   // scene gain (the logo is 0-1, not a bright wireframe on black). hasLogo is
   // already computed above (before the warps).
+  // Highlight knee on the wire layer: where hundreds of additive wires pile up (dense bundles, the
+  // "bell" of a flower scene) the sum runs far past 1 and ACES flattens it to a white slab. Compress
+  // the peak channel above a knee, preserving hue, so dense regions keep their colour and line
+  // structure; isolated wires (below the knee) are untouched. Bloom is sampled separately, so the glow stays.
+  { float sm=max(max(scene.r,scene.g),scene.b);
+    const float knee=1.1;
+    if(hasLogo<.5&&sm>knee){ float over=sm-knee; scene*=(knee+over/(1.+over*.9))/sm; } }
   vec3 hdr=(1.0-hasLogo)*bg*(1.0-.75*uGold) + scene*mix(1.35,1.0,hasLogo) + bloom*(.32+uMusicLevel*.70)*mix(1.0,.30,hasLogo);   // little glow over a logo card: it washes out
   hdr+=(streak+rays)*(1.0-.85*hasLogo);
   // GLOSS: a polished-glass finish. (1) a specular sweep glides across the picture every few seconds
@@ -148,14 +155,18 @@ void main(){
     float sweep=exp(-pow((sd-spos)*2.6,2.))+.45*exp(-pow((sd-spos+.35)*7.,2.));
     vec3 g=vec3(1.0,.93,.82)*sweep*smoothstep(.12,.9,glum)*(1.-smoothstep(1.2,2.6,glum))*(.45+.6*beat+.4*mlev);   // catches mid-bright detail, never pushes blown pixels further
     float gs=uResolution.y/900.;
+    // Glints only where a neighbour is BRIGHTER than here: spikes run out of bright points into the dark,
+    // while a uniformly bright (dense) region gets none. Soft-saturated so they can never blow out.
+    vec3 c0=max(texture(uBloom,suv).rgb,vec3(.42));
     vec3 gl=vec3(0.);
     for(int i=1;i<=3;i++){
       vec2 d=px*float(i)*11.*gs;
       float wgt=1./float(i);
-      gl+=wgt*(max(texture(uBloom,suv+vec2(d.x,d.y)).rgb-.42,0.)+max(texture(uBloom,suv+vec2(-d.x,d.y)).rgb-.42,0.)
-              +max(texture(uBloom,suv+vec2(d.x,-d.y)).rgb-.42,0.)+max(texture(uBloom,suv+vec2(-d.x,-d.y)).rgb-.42,0.));
+      gl+=wgt*(max(texture(uBloom,suv+vec2(d.x,d.y)).rgb-c0,0.)+max(texture(uBloom,suv+vec2(-d.x,d.y)).rgb-c0,0.)
+              +max(texture(uBloom,suv+vec2(d.x,-d.y)).rgb-c0,0.)+max(texture(uBloom,suv+vec2(-d.x,-d.y)).rgb-c0,0.));
     }
-    g+=gl*vec3(.85,.95,1.25)*.5*(.6+beat)*(1.-smoothstep(1.4,3.,glum));
+    gl=gl/(1.+gl);
+    g+=gl*vec3(.85,.95,1.25)*.6*(.6+beat)*(1.-smoothstep(1.,2.2,glum));
     vec2 ea=abs(uv-.5)*2.;
     float rim=pow(max(ea.x,ea.y),9.)*(.12+.12*sin(uTime*.9))*(.5+mlev);
     g+=pal(uTime*.05+uv.x*.3)*rim;

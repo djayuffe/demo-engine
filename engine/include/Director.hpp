@@ -31,6 +31,7 @@ struct Decision {
   bool drop = false;       // a drop was detected this frame (fire a shockwave)
   bool breakdown = false;
   float gain = 1.6f;       // suggested parallax gain
+  int compose = 0xFFFF;    // with switchTo: object mask for the new world (a varied composition)
 };
 
 struct Director {
@@ -42,12 +43,25 @@ struct Director {
   int style = 1;
   float gain = 1.6f;
   bool pendingCut = false;
+  int (*objectCount)(int style) = nullptr;   // how many objects each style has (set by the engine)
 
   void start(int first, double t) {
     style = first;
     enteredAt = t;
     for (double& s : shownAt) s = t - 90.0;
     shownAt[((first % kStyles) + kStyles) % kStyles] = t;
+  }
+  // A composition for a world with `count` objects: usually everything, but about one cut in three
+  // leaves out one secondary object (never object 0, the world's centrepiece) so a return visit
+  // does not look identical. Calm music prefers sparser pictures.
+  int composeFor(int count, float slowEnergy) {
+    seed = seed * 6364136223846793005ULL + 1442695040888963407ULL;
+    const float r = float((seed >> 33) & 0xFFFF) / 65535.f;
+    const float chance = slowEnergy < .28f ? .45f : .30f;
+    if (count < 3 || r >= chance) return 0xFFFF;
+    seed = seed * 6364136223846793005ULL + 1442695040888963407ULL;
+    const int k = 1 + int((seed >> 33) % uint64_t(count - 1));
+    return 0xFFFF & ~(1 << k);
   }
   int pick(float slowEnergy, double t) {
     const int cls = energyClass(slowEnergy);
@@ -82,6 +96,7 @@ struct Director {
       enteredAt = t;
       pendingCut = false;
       d.switchTo = next;
+      d.compose = objectCount ? composeFor(objectCount(next), slow) : 0xFFFF;
     }
     lastBar = barIndex;
     const float target = 1.0f + 1.2f * std::clamp(slow * 1.4f + fast * .5f, 0.f, 1.f);   // 1.0 .. 2.2

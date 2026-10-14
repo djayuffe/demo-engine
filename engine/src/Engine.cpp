@@ -106,6 +106,7 @@ int run(Demo& demo, int argc, char** argv) {
   float fixedX = 0, fixedY = 0;
   std::string hideList;       // --hide: objects to start switched off
   bool noGloss = false;
+  double fixedStep = 0;   // --fixed-step S: advance the show clock S seconds per frame
   bool adaptive = true;      // frame-time governor for the background resolution (--no-adaptive)
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
   bool noDepth = false, autoStyle = false;   // autoStyle: cycle the background styles by themselves
@@ -131,6 +132,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole|hyperspace (cycle with V)\n"
                  "  --parallax F    Depth-parallax gain 0-3 (default 1.6; cycle with G)\n"
                  "  --pointer X,Y   Pin the pointer, -1..1 (screenshots, parallax checks)\n"
+                 "  --fixed-step S  Deterministic clock: each frame advances the show by S s (captures, A/B)\n"
                  "  --no-gloss      Start with the gloss finish (specular sweep, glints) off (toggle with O)\n"
                  "  --hide A,B,..   Start with background objects off, e.g. sun,grid,jets (F1-F12 toggle live)\n"
                  "  --no-adaptive   Keep the background at fixed half resolution (default: governed by frame time)\n"
@@ -186,6 +188,13 @@ int run(Demo& demo, int argc, char** argv) {
       fixedPointer = true;
       fixedX = std::clamp(px, -1.f, 1.f);
       fixedY = std::clamp(py, -1.f, 1.f);
+    } else if (arg == "--fixed-step" && i + 1 < argc) {
+      const double v = std::atof(argv[++i]);
+      if (!std::isfinite(v) || v <= 0 || v > 1) {
+        std::fprintf(stderr, "--fixed-step: seconds per frame in (0, 1]\n");
+        return 2;
+      }
+      fixedStep = v;
     } else if (arg == "--no-gloss")
       noGloss = true;
     else if (arg == "--hide" && i + 1 < argc)
@@ -347,10 +356,12 @@ int run(Demo& demo, int argc, char** argv) {
   if (!hideList.empty())
     for (const auto& u : r.objects().hide(hideList)) std::fprintf(stderr, "--hide: no background object named '%s'\n", u.c_str());
   adaptive::Governor governor;
-  double ptrT = glfwGetTime();
+  double ptrT = fixedStep > 0 ? 1.0 : glfwGetTime();
   director::Director dj;
   if (autoStyle) r.setBackgroundStyle(1);
   bool djStarted = false;
+  dj.objectCount = &bgstyle::elementCount;
+  bgstyle::Objects userObjects = r.objects();   // the --hide / F-key choices; the director composes on top of them
   float ptrX = 0, ptrY = 0, ptrPulse = 0;
   bool mouseWas = false;
   r.setShowLogos(!noLogo);
@@ -394,7 +405,7 @@ int run(Demo& demo, int argc, char** argv) {
   float lastRadius = .1f;
   bool tickerOn = !noTicker, shotTaken = false;
   int frameCount = 0;
-  double lastNow = glfwGetTime();
+  double lastNow = fixedStep > 0 ? 1.0 - fixedStep : glfwGetTime();
   int exitCode = 0;
   while (!glfwWindowShouldClose(w) && !g_shutdown.load()) {
     // Minimised windows have no visible framebuffer; skip the frame and wait for a restore.
@@ -402,9 +413,10 @@ int run(Demo& demo, int argc, char** argv) {
       glfwWaitEventsTimeout(.05);
       continue;
     }
-    const double now = glfwGetTime();
+    // --fixed-step: deterministic show clock (frame N is always at N*step): reproducible captures and A/B checks.
+    const double now = fixedStep > 0 ? 1.0 + frameCount * fixedStep : glfwGetTime();
     const MusicState music = audio.state();
-    const double showTime = music.active ? music.seconds : now;
+    const double showTime = (music.active && fixedStep <= 0) ? music.seconds : now;
     // A new playlist track: lock to its tempo without a jump in the beat count.
     if (music.active && music.track >= 0 && music.track != lastTrack) {
       lastTrack = music.track;
@@ -444,7 +456,7 @@ int run(Demo& demo, int argc, char** argv) {
       std::fprintf(stdout, "background: %s\n", r.showBackground() ? "on" : "off");
     }
     {   // pointer: smoothed -1..1 (y up) + click shockwave; drives the backgrounds and the depth layer
-      const double now = glfwGetTime();
+      const double now = fixedStep > 0 ? 1.0 + frameCount * fixedStep : glfwGetTime();
       const float dt = float(std::clamp(now - ptrT, 0.0, .1));
       ptrT = now;
       double mx = 0, my = 0;
@@ -467,8 +479,10 @@ int run(Demo& demo, int argc, char** argv) {
       r.setPointer((ptrX + sx) * float(parallax), (ptrY + sy) * float(parallax), ptrPulse);
     }
     for (int k = 0; k < 12; k++)   // F1..F12: switch object k of the current style
-      if (input.pressed(Key::F1 + k) && r.objects().toggle(r.backgroundStyle(), k))
+      if (input.pressed(Key::F1 + k) && r.objects().toggle(r.backgroundStyle(), k)) {
+        userObjects.mask[r.backgroundStyle()] = r.objects().get(r.backgroundStyle());   // what you see is what you chose
         std::fprintf(stdout, "%s: %s\n", bgstyle::name(r.backgroundStyle()), r.objects().describe(r.backgroundStyle()).c_str());
+      }
     if (input.pressed(Key::C)) captureNow = true;
     if (input.pressed(Key::H))
       std::fprintf(stdout,
@@ -489,7 +503,9 @@ int run(Demo& demo, int argc, char** argv) {
       if (dd.drop) ptrPulse = 1.f;
       if (dd.switchTo >= 0) {
         r.setBackgroundStyle(dd.switchTo);
+        r.objects().mask[dd.switchTo] = userObjects.mask[dd.switchTo] & dd.compose;
         std::fprintf(stdout, "director: %s%s -> %s\n", dd.drop ? "drop " : dd.breakdown ? "breakdown " : "", bgstyle::name(fromStyle), bgstyle::name(dd.switchTo));
+        if (dd.compose != 0xFFFF) std::fprintf(stdout, "director: composition  %s\n", r.objects().describe(dd.switchTo).c_str());
       }
       if (!parallaxGiven) parallax = dd.gain;
     }

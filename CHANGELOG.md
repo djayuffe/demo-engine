@@ -2,6 +2,10 @@
 
 ## Unreleased: special effects
 
+- Fixed white blow-out in dense scenes: measured with a deterministic clock, the gloss glints were the main cause (scene 4: 16.8% of pixels pure white -> 7.1%, scene 64: 12.0% -> 4.5%, now equal to the gloss-off picture). Glints now only spike from a bright point into darker surroundings and are soft-saturated; a hue-preserving highlight knee on the wire layer keeps dense bundles coloured.
+- `--fixed-step S`: deterministic show clock (frame N is at N*S s), bit-identical repeat renders for captures and A/B checks.
+- Director compositions: on about one cut in three (more often in calm music) the director leaves out one secondary object of the new world (never its centrepiece), on top of your own `--hide`/F-key choices, so return visits differ.
+
 - Auto-director (`--background-style auto`, `Director.hpp`, test B25): replaces the fixed 40 s timer. It follows the music energy (fast/slow followers), detects drops and breakdowns, cuts only on bar lines after a 24 s minimum (60 s maximum) hold, fires a shockwave on a drop, picks the next world by how well it suits the current energy and how long ago it was shown, and breathes the parallax gain with the energy (1.0-2.2) unless `--parallax`/G is set.
 
 - Gloss finish (key **O** / `--no-gloss`): a specular sweep that glides over mid-bright detail every 7.5 s, four-point diagonal glints thrown by the brightest highlights (sampled from the bloom), and a pulsing glass-bezel rim light. It never pushes already-blown pixels further.

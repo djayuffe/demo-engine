@@ -37,6 +37,7 @@ inline const std::vector<const char*>& elements(int style) {
   return k[((style % kCount) + kCount) % kCount];
 }
 constexpr int kAllOn = 0xFFFF;
+inline int elementCount(int style) { return int(elements(style).size()); }
 struct Objects {
   int mask[kCount] = {kAllOn, kAllOn, kAllOn, kAllOn, kAllOn, kAllOn};
   int get(int style) const { return mask[wrap(style)]; }
