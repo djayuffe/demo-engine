@@ -1,4 +1,5 @@
 #include "AdvancedGeometry.hpp"
+#include "VertexWeld.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -10,14 +11,13 @@
 #include <set>
 namespace { constexpr float PI=3.14159265358979323846f;
 float val(geo::ImplicitKind k,float x,float y,float z,float p){x+=p;y-=p*.71f;z+=p*.37f;switch(k){case geo::ImplicitKind::Gyroid:return std::sin(x)*std::cos(y)+std::sin(y)*std::cos(z)+std::sin(z)*std::cos(x);case geo::ImplicitKind::SchwarzP:return std::cos(x)+std::cos(y)+std::cos(z);case geo::ImplicitKind::SchwarzD:return std::sin(x)*std::sin(y)*std::sin(z)+std::sin(x)*std::cos(y)*std::cos(z)+std::cos(x)*std::sin(y)*std::cos(z)+std::cos(x)*std::cos(y)*std::sin(z);case geo::ImplicitKind::Neovius:return 3*(std::cos(x)+std::cos(y)+std::cos(z))+4*std::cos(x)*std::cos(y)*std::cos(z);case geo::ImplicitKind::IWP:return 2*(std::cos(x)*std::cos(y)+std::cos(y)*std::cos(z)+std::cos(z)*std::cos(x))-(std::cos(2*x)+std::cos(2*y)+std::cos(2*z));}return 0;}
-uint32_t add(Mesh3&m,V3 p,float e=2e-4f){for(uint32_t i=0;i<m.v.size();++i){auto q=m.v[i];float x=p.x-q.x,y=p.y-q.y,z=p.z-q.z;if(x*x+y*y+z*z<e*e)return i;}m.v.push_back(p);return uint32_t(m.v.size()-1);}
 void dedup(Mesh3&m){std::set<std::pair<uint32_t,uint32_t>>s;std::vector<Edge>o;for(auto e:m.e){auto p=std::minmax(e.a,e.b);if(p.first!=p.second&&s.insert(p).second)o.push_back({p.first,p.second});}m.e.swap(o);}
 V4 qm(V4 a,V4 b){return {a.x*b.x-a.y*b.y-a.z*b.z-a.w*b.w,a.x*b.y+a.y*b.x+a.z*b.w-a.w*b.z,a.x*b.z-a.y*b.w+a.z*b.x+a.w*b.y,a.x*b.w+a.y*b.z-a.z*b.y+a.w*b.x};}
 float qn(V4 a){return std::sqrt(a.x*a.x+a.y*a.y+a.z*a.z+a.w*a.w);}
 }
 namespace geo {
 std::string implicitName(ImplicitKind k){switch(k){case ImplicitKind::Gyroid:return"Gyroid";case ImplicitKind::SchwarzP:return"Schwarz P";case ImplicitKind::SchwarzD:return"Schwarz D";case ImplicitKind::Neovius:return"Neovius";case ImplicitKind::IWP:return"I-WP";}return"Implicit";}
-Mesh3 implicitSurface(ImplicitKind kind,unsigned n,float iso,float phase){n=std::clamp(n,5u,64u);Mesh3 m;const int T[6][4]={{0,5,1,6},{0,1,2,6},{0,2,3,6},{0,3,7,6},{0,7,4,6},{0,4,5,6}},C[8][3]={{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}};for(unsigned z=0;z<n-1;z++)for(unsigned y=0;y<n-1;y++)for(unsigned x=0;x<n-1;x++){V3 P[8];float D[8];for(int c=0;c<8;c++){float X=-PI+2*PI*(x+C[c][0])/(n-1),Y=-PI+2*PI*(y+C[c][1])/(n-1),Z=-PI+2*PI*(z+C[c][2])/(n-1);P[c]={X/PI,Y/PI,Z/PI};D[c]=val(kind,X,Y,Z,phase)-iso;}for(auto&t:T){std::vector<V3>h;for(int a=0;a<4;a++)for(int b=a+1;b<4;b++){int i=t[a],j=t[b];if((D[i]<0)==(D[j]<0))continue;float u=D[i]/(D[i]-D[j]);h.push_back({P[i].x+u*(P[j].x-P[i].x),P[i].y+u*(P[j].y-P[i].y),P[i].z+u*(P[j].z-P[i].z)});}if(h.size()>=3){std::vector<uint32_t>id;for(auto p:h)id.push_back(add(m,p));for(size_t i=0;i<id.size();i++)m.e.push_back({id[i],id[(i+1)%id.size()]});}}}dedup(m);return m;}
+Mesh3 implicitSurface(ImplicitKind kind,unsigned n,float iso,float phase){n=std::clamp(n,5u,64u);Mesh3 m;VertexWeld weld(m,2e-4f);const int T[6][4]={{0,5,1,6},{0,1,2,6},{0,2,3,6},{0,3,7,6},{0,7,4,6},{0,4,5,6}},C[8][3]={{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}};for(unsigned z=0;z<n-1;z++)for(unsigned y=0;y<n-1;y++)for(unsigned x=0;x<n-1;x++){V3 P[8];float D[8];for(int c=0;c<8;c++){float X=-PI+2*PI*(x+C[c][0])/(n-1),Y=-PI+2*PI*(y+C[c][1])/(n-1),Z=-PI+2*PI*(z+C[c][2])/(n-1);P[c]={X/PI,Y/PI,Z/PI};D[c]=val(kind,X,Y,Z,phase)-iso;}for(auto&t:T){std::vector<V3>h;for(int a=0;a<4;a++)for(int b=a+1;b<4;b++){int i=t[a],j=t[b];if((D[i]<0)==(D[j]<0))continue;float u=D[i]/(D[i]-D[j]);h.push_back({P[i].x+u*(P[j].x-P[i].x),P[i].y+u*(P[j].y-P[i].y),P[i].z+u*(P[j].z-P[i].z)});}if(h.size()>=3){std::vector<uint32_t>id;for(auto p:h)id.push_back(weld.add(p));for(size_t i=0;i<id.size();i++)m.e.push_back({id[i],id[(i+1)%id.size()]});}}}dedup(m);return m;}
 Polytope4 cell120Vertices(){
  // Exact combinatorial dual construction: each tetrahedral cell of the canonical
  // 600-cell becomes one 120-cell vertex; cells sharing a triangular face become edges.
@@ -61,13 +61,27 @@ Mesh3 discoveredObject(uint64_t seed,unsigned U,unsigned V){std::mt19937_64 g(se
 float noveltyScore(const Mesh3&m){auto s=stats(m);if(!s.vertices||!s.edges||!s.finite)return 0;float density=float(s.edges)/s.vertices;return std::log1p(float(s.vertices))*.35f+std::min(4.f,density)*.5f+std::min(3.f,s.radius)*.2f;}
 }
 namespace {
-Mesh3 gridSurf(unsigned U,unsigned V,const std::function<V3(float,float)>&f,bool wrapU=false,bool wrapV=false){Mesh3 m;U=std::max(3u,U);V=std::max(3u,V);for(unsigned i=0;i<U;i++)for(unsigned j=0;j<V;j++){float u=float(i)/(U-(wrapU?0:1)),v=float(j)/(V-(wrapV?0:1));m.v.push_back(f(u,v));uint32_t k=i*V+j;if(i+1<U)m.e.push_back({k,k+V});else if(wrapU)m.e.push_back({k,j});if(j+1<V)m.e.push_back({k,k+1});else if(wrapV)m.e.push_back({k,i*V});}return m;}
+// How the closing edges of a wrapped u direction are glued. A non-orientable surface reaches its start
+// again mirrored, so joining row U-1 to row 0 straight across draws a long stray edge for every column.
+enum class Seam { Plain, ReverseV, ReflectV };
+Mesh3 gridSurf(unsigned U,unsigned V,const std::function<V3(float,float)>&f,bool wrapU=false,bool wrapV=false,Seam seam=Seam::Plain){
+  Mesh3 m;U=std::max(3u,U);V=std::max(3u,V);
+  for(unsigned i=0;i<U;i++)for(unsigned j=0;j<V;j++){
+    float u=float(i)/(U-(wrapU?0:1)),v=float(j)/(V-(wrapV?0:1));
+    m.v.push_back(f(u,v));uint32_t k=i*V+j;
+    if(i+1<U)m.e.push_back({k,k+V});
+    else if(wrapU){
+      const unsigned jj=seam==Seam::ReverseV?V-1-j:seam==Seam::ReflectV?(V-j)%V:j;   // (u=1,v) is (u=0,v') on a twisted strip
+      m.e.push_back({k,jj});}
+    if(j+1<V)m.e.push_back({k,k+1});
+    else if(wrapV)m.e.push_back({k,i*V});}
+  return m;}
 Mesh3 lineCurve(unsigned N,const std::function<V3(float)>&f,bool closed=true){Mesh3 m;N=std::max(16u,N);for(unsigned i=0;i<N;i++){float t=float(i)/(closed?N:N-1);m.v.push_back(f(t));if(i)m.e.push_back({i-1,i});}if(closed)m.e.push_back({N-1,0});return m;}
 float exoticVal(geo::ExoticImplicitKind k,float x,float y,float z,float p){float x2=x*x,y2=y*y,z2=z*z,r2=x2+y2+z2;switch(k){case geo::ExoticImplicitKind::Heart:return std::pow(x2+2.25f*y2+z2-1,3)-x2*z*z*z-.1125f*y2*z*z*z;case geo::ExoticImplicitKind::BarthSexticLike:{float ph=(1+std::sqrt(5.f))/2;float a=(ph*ph*x2-y2)*(ph*ph*y2-z2)*(ph*ph*z2-x2);return 4*a-(1+2*ph)*r2*r2*(r2-1);}case geo::ExoticImplicitKind::TangleCube:return x*x*x*x-5*x2+y*y*y*y-5*y2+z*z*z*z-5*z2+11.8f+.4f*std::sin(p);case geo::ExoticImplicitKind::ChmutovLike:return (x*x*x-3*x)*(y*y*y-3*y)+(y*y*y-3*y)*(z*z*z-3*z)+(z*z*z-3*z)*(x*x*x-3*x)-.15f;case geo::ExoticImplicitKind::CayleyCubic:return x*y*z+x*y+x*z+y*z-.35f;case geo::ExoticImplicitKind::KummerLike:return (r2+.7f)*(r2+.7f)-4*(x2+y2+.35f*z2)-.22f*x*y*z;case geo::ExoticImplicitKind::Goursat:return x*x*x*x+y*y*y*y+z*z*z*z-1.25f*r2+.35f;case geo::ExoticImplicitKind::BlobLattice:return std::cos(3*x)+std::cos(3*y)+std::cos(3*z)+.45f*std::cos(2*x)*std::cos(2*y)*std::cos(2*z)-.15f*std::sin(p);}return 0;}
 }
 namespace geo {
-Mesh3 mobiusStrip(unsigned U,unsigned V,float tw){return gridSurf(U,V,[=](float a,float b){float u=2*PI*a,w=(b-.5f)*.7f,c=std::cos(tw*u*.5f),s=std::sin(tw*u*.5f),R=1+w*c;return V3{R*std::cos(u),w*s,R*std::sin(u)};},true,false);}
-Mesh3 kleinBottle(unsigned U,unsigned V){return gridSurf(U,V,[](float a,float b){float u=2*PI*a,v=2*PI*b;float r=2.1f+.55f*std::cos(u*.5f)*std::sin(v)-.55f*std::sin(u*.5f)*std::sin(2*v);return V3{.45f*r*std::cos(u),.45f*r*std::sin(u),.45f*(.55f*std::sin(u*.5f)*std::sin(v)+.55f*std::cos(u*.5f)*std::sin(2*v))};},true,true);}
+Mesh3 mobiusStrip(unsigned U,unsigned V,float tw){return gridSurf(U,V,[=](float a,float b){float u=2*PI*a,w=(b-.5f)*.7f,c=std::cos(tw*u*.5f),s=std::sin(tw*u*.5f),R=1+w*c;return V3{R*std::cos(u),w*s,R*std::sin(u)};},true,false,(std::lround(tw)&1)?Seam::ReverseV:Seam::Plain);}
+Mesh3 kleinBottle(unsigned U,unsigned V){return gridSurf(U,V,[](float a,float b){float u=2*PI*a,v=2*PI*b;float r=2.1f+.55f*std::cos(u*.5f)*std::sin(v)-.55f*std::sin(u*.5f)*std::sin(2*v);return V3{.45f*r*std::cos(u),.45f*r*std::sin(u),.45f*(.55f*std::sin(u*.5f)*std::sin(v)+.55f*std::cos(u*.5f)*std::sin(2*v))};},true,true,Seam::ReflectV);}
 Mesh3 enneperSurface(unsigned U,unsigned V){return gridSurf(U,V,[](float a,float b){float u=(a*2-1)*1.45f,v=(b*2-1)*1.45f;return V3{(u-u*u*u/3+u*v*v)*.45f,(v-v*v*v/3+v*u*u)*.45f,(u*u-v*v)*.45f};});}
 Mesh3 helicoidSurface(unsigned U,unsigned V){return gridSurf(U,V,[](float a,float b){float u=4*PI*a,v=(b*2-1);return V3{v*std::cos(u),u/(4*PI)*1.7f-0.85f,v*std::sin(u)};});}
 Mesh3 catenoidSurface(unsigned U,unsigned V){return gridSurf(U,V,[](float a,float b){float u=2*PI*a,v=(b*2-1)*1.15f,r=.48f*std::cosh(v);return V3{r*std::cos(u),v*.65f,r*std::sin(u)};},true,false);}
@@ -84,7 +98,7 @@ Mesh3 rosslerAttractor(unsigned N,float dt){Mesh3 m;float x=.1f,y=.1f,z=.1f;for(
 Mesh3 thomasAttractor(unsigned N,float dt){Mesh3 m;float x=.1f,y=0,z=-.1f;for(unsigned i=0;i<N;i++){float dx=std::sin(y)-.208186f*x,dy=std::sin(z)-.208186f*y,dz=std::sin(x)-.208186f*z;x+=dx*dt;y+=dy*dt;z+=dz*dt;if(i>300){m.v.push_back({x*.35f,y*.35f,z*.35f});if(m.v.size()>1)m.e.push_back({uint32_t(m.v.size()-2),uint32_t(m.v.size()-1)});}}return m;}
 Mesh3 sierpinskiTetrahedron(unsigned depth){Mesh3 m;std::array<V3,4>A{{{1,1,1},{-1,-1,1},{-1,1,-1},{1,-1,-1}}};std::function<void(std::array<V3,4>,unsigned)> rec=[&](std::array<V3,4> q,unsigned d){if(!d){uint32_t b=m.v.size();m.v.insert(m.v.end(),q.begin(),q.end());for(uint32_t i=0;i<4;i++)for(uint32_t j=i+1;j<4;j++)m.e.push_back({b+i,b+j});return;}for(int k=0;k<4;k++){std::array<V3,4> n;for(int j=0;j<4;j++)n[j]={(q[j].x+q[k].x)*.5f,(q[j].y+q[k].y)*.5f,(q[j].z+q[k].z)*.5f};rec(n,d-1);}};rec(A,std::min(depth,7u));return m;}
 std::string exoticImplicitName(ExoticImplicitKind k){static const char*n[]={"Heart algebraic","Barth sextic-like","Tanglecube","Chmutov-like","Cayley cubic","Kummer-like","Goursat","Blob lattice"};return n[int(k)];}
-Mesh3 exoticImplicit(ExoticImplicitKind kind,unsigned n,float phase){n=std::clamp(n,8u,42u);Mesh3 m;const int T[6][4]={{0,5,1,6},{0,1,2,6},{0,2,3,6},{0,3,7,6},{0,7,4,6},{0,4,5,6}},C[8][3]={{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}};float scale=(kind==ExoticImplicitKind::TangleCube||kind==ExoticImplicitKind::ChmutovLike)?2.2f:1.55f;for(unsigned z=0;z<n-1;z++)for(unsigned y=0;y<n-1;y++)for(unsigned x=0;x<n-1;x++){V3 P[8];float D[8];for(int c=0;c<8;c++){float X=-scale+2*scale*(x+C[c][0])/(n-1),Y=-scale+2*scale*(y+C[c][1])/(n-1),Z=-scale+2*scale*(z+C[c][2])/(n-1);P[c]={X/scale,Y/scale,Z/scale};D[c]=exoticVal(kind,X,Y,Z,phase);}for(auto&t:T){std::vector<V3>h;for(int a=0;a<4;a++)for(int b=a+1;b<4;b++){int i=t[a],j=t[b];if((D[i]<0)==(D[j]<0))continue;float u=D[i]/(D[i]-D[j]);h.push_back({P[i].x+u*(P[j].x-P[i].x),P[i].y+u*(P[j].y-P[i].y),P[i].z+u*(P[j].z-P[i].z)});}if(h.size()>=3){std::vector<uint32_t>ids;for(auto p:h)ids.push_back(add(m,p));for(size_t i=0;i<ids.size();i++)m.e.push_back({ids[i],ids[(i+1)%ids.size()]});}}}dedup(m);return m;}
+Mesh3 exoticImplicit(ExoticImplicitKind kind,unsigned n,float phase){n=std::clamp(n,8u,42u);Mesh3 m;VertexWeld weld(m,2e-4f);const int T[6][4]={{0,5,1,6},{0,1,2,6},{0,2,3,6},{0,3,7,6},{0,7,4,6},{0,4,5,6}},C[8][3]={{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}};float scale=(kind==ExoticImplicitKind::TangleCube||kind==ExoticImplicitKind::ChmutovLike)?2.2f:1.55f;for(unsigned z=0;z<n-1;z++)for(unsigned y=0;y<n-1;y++)for(unsigned x=0;x<n-1;x++){V3 P[8];float D[8];for(int c=0;c<8;c++){float X=-scale+2*scale*(x+C[c][0])/(n-1),Y=-scale+2*scale*(y+C[c][1])/(n-1),Z=-scale+2*scale*(z+C[c][2])/(n-1);P[c]={X/scale,Y/scale,Z/scale};D[c]=exoticVal(kind,X,Y,Z,phase);}for(auto&t:T){std::vector<V3>h;for(int a=0;a<4;a++)for(int b=a+1;b<4;b++){int i=t[a],j=t[b];if((D[i]<0)==(D[j]<0))continue;float u=D[i]/(D[i]-D[j]);h.push_back({P[i].x+u*(P[j].x-P[i].x),P[i].y+u*(P[j].y-P[i].y),P[i].z+u*(P[j].z-P[i].z)});}if(h.size()>=3){std::vector<uint32_t>ids;for(auto p:h)ids.push_back(weld.add(p));for(size_t i=0;i<ids.size();i++)m.e.push_back({ids[i],ids[(i+1)%ids.size()]});}}}dedup(m);return m;}
 
 namespace {
 void labEdge(Mesh3& m,uint32_t a,uint32_t b){if(a!=b)m.e.push_back({a,b});}

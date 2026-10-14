@@ -2,6 +2,7 @@
 #include "Geometry.hpp"
 #include "AdvancedGeometry.hpp"
 #include "ImpossibleGeometry.hpp"
+#include "VertexWeld.hpp"
 #include "Image.hpp"
 #include "Scene.hpp"
 #include "TextScroller.hpp"
@@ -58,6 +59,15 @@ int main(){
     // commutator gap is zero on the axes and non-zero off them
     Mesh3 nc=geo::noncommutativeLattice(5,0.f);req(std::fabs(nc.v[2*(2*5+2)].y-nc.v[2*(2*5+2)+1].y)<1e-6f,"noncommutative lattice: centre commutes");
     req(std::fabs(nc.v[2*(4*5+4)].y-nc.v[2*(4*5+4)+1].y)>.1f,"noncommutative lattice: corner does not commute"); }
+  // Non-orientable seams close along the identification, so no edge is much longer than a typical one.
+  { auto longest=[](const Mesh3& m){std::vector<float> L;for(auto&e:m.e){auto a=m.v[e.a],b=m.v[e.b];L.push_back(std::sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.z-b.z)*(a.z-b.z)));}
+      std::sort(L.begin(),L.end());return L.back()/L[L.size()/2];};
+    req(longest(geo::mobiusStrip())<3.f,"Mobius seam has no stray long edges");
+    req(longest(geo::kleinBottle())<3.f,"Klein seam has no stray long edges"); }
+  // VertexWeld returns the lowest existing index within eps (same as a linear scan), else appends.
+  { Mesh3 m;VertexWeld w(m,1e-3f);
+    uint32_t a=w.add({0,0,0}),b=w.add({1,0,0}),c=w.add({.0005f,0,0}),d=w.add({1.0004f,0,0}),e=w.add({5,5,5});
+    req(a==0&&b==1&&c==0&&d==1&&e==2&&m.v.size()==3,"VertexWeld merges within eps and appends otherwise"); }
   // Text scroller: font + scroll math
   { req(textfont::glyphCount()==95,"font 95 glyphs");
     req(textfont::width()==5&&textfont::height()==7,"font 5x7");

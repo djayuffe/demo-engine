@@ -5,9 +5,15 @@
 #include <initializer_list>
 #include <limits>
 
+// Effects 55, 57 and 59 are built from other effects, so the family functions need this declaration.
+bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s);
+
 namespace {
 constexpr float PI = 3.14159265358979323846f;
 
+// float -> uint32 without the undefined behaviour of an out-of-range cast (mutateRecipe stores a
+// 32-bit hash in a float, which can round up to exactly 2^32).
+uint32_t seedFromFloat(float f) { return !(f > 0.f) ? 0u : f >= 4294967296.f ? 0xffffffffu : uint32_t(f); }
 int wrap(int x, int n) { x %= n; return x < 0 ? x + n : x; }
 float clampf(float x, float a, float b) { return std::max(a, std::min(b, x)); }
 uint32_t hash32(uint32_t x) {
@@ -117,23 +123,20 @@ V3 rotAxis(V3 p, V3 k, float a) {   // Rodrigues rotation of p about unit axis k
 }
 // Polar angle theta (from +y) and azimuth phi of a direction.
 void sphAngles(V3 x, float& th, float& ph) { float r = std::max(1e-6f, vlen(x)); th = acosf(clampf(x.y / r, -1, 1)); ph = atan2f(x.z, x.x); }
-}  // namespace
 
-std::string_view effectName(int id) {
-  static const char* n[] = {"None", "Twist", "Bend", "Taper", "Pulse", "Ripple", "Noise Warp", "Quantize", "Mirror Fold", "Sphericalize", "Cubify", "Inversion", "Vortex", "Shear Wave", "Radial Wave", "Axis Permute", "Mobius Phase", "Kaleidoscope", "Polar Quantize", "Breathing Shell", "Pinch", "Explode", "Implode", "Shatter", "Edge Pulse", "Scan Slice", "Venetian Slice", "Checker Cull", "Radial Cull", "Depth Cull", "Phase Cull", "Echo Copies", "Orbit Copies", "Recursive Copies", "Trail Copies", "Time Shear", "Dual Bridge", "Nearest Bridge", "Centroid Spokes", "Constellation", "Edge Subdivide", "Edge Fracture", "Edge Braid", "Edge Lightning", "Gravity Lens", "Black Hole Ring", "Wormhole Pair", "Event Horizon", "Caustic Fold", "Projective Singularity", "Hyper Perspective", "Fisheye 3D", "Stereo Split", "Chromatic Geometry", "Audio Radial", "Audio Twist", "Audio Bands", "Beat Shatter", "Bass Breath", "Treble Noise", "Spectral Rings", "Flow Advection", "Curl Warp", "Domain Warp", "Hopf Rotation", "Klein Fold", "Hyperbolic Drift", "Thomas Flow", "Galactic Disk", "Harmonic Bloom", "FCC Crystal Snap", "Tendril Growth", "Shell Cage", "Barbed Wire", "Torus Attractor", "Mobius Map", "Soliton Wave", "Quaternion Square", "Lissajous Satellites", "Spectral Harmonics"};
-  return n[wrap(id, effectCount())];
-}
-int effectCount() { return 80; }
+// State shared by the effect families: the mesh being edited plus the per-frame inputs.
+struct Fx {
+  Mesh3& m; const EffectContext& c; const Mesh3* s;
+  float A, t; V3 C;     // clamped amount, time, mesh centroid
+};
 
-bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
-  if (m.v.empty()) return false;
-  Mesh3 original = m;
-  int id = wrap(iid, effectCount());
-  float A = clampf(c.amount, -4, 4), t = c.time;
-  V3 C = center(m);
-  auto q = [&](V3 p) { return vsub(p, C); };
+// Deformations: radial, twist, fold and quantise warps (1-24)
+// Returns -1 to continue with the shared sanitise/budget/fail-safe tail, or an early result.
+int fxDeform(int id, Fx& f) {
+  Mesh3& m = f.m; [[maybe_unused]] const EffectContext& c = f.c; [[maybe_unused]] const Mesh3* s = f.s;
+  [[maybe_unused]] const float A = f.A, t = f.t; [[maybe_unused]] const V3 C = f.C;
+  [[maybe_unused]] auto q = [&](V3 p) { return vsub(p, C); };
   switch (id) {
-  case 0: break;
   case 1: mapv(m, [&](V3 p, size_t) { V3 x = q(p); float a = A * .7f * x.y + .2f * sinf(t), co = cosf(a), si = sinf(a); return vadd(C, V3{x.x * co - x.z * si, x.y, x.x * si + x.z * co}); }); break;
   case 2: mapv(m, [&](V3 p, size_t) { V3 x = q(p); float a = A * .22f * x.x, co = cosf(a), si = sinf(a); return vadd(C, V3{x.x, x.y * co - x.z * si, x.y * si + x.z * co}); }); break;
   case 3: mapv(m, [&](V3 p, size_t) { V3 x = q(p); float z = std::max(.05f, 1 + A * .12f * x.y); x.x *= z; x.z *= z; return vadd(C, x); }); break;
@@ -158,12 +161,36 @@ bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
   case 22: mapv(m, [&](V3 p, size_t) { return vadd(C, vmul(q(p), std::max(.02f, 1 - .35f * fabsf(A)))); }); break;
   case 23: mapv(m, [&](V3 p, size_t i) { uint32_t k = c.seed + (uint32_t)i + (uint32_t)floorf(t * 3) * 101u; return vadd(p, V3{A * .22f * rnd(k), A * .22f * rnd(k + 7), A * .22f * rnd(k + 19)}); }); break;
   case 24: mapv(m, [&](V3 p, size_t i) { return vadd(C, vmul(q(p), 1 + A * .14f * sinf(t * 4 + float(i) * .17f))); }); break;
+  default: break;
+  }
+  return -1;
+}
+
+// Edge culls: keep only a moving subset of edges (25-30)
+// Returns -1 to continue with the shared sanitise/budget/fail-safe tail, or an early result.
+int fxCull(int id, Fx& f) {
+  Mesh3& m = f.m; [[maybe_unused]] const EffectContext& c = f.c; [[maybe_unused]] const Mesh3* s = f.s;
+  [[maybe_unused]] const float A = f.A, t = f.t; [[maybe_unused]] const V3 C = f.C;
+  [[maybe_unused]] auto q = [&](V3 p) { return vsub(p, C); };
+  switch (id) {
   case 25: cull(m, [&](V3 a, V3 b, size_t) { float y = (sinf(t) * .5f + .5f) * 4 - 2; return fabsf((a.y + b.y) * .5f - y) < .45f; }); break;
   case 26: cull(m, [&](V3 a, V3 b, size_t) { return fmodf(fabsf((a.y + b.y) * 2 + t), 2) < 1; }); break;
   case 27: cull(m, [&](V3 a, V3 b, size_t) { V3 p = vmul(vadd(a, b), .5f); return (((int)floorf(p.x * 2) + (int)floorf(p.y * 2) + (int)floorf(p.z * 2)) & 1) != 0; }); break;
   case 28: cull(m, [&](V3 a, V3 b, size_t) { return fmodf(vlen(q(vmul(vadd(a, b), .5f))) * 3 + t, 2) < 1; }); break;
   case 29: cull(m, [&](V3 a, V3 b, size_t) { return (a.z + b.z) * .5f > C.z + A * .2f * sinf(t); }); break;
   case 30: cull(m, [&](V3, V3, size_t e) { return sinf(float(e) * .73f + t * 3) > -.1f; }); break;
+  default: break;
+  }
+  return -1;
+}
+
+// Copies, bridges, spokes and edge subdivision: effects that add geometry (31-43)
+// Returns -1 to continue with the shared sanitise/budget/fail-safe tail, or an early result.
+int fxGrow(int id, Fx& f) {
+  Mesh3& m = f.m; [[maybe_unused]] const EffectContext& c = f.c; [[maybe_unused]] const Mesh3* s = f.s;
+  [[maybe_unused]] const float A = f.A, t = f.t; [[maybe_unused]] const V3 C = f.C;
+  [[maybe_unused]] auto q = [&](V3 p) { return vsub(p, C); };
+  switch (id) {
   case 31: { Mesh3 x = m; const int n = copiesThatFit(m, 4); for (int k = 1; k <= n; k++) copyInto(m, x, {0, .08f * k, 0}, 1 - .08f * k, .13f * k + A * .03f); } break;
   case 32: { Mesh3 x = m; const int n = copiesThatFit(m, 5); for (int k = 1; k <= n; k++) { float a = t * .3f + k * 2 * PI / 6; copyInto(m, x, {1.8f * cosf(a), 0, 1.8f * sinf(a)}, .35f, a); } } break;
   case 33: { Mesh3 x = m; const int n = copiesThatFit(m, 4); for (int k = 1; k <= n; k++) copyInto(m, x, {0, 0, 0}, powf(.55f, k), t * .1f * k); } break;
@@ -177,6 +204,18 @@ bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
   case 41: subdiv(m, 4, .09f * fabsf(A), c.seed); break;
   case 42: subdiv(m, 5, .05f * (1 + fabsf(A)), c.seed + 31); break;
   case 43: subdiv(m, 6, .15f * fabsf(A), c.seed + (uint32_t)(t * 8)); break;
+  default: break;
+  }
+  return -1;
+}
+
+// Gravity lenses, projective singularities and stereo splits (44-53)
+// Returns -1 to continue with the shared sanitise/budget/fail-safe tail, or an early result.
+int fxLens(int id, Fx& f) {
+  Mesh3& m = f.m; [[maybe_unused]] const EffectContext& c = f.c; [[maybe_unused]] const Mesh3* s = f.s;
+  [[maybe_unused]] const float A = f.A, t = f.t; [[maybe_unused]] const V3 C = f.C;
+  [[maybe_unused]] auto q = [&](V3 p) { return vsub(p, C); };
+  switch (id) {
   case 44: mapv(m, [&](V3 p, size_t) { V3 x = q(p); float r = std::max(.15f, std::hypot(x.x, x.y)), f = A * .35f / (r * r + .2f); x.x *= 1 + f; x.y *= 1 + f; return vadd(C, x); }); break;
   case 45: mapv(m, [&](V3 p, size_t) { V3 x = q(p); float r = std::max(.1f, hyp(x)), a = A * .6f / (r + .1f), co = cosf(a), si = sinf(a); return vadd(C, V3{x.x * co - x.z * si, x.y / (1 + .2f / r), x.x * si + x.z * co}); }); break;
   case 46: mapv(m, [&](V3 p, size_t) { for (float sx : {-1.f, 1.f}) { V3 h{C.x + sx * 1.1f, C.y, C.z}, d = vsub(p, h); float r = vlen(d); if (r < 1.2f) p = vadd(p, vmul(vnorm(d), A * .16f * (1.2f - r))); } return p; }); break;
@@ -187,18 +226,40 @@ bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
   case 51: mapv(m, [&](V3 p, size_t) { V3 x = q(p); float r = vlen(x); return vadd(C, vmul(x, (1 + A * .12f * r * r) / (1 + .04f * r * r))); }); break;
   case 52: { Mesh3 x = m; mapv(m, [&](V3 p, size_t) { p.x -= .08f * A; return p; }); if (copiesThatFit(m, 1) >= 1) copyInto(m, x, {.16f * A, 0, 0}, 1, 0); } break;
   case 53: { Mesh3 x = m; const int n = copiesThatFit(m, 2); if (n >= 1) copyInto(m, x, {.04f * A, 0, 0}, 1.01f, .012f * A); if (n >= 2) copyInto(m, x, {-.04f * A, 0, 0}, .99f, -.012f * A); } break;
+  default: break;
+  }
+  return -1;
+}
+
+// Audio-driven and flow-field effects (54-63)
+// Returns -1 to continue with the shared sanitise/budget/fail-safe tail, or an early result.
+int fxAudio(int id, Fx& f) {
+  Mesh3& m = f.m; [[maybe_unused]] const EffectContext& c = f.c; [[maybe_unused]] const Mesh3* s = f.s;
+  [[maybe_unused]] const float A = f.A, t = f.t; [[maybe_unused]] const V3 C = f.C;
+  [[maybe_unused]] auto q = [&](V3 p) { return vsub(p, C); };
+  switch (id) {
   case 54: mapv(m, [&](V3 p, size_t) { return vadd(C, vmul(q(p), 1 + A * .35f * c.bass)); }); break;
-  case 55: { EffectContext x = c; x.amount = A * (.2f + 2 * c.mid); return applyEffect(m, 1, x, s); }
+  case 55: { EffectContext x = c; x.amount = A * (.2f + 2 * c.mid); return applyEffect(m, 1, x, s) ? 1 : 0; }
   case 56: mapv(m, [&](V3 p, size_t) { float f = p.y > C.y ? c.treble : c.bass; return vadd(C, vmul(q(p), 1 + A * .25f * f)); }); break;
-  case 57: if (c.beat > .4f) { EffectContext x = c; x.amount = A * c.beat; return applyEffect(m, 23, x, s); } break;
+  case 57: if (c.beat > .4f) { EffectContext x = c; x.amount = A * c.beat; return applyEffect(m, 23, x, s) ? 1 : 0; } break;
   case 58: mapv(m, [&](V3 p, size_t) { return vadd(C, vmul(q(p), 1 + A * .3f * c.bass * sinf(t * 2))); }); break;
-  case 59: { EffectContext x = c; x.amount = A * c.treble; return applyEffect(m, 6, x, s); }
+  case 59: { EffectContext x = c; x.amount = A * c.treble; return applyEffect(m, 6, x, s) ? 1 : 0; }
   case 60: mapv(m, [&](V3 p, size_t) { V3 x = q(p); float a = atan2f(x.z, x.x), f = c.bass * sinf(a * 3) + c.mid * sinf(a * 7) + c.treble * sinf(a * 13); return vadd(C, vmul(x, 1 + A * .12f * f)); }); break;
   case 61: mapv(m, [&](V3 p, size_t) { V3 v{sinf(p.y + t) - cosf(p.z), sinf(p.z - t) - cosf(p.x), sinf(p.x + t) - cosf(p.y)}; return vadd(p, vmul(v, A * .12f)); }); break;
   case 62: mapv(m, [&](V3 p, size_t) { V3 v{cosf(p.y) - sinf(p.z), cosf(p.z) - sinf(p.x), cosf(p.x) - sinf(p.y)}; return vadd(p, vmul(v, A * .16f)); }); break;
   case 63: mapv(m, [&](V3 p, size_t) { p.x += A * .2f * sinf(p.y * 2 + sinf(p.z * 3 + t)); p.y += A * .2f * sinf(p.z * 2 + sinf(p.x * 3 - t)); p.z += A * .2f * sinf(p.x * 2 + sinf(p.y * 3 + t)); return p; }); break;
+  default: break;
+  }
+  return -1;
+}
 
-  // ---- 64-79: "unknown" effects ------------------------------------------------------------------
+// Mathematical-space effects: Hopf, Klein, hyperbolic, galactic, lattice, quaternion (64-79)
+// Returns -1 to continue with the shared sanitise/budget/fail-safe tail, or an early result.
+int fxMath(int id, Fx& f) {
+  Mesh3& m = f.m; [[maybe_unused]] const EffectContext& c = f.c; [[maybe_unused]] const Mesh3* s = f.s;
+  [[maybe_unused]] const float A = f.A, t = f.t; [[maybe_unused]] const V3 C = f.C;
+  [[maybe_unused]] auto q = [&](V3 p) { return vsub(p, C); };
+  switch (id) {
   case 64: {  // Hopf rotation: lift to S3 by inverse stereographic projection, rotate isoclinically in
               // the (x,y) and (z,w) planes (which moves points along Hopf fibres), project back to R3.
     float r0 = meanRadius(m, C), a = A * .9f * sinf(t * .35f) + t * .25f, co = cosf(a), si = sinf(a);
@@ -332,6 +393,31 @@ bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
       float f = c.bass * cosf(2 * th) * sinf(2 * ph + t) + c.mid * cosf(4 * th) * sinf(5 * ph - t * 1.3f) + c.treble * cosf(7 * th) * sinf(9 * ph + t * 2);
       return vadd(C, vmul(x, 1 + A * .22f * f)); });
   } break;
+  default: break;
+  }
+  return -1;
+}
+
+}  // namespace
+
+std::string_view effectName(int id) {
+  static const char* n[] = {"None", "Twist", "Bend", "Taper", "Pulse", "Ripple", "Noise Warp", "Quantize", "Mirror Fold", "Sphericalize", "Cubify", "Inversion", "Vortex", "Shear Wave", "Radial Wave", "Axis Permute", "Mobius Phase", "Kaleidoscope", "Polar Quantize", "Breathing Shell", "Pinch", "Explode", "Implode", "Shatter", "Edge Pulse", "Scan Slice", "Venetian Slice", "Checker Cull", "Radial Cull", "Depth Cull", "Phase Cull", "Echo Copies", "Orbit Copies", "Recursive Copies", "Trail Copies", "Time Shear", "Dual Bridge", "Nearest Bridge", "Centroid Spokes", "Constellation", "Edge Subdivide", "Edge Fracture", "Edge Braid", "Edge Lightning", "Gravity Lens", "Black Hole Ring", "Wormhole Pair", "Event Horizon", "Caustic Fold", "Projective Singularity", "Hyper Perspective", "Fisheye 3D", "Stereo Split", "Chromatic Geometry", "Audio Radial", "Audio Twist", "Audio Bands", "Beat Shatter", "Bass Breath", "Treble Noise", "Spectral Rings", "Flow Advection", "Curl Warp", "Domain Warp", "Hopf Rotation", "Klein Fold", "Hyperbolic Drift", "Thomas Flow", "Galactic Disk", "Harmonic Bloom", "FCC Crystal Snap", "Tendril Growth", "Shell Cage", "Barbed Wire", "Torus Attractor", "Mobius Map", "Soliton Wave", "Quaternion Square", "Lissajous Satellites", "Spectral Harmonics"};
+  return n[wrap(id, effectCount())];
+}
+int effectCount() { return 80; }
+
+bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
+  if (m.v.empty()) return false;
+  Mesh3 original = m;
+  const int id = wrap(iid, effectCount());
+  Fx f{m, c, s, clampf(c.amount, -4, 4), c.time, center(m)};
+  struct Family { int last; int (*run)(int, Fx&); };
+  static const Family families[] = {{0, nullptr}, {24, fxDeform}, {30, fxCull}, {43, fxGrow}, {53, fxLens}, {63, fxAudio}, {79, fxMath}};
+  for (const Family& fam : families) {
+    if (id > fam.last || !fam.run) continue;
+    const int r = fam.run(id, f);
+    if (r >= 0) return r != 0;   // an effect that delegates to another one returns that result directly
+    break;
   }
   // Only the bridge/spoke/chord effects add edges between existing vertices, so only they can
   // create duplicates (recursion via 55/57/59 lands on vertex maps, which cannot).
@@ -410,7 +496,7 @@ bool applyRecipe(Mesh3& m, const EffectRecipe& r, const EffectContext& base, con
     EffectContext c = base;
     c.time = base.time * s.timeScale + s.timeOffset;
     c.amount = base.amount * s.amount;
-    c.seed = base.seed + (uint32_t)s.seedOffset;
+    c.seed = base.seed + seedFromFloat(s.seedOffset);
     if (!applyEffect(m, s.effect, c, s.useSecondary ? secondary : nullptr)) return false;
   }
   return true;
