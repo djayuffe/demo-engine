@@ -60,7 +60,7 @@ bool Renderer::createGl(const std::string& dir) {
   glGenBuffers(1, &vbo_);
   glGenBuffers(1, &ebo_);
   if (!initPost(dir)) return false;
-  if (!initArt(dir)) return false;
+  if (!art_.init(dir, error_)) return false;
   // Non-fatal extras: scroller, logo background, traveling objects. A missing
   // shader degrades (no marquee / no background / no travelers) rather than
   // failing the app. drawScroller/drawBackground/drawTravelers early-return
@@ -94,15 +94,12 @@ bool Renderer::reinit(const std::string& dir) {
   fx_.shutdown();
   bloom_.shutdown();
   lookFx_.shutdown();
+  art_.shutdown();
   if (hdrFbo_) glDeleteFramebuffers(1, &hdrFbo_);
   if (hdrTex_) glDeleteTextures(1, &hdrTex_);
   if (depthRbo_) glDeleteRenderbuffers(1, &depthRbo_);
-  if (artFbo_) glDeleteFramebuffers(1, &artFbo_);
-  if (artTex_) glDeleteTextures(1, &artTex_);
   hdrFbo_ = hdrTex_ = depthRbo_ = 0;
   hdrW_ = hdrH_ = 0;
-  artFbo_ = artTex_ = 0;
-  artW_ = artH_ = 0;
   for (auto& L : logos_)
     if (L.tex) glDeleteTextures(1, &L.tex), L.tex = 0;
   if (scrollerFontTex_) glDeleteTextures(1, &scrollerFontTex_), scrollerFontTex_ = 0;
@@ -214,24 +211,6 @@ bool Renderer::initScroller(const std::string& dir) {
   glBindTexture(GL_TEXTURE_2D, 0);
   return true;
 }
-bool Renderer::initArt(const std::string& dir) {
-  std::string vs = readText(dir + "/post.vert"), fs = readText(dir + "/art.frag"); // same full-screen triangle as post
-  if (vs.empty() || fs.empty()) {
-    error_ = "cannot read art shaders from " + dir;
-    return false;
-  }
-  artProgram_ = linkProgram(vs, fs, error_);
-  if (!artProgram_) return false;
-  uArtTime_ = glGetUniformLocation(artProgram_, "uTime");
-  uArtRes_ = glGetUniformLocation(artProgram_, "uResolution");
-  uArtMusic_ = glGetUniformLocation(artProgram_, "uMusicLevel");
-  uArtBpm_ = glGetUniformLocation(artProgram_, "uBpm");
-  uArtHasLogo_ = glGetUniformLocation(artProgram_, "uHasLogo");
-  uArtLogoVis_ = glGetUniformLocation(artProgram_, "uLogoVis");
-  uArtGold_ = glGetUniformLocation(artProgram_, "uGold");
-  uArtFx_ = glGetUniformLocation(artProgram_, "uFxAmount");
-  return true;
-}
 bool Renderer::initPost(const std::string& dir) {
   std::string vs = readText(dir + "/post.vert"), fs = readText(dir + "/post.frag");
   if (vs.empty() || fs.empty()) {
@@ -288,25 +267,7 @@ bool Renderer::resizeHdr(int width, int height) {
     return false;
   }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  // The art target: half the HDR size in each direction.
-  artW_ = std::max(1, width / 2);
-  artH_ = std::max(1, height / 2);
-  if (!artFbo_) glGenFramebuffers(1, &artFbo_);
-  if (!artTex_) glGenTextures(1, &artTex_);
-  glBindTexture(GL_TEXTURE_2D, artTex_);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, artW_, artH_, 0, GL_RGBA, GL_FLOAT, nullptr);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glBindFramebuffer(GL_FRAMEBUFFER, artFbo_);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, artTex_, 0);
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    error_ = "art framebuffer incomplete";
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    return false;
-  }
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  if (!art_.resize(width, height, error_)) return false;
   if (!fx_.resize(width, height, error_)) return false;
   if (bloomOk_ && !bloom_.resize(width, height, error_)) bloomOk_ = false;
   if (lookOk_ && !lookFx_.resize(width, height, error_)) lookOk_ = false;
@@ -577,21 +538,15 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   const float logoCover = hasLogos_ ? std::clamp(logoVis_, 0.f, 1.f) : 0.f;
   const bool artOn = postEnabled_ && std::max(logoCover, 1.f - fxAmount_) < .999f;
   if (artOn) {
-    glBindFramebuffer(GL_FRAMEBUFFER, artFbo_);
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
-    glViewport(0, 0, artW_, artH_);
-    glUseProgram(artProgram_);
-    if (uArtTime_ >= 0) glUniform1f(uArtTime_, time);
-    if (uArtRes_ >= 0) glUniform2f(uArtRes_, float(artW_), float(artH_));
-    if (uArtMusic_ >= 0) glUniform1f(uArtMusic_, std::clamp(musicLevel, 0.f, 1.f));
-    if (uArtBpm_ >= 0) glUniform1f(uArtBpm_, bpm);
-    if (uArtHasLogo_ >= 0) glUniform1f(uArtHasLogo_, hasLogos_ ? 1.f : 0.f);
-    if (uArtLogoVis_ >= 0) glUniform1f(uArtLogoVis_, logoVis_);
-    if (uArtGold_ >= 0) glUniform1f(uArtGold_, wireStyle_ == 1 ? 1.f : 0.f);
-    if (uArtFx_ >= 0) glUniform1f(uArtFx_, fxAmount_);
-    glBindVertexArray(postVao_);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    ArtPass::Params ap;
+    ap.time = time;
+    ap.music = musicLevel;
+    ap.bpm = bpm;
+    ap.logoVisibility = logoVis_;
+    ap.fxAmount = fxAmount_;
+    ap.hasLogos = hasLogos_;
+    ap.gold = wireStyle_ == 1;
+    art_.render(ap);
   }
   // In both logo and no-logo mode the HDR buffer now holds the wireframe +
   // travelers (+ logo backdrop in logo mode). Run the post/FX pass over it.
@@ -616,7 +571,7 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   if (uPostFx_ >= 0) glUniform1f(uPostFx_, fxAmount_);
   if (uPostGold_ >= 0) glUniform1f(uPostGold_, wireStyle_ == 1 ? 1.f : 0.f);
   glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_2D, artTex_);
+  glBindTexture(GL_TEXTURE_2D, art_.texture());
   if (uPostArt_ >= 0) glUniform1i(uPostArt_, 1);
   glActiveTexture(GL_TEXTURE2);
   glBindTexture(GL_TEXTURE_2D, bloomTex);
@@ -731,11 +686,7 @@ void Renderer::shutdown() {
   fx_.shutdown();
   bloom_.shutdown();
   lookFx_.shutdown();
-  if (artProgram_) glDeleteProgram(artProgram_);
-  if (artFbo_) glDeleteFramebuffers(1, &artFbo_);
-  if (artTex_) glDeleteTextures(1, &artTex_);
-  artProgram_ = artFbo_ = artTex_ = 0;
-  artW_ = artH_ = 0;
+  art_.shutdown();
   for (auto& L : logos_)
     if (L.tex) glDeleteTextures(1, &L.tex);
   logos_.clear();

@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased: special effects
+- Background refactor: shaders gained `#include` (expanded by `glutil::readText`); shared helpers live in `shaders/lib/common.glsl`,
+  the art layers in `lib/art_layers.glsl`, and `art.frag` main is split into named ambient-layer functions. The art pass is now its
+  own `ArtPass` class out of `Renderer`. `tools/shaderdiff.cpp` renders old vs new shaders: art.frag and post.frag are bit-identical.
 - Refactor: `Camera.hpp` (pure camera/FOV, now keeps the horizontal field of view on windows narrower than 16:9; unchanged at 16:9 and wider),
   `LogoShow.hpp` (pure logo fade/hold/black timing and Ken Burns zoom), `Describe.hpp` (scene description line). Unit-tested.
 - Scenes 67-72: hyperbolic city (#81), spherical universe (#82), geodesic lightning (#87/88), time-dilation cathedral (#14),

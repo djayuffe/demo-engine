@@ -2,6 +2,7 @@
 #include "Geometry.hpp"
 #include "SpecialFx.hpp"
 #include "Bloom.hpp"
+#include "ArtPass.hpp"
 #include "LookFx.hpp"
 #include <algorithm>
 #include <cstddef>
@@ -74,7 +75,6 @@ private:
   void cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const;
   bool createGl(const std::string& shaderDir);
   bool initPost(const std::string& shaderDir);
-  bool initArt(const std::string& shaderDir);
   bool resizeHdr(int width, int height);
   bool initScroller(const std::string& shaderDir);
   bool initBackground(const std::string& shaderDir);
@@ -104,10 +104,8 @@ private:
   int wireStyle_ = 0;
   int uStyle_ = -1, uPostGold_ = -1;
   // Art pass (procedural background) at half resolution, see shaders/art.frag.
-  unsigned artProgram_ = 0, artFbo_ = 0, artTex_ = 0;
-  int artW_ = 0, artH_ = 0;
-  int uArtTime_ = -1, uArtRes_ = -1, uArtMusic_ = -1, uArtBpm_ = -1, uArtHasLogo_ = -1, uArtLogoVis_ = -1,
-      uArtGold_ = -1, uArtFx_ = -1, uPostArt_ = -1, uPostArtOn_ = -1;
+  ArtPass art_;
+  int uPostArt_ = -1, uPostArtOn_ = -1;
   SpecialFx fx_;
   Bloom bloom_;
   LookFx lookFx_;

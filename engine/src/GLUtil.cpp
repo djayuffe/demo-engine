@@ -1,6 +1,7 @@
 #include "GLUtil.hpp"
 #include <algorithm>
 #include <fstream>
+#include <set>
 #include <sstream>
 namespace glutil {
 namespace {
@@ -24,12 +25,54 @@ bool shader(GLuint& out, GLenum type, const std::string& s, std::string& err) {
   return true;
 }
 }  // namespace
-std::string readText(const std::string& p) {
-  std::ifstream f(p);
+namespace {
+// Raw file contents, or "" if unreadable.
+std::string slurp(const std::string& p) {
+  std::ifstream f(p, std::ios::binary);
   if (!f) return {};
   std::ostringstream s;
   s << f.rdbuf();
   return s.str();
+}
+std::string dirOf(const std::string& p) {
+  const size_t k = p.find_last_of("/\\");
+  return k == std::string::npos ? std::string() : p.substr(0, k + 1);
+}
+// GLSL has no #include: expand `#include "relative/path.glsl"` lines textually, each file once (include-guard
+// semantics), to a depth of 8. A missing include leaves a comment so the compile error names the file.
+std::string expand(const std::string& path, std::set<std::string>& seen, int depth) {
+  std::string src = slurp(path);
+  if (src.empty() || depth > 8) return src;
+  std::string out;
+  size_t pos = 0;
+  while (pos < src.size()) {
+    size_t eol = src.find('\n', pos);
+    if (eol == std::string::npos) eol = src.size();
+    const std::string line = src.substr(pos, eol - pos);
+    size_t i = line.find_first_not_of(" \t");
+    if (i != std::string::npos && line.compare(i, 8, "#include") == 0) {
+      const size_t q1 = line.find('"', i), q2 = q1 == std::string::npos ? q1 : line.find('"', q1 + 1);
+      if (q2 != std::string::npos) {
+        const std::string inc = dirOf(path) + line.substr(q1 + 1, q2 - q1 - 1);
+        if (seen.insert(inc).second) {
+          const std::string body = expand(inc, seen, depth + 1);
+          out += body.empty() ? "// missing include: " + inc : body;
+          out += '\n';
+        }
+        pos = eol + 1;
+        continue;
+      }
+    }
+    out += line;
+    out += '\n';
+    pos = eol + 1;
+  }
+  return out;
+}
+}  // namespace
+std::string readText(const std::string& p) {
+  std::set<std::string> seen;
+  return expand(p, seen, 0);
 }
 unsigned linkProgram(const std::string& vs, const std::string& fs, std::string& err) {
   GLuint v = 0, f = 0;
