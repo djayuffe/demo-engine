@@ -5,6 +5,7 @@
 #include "Scene.hpp"
 #include "Choreography.hpp"
 #include "Describe.hpp"
+#include "Transition.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -87,6 +88,7 @@ public:
     Mesh3 m = scenes_.meshAsync(scene, f.time, seed_);
     for (int nb : {(autoScene + 1) % n, (scene + 1) % n, (scene - 1 + n) % n}) scenes_.prefetch(nb, f.time, seed_);
     if (scene != lastScene_) {
+      sceneChangedAt_ = f.time;
       auto& si = scenes_.info(scene);
       std::fprintf(stdout, "scene %02d: %.*s [%.*s]\n", scene, int(si.name.size()), si.name.data(),
                    int(si.provenance.size()), si.provenance.data());
@@ -172,6 +174,14 @@ public:
     out.scale =
         1.f + .11f * std::sin(float(f.time) * .41f + float(scene) * .37f) + .07f * f.sync.pulse; // breathing size cycle
     out.lineWidth = 1.f + f.sync.pulse;
+    {   // scene flow: exit rush toward the camera, entry grow-in from 80% and a thicker stroke on the downbeat
+      const transition::Cut cut = transition::at(f.sync.barIndex, f.sync.barPhase, 2, manual_ < 0, f.time - sceneChangedAt_,
+                                                 60.0 / std::max(1.0, double(f.bpm)));
+      out.cutIn = cut.in;
+      out.cutOut = cut.out;
+      out.scale *= (1.f + .35f * cut.out * cut.out) * (1.f - .2f * cut.in);
+      out.lineWidth += 1.5f * cut.in;
+    }
     if (scene == 57 || scene == 58) {
       out.wireStyle = 1;
       out.travelers = false;
@@ -186,6 +196,7 @@ private:
   SceneSystem scenes_;
   uint64_t seed_ = 0x49574f424a454354ull;
   int manual_ = -1, lastScene_ = -1;
+  double sceneChangedAt_ = -100.0;
   bool forceShear_ = false, forceTemporal_ = false, forceMemory_ = false;
   bool forceLook_[5] = {false, false, false, false, false};
   bool haveRecipe_ = false, recipeMode_ = false;

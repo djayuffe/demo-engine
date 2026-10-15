@@ -2,6 +2,8 @@
 
 ## Unreleased: special effects
 
+- Scene flow (`Transition.hpp`, test B28): scenes no longer hard-cut. The last beat of every scene is an exit (the form rushes toward the camera, a radial zoom blur builds, the iris tightens and cinema bars close in); the first beat of the next is an entry (the new form lands with an exposure punch on the wires and glow, a chromatic split snaps back, the form grows in from 80% with a thicker stroke, the bars open). Manual scene changes get the entry. Logo cards are untouched.
+
 - Show options moved out of `Engine.cpp` into the pure `ShowOptions.hpp` (test B27) with strict number parsing: `--parallax abc`, `--bpm 12x`, `--track 1.5`, `--pointer 1,y` or `--fixed-step nan` are now errors with a message instead of silently becoming 0. `Engine.cpp` lost ~100 lines of option plumbing.
 
 - Swap music: key **S** jumps to the next track (Shift+S: previous), `--track N` starts on track N, and the default playlist now holds all three modules (Stars, Digital Rendezvous, Silicon Dancer). Tempo re-locks to each track as before.

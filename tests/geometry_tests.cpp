@@ -18,6 +18,7 @@
 #include "ShowOptions.hpp"
 #include "LogoShow.hpp"
 #include "Describe.hpp"
+#include "Transition.hpp"
 #include "WindowSpec.hpp"
 #include <chrono>
 #include <thread>
@@ -133,6 +134,30 @@ int main() {
       bounded = bounded && std::fabs(sx) <= .30001f && std::fabs(sy) <= .22001f;
     }
     req(bounded, "idle sway is bounded");
+  }
+  // B28: scene flow envelopes
+  {
+    const double beat = .5;   // 120 BPM
+    auto c0 = transition::at(10, .1f, 2, true, 99.0, beat);
+    req(c0.in == 0.f && c0.out == 0.f, "mid-scene: no transition");
+    auto ex = transition::at(11, .95f, 2, true, 99.0, beat);
+    req(ex.out > .5f && ex.in == 0.f, "last beat of the scene: exit runs");
+    auto ex0 = transition::at(11, .70f, 2, true, 99.0, beat);
+    req(ex0.out == 0.f, "exit only in the final beat");
+    auto en = transition::at(12, .0f, 2, true, 0.0, beat);
+    req(en.in == 1.f && en.out == 0.f, "at the cut: full entry, exit reset");
+    auto en2 = transition::at(12, .2f, 2, true, .5, beat);
+    req(en2.in == 0.f, "entry lasts one beat");
+    auto man = transition::at(11, .95f, 2, false, .1, beat);
+    req(man.out == 0.f && man.in > .3f, "manual mode: entry on a key press, never an exit");
+    bool mono = true;
+    float prev = -1.f;
+    for (int k = 0; k <= 100; k++) {
+      const float o = transition::at(11, .75f + .25f * float(k) / 100.f, 2, true, 99.0, beat).out;
+      mono = mono && o >= prev - 1e-6f;
+      prev = o;
+    }
+    req(mono && prev > .99f, "exit rises monotonically to 1 at the cut");
   }
   // B27: strict show-option parsing
   {

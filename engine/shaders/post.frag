@@ -32,6 +32,7 @@ uniform float uArtOn;
 uniform float uBgStyle;
 uniform vec2 uPointer;   // -1..1, y up
 uniform float uPulse;    // click shockwave 1 -> 0
+uniform vec2 uCut;       // scene transition: x = entry (1 at the cut -> 0), y = exit (0 -> 1 into the cut)
 uniform float uGloss;    // gloss layer (specular sweep + star glints) on/off
 uniform float uDepth;    // independent depth-mote layer on/off
 uniform sampler2D uBloom;
@@ -103,8 +104,15 @@ void main(){
   // (which moves per layer) and the depth motes in front.
   suv=clamp(suv-uPointer*.014*(1.0-hasLogo),0.0,1.0);
   // 4) Chromatic aberration (sample R/B at offset UVs, driven by pulse).
-  vec2 ca=(suv-.5)*(.002+.006*beat)*(1.0-calm);
+  float cIn=uCut.x*(1.0-hasLogo),cOut=uCut.y*(1.0-hasLogo);
+  vec2 ca=(suv-.5)*((.002+.006*beat)*(1.0-calm)+.03*cIn);          // entry: chromatic split that snaps back
   vec3 scene=vec3(texture(uScene,suv+ca).r,texture(uScene,suv).g,texture(uScene,suv-ca).b);
+  // EXIT: the picture rushes toward the viewer -- a radial zoom blur that grows over the last beat.
+  if(cOut>.01){
+    vec3 zb=vec3(0.);
+    for(int i=1;i<=6;i++){ float k=1.-float(i)*.035*cOut; zb+=texture(uScene,.5+(suv-.5)*k).rgb; }
+    scene=mix(scene,zb/6.,smoothstep(0.,.6,cOut));
+  }
 
   // bloom: multi-scale pyramid built by bloom.cpp (the glow spreads across the screen, wire-width to full-frame)
   vec3 bloom=texture(uBloom,suv).rgb*.5;
@@ -141,6 +149,8 @@ void main(){
   { float sm=max(max(scene.r,scene.g),scene.b);
     const float knee=1.1;
     if(hasLogo<.5&&sm>knee){ float over=sm-knee; scene*=(knee+over/(1.+over*.9))/sm; } }
+  { float fl=cIn*cIn*cIn;   // ENTRY: the new form lands with an exposure punch on the downbeat (wires + glow, not the background)
+    scene*=1.+1.4*fl; bloom*=1.+1.6*fl; }
   vec3 hdr=(1.0-hasLogo)*bg*(1.0-.75*uGold) + scene*mix(1.35,1.0,hasLogo) + bloom*(.32+uMusicLevel*.70)*mix(1.0,.30,hasLogo);   // little glow over a logo card: it washes out
   hdr+=(streak+rays)*(1.0-.85*hasLogo);
   // GLOSS: a polished-glass finish. (1) a specular sweep glides across the picture every few seconds
@@ -196,6 +206,12 @@ void main(){
   // vignette (kept, slightly stronger)
   float vign=1.-smoothstep(.55,1.85,length(p*vec2(.82,1.)));
   hdr*=max(.30,vign);
+  // Scene flow: the downbeat flash of a new scene, the exit's tightening iris, and cinema bars that
+  // close over the exit and open with the entry.
+  { // (the entry's exposure punch is applied to the wires and their glow only, before composition)
+    hdr*=1.-.45*smoothstep(.25,1.6,length(p))*cOut;
+    float bar=.105*max(cOut,cIn*.8)*(1.0-hasLogo);
+    hdr*=smoothstep(bar,bar+.006,uv.y)*smoothstep(bar,bar+.006,1.-uv.y); }
   // Pixel-shader soft shadow: a darkened ellipse "cast" below the wireframe,
   // breathing with the scene scale and beat. Centered slightly low. Gated off
   // in logo mode — it would darken the center of the logo picture.

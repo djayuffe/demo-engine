@@ -541,6 +541,7 @@ int run(Demo& demo, int argc, char** argv) {
     r.setTemporalRefraction(frame.temporalRefraction);
     r.setMemory(frame.memory);
     r.setLook(frame.look);
+    r.setCut(frame.cutIn, frame.cutOut);
     // 1) wireframe (+ logo backdrop) into the HDR target, 2) travellers, 3) post pass, 4) ticker.
     if (!r.draw(float(fi.time), W, H, float(W) / float(H), frame.sceneIndex, scale, frame.lineWidth, music.level)) {
       std::fprintf(stderr, "Renderer draw failed: %s\n", r.error().c_str());

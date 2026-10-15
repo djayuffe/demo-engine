@@ -81,6 +81,7 @@ struct Frame {
   float memory=0.f;                               // 0..1: persistent, drifting ghosts of past frames
   // 0..1 look effects: chromatic gravity, prediction failure, colorless matter, specular mutation, negative reflection
   float look[5]={0,0,0,0,0};
+  float cutIn=0.f, cutOut=0.f;                    // scene transition envelopes (Transition.hpp): entry flash / exit rush
   int wireStyle=0;             // 0 = electric palette, 1 = golden glimmer (additive, no depth test, gold glints)
   std::string ticker;          // text for the ticker band; empty = nothing
 };
