@@ -2,6 +2,8 @@
 
 ## Unreleased: special effects
 
+- Show options moved out of `Engine.cpp` into the pure `ShowOptions.hpp` (test B27) with strict number parsing: `--parallax abc`, `--bpm 12x`, `--track 1.5`, `--pointer 1,y` or `--fixed-step nan` are now errors with a message instead of silently becoming 0. `Engine.cpp` lost ~100 lines of option plumbing.
+
 - Swap music: key **S** jumps to the next track (Shift+S: previous), `--track N` starts on track N, and the default playlist now holds all three modules (Stars, Digital Rendezvous, Silicon Dancer). Tempo re-locks to each track as before.
 - Background parallax is independent of the effects: the background has its own gain (`--bg-parallax F`, key **K**), the effects plane (wires, depth motes) keeps `--parallax`/G, and the director's energy breathing now moves only the effects plane.
 

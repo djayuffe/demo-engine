@@ -15,6 +15,7 @@
 #include "AdaptiveRes.hpp"
 #include "Director.hpp"
 #include "WireGain.hpp"
+#include "ShowOptions.hpp"
 #include "LogoShow.hpp"
 #include "Describe.hpp"
 #include "WindowSpec.hpp"
@@ -132,6 +133,48 @@ int main() {
       bounded = bounded && std::fabs(sx) <= .30001f && std::fabs(sy) <= .22001f;
     }
     req(bounded, "idle sway is bounded");
+  }
+  // B27: strict show-option parsing
+  {
+    auto run = [](std::vector<std::string> v, showopt::ShowOptions& o, std::string& err) {
+      std::vector<char*> av;
+      av.push_back(const_cast<char*>("demo"));
+      for (auto& x : v) av.push_back(const_cast<char*>(x.c_str()));
+      const int argc = int(av.size());
+      for (int i = 1; i < argc; i++) {
+        const auto r = showopt::parse(i, argc, av.data(), o, err);
+        if (r != showopt::Result::Ok) return r;
+      }
+      return showopt::Result::Ok;
+    };
+    showopt::ShowOptions o;
+    std::string err;
+    req(run({"--background-style", "fractal", "--parallax", "2.5", "--bg-parallax", "0", "--pointer", "0.5,-1", "--track", "3",
+             "--fixed-step", "0.04", "--hide", "sun,grid", "--no-gloss", "--no-depth", "--no-logo", "--no-background", "--no-adaptive"},
+            o, err) == showopt::Result::Ok,
+        "all show options parse");
+    req(o.bgStyle == 6 && !o.autoStyle && o.parallax == 2.5 && o.parallaxGiven && o.bgParallax == 0.0, "style and gains stored");
+    req(o.fixedPointer && o.fixedX == .5f && o.fixedY == -1.f && o.startTrack == 2 && o.fixedStep == .04, "pointer, track, clock stored");
+    req(o.hideList == "sun,grid" && o.noGloss && o.noDepth && o.noLogo && o.noBackground && !o.adaptive, "switches stored");
+    showopt::ShowOptions p;
+    req(run({"--parallax", "9"}, p, err) == showopt::Result::Ok && p.parallax == 3.0, "gain clamps to 3");
+    const std::vector<std::vector<std::string>> bad = {{"--parallax", "abc"}, {"--parallax", "2.5x"}, {"--parallax"}, {"--track", "0"},
+                                                      {"--track", "1.5"}, {"--pointer", "1"}, {"--pointer", "1,y"}, {"--fixed-step", "0"},
+                                                      {"--fixed-step", "nan"}, {"--background-style", "disco"}};
+    bool allRejected = true;
+    for (const auto& b : bad) {
+      showopt::ShowOptions q;
+      std::string e;
+      allRejected = allRejected && run(b, q, e) == showopt::Result::Error && !e.empty();
+    }
+    req(allRejected, "malformed show options are rejected with a message");
+    showopt::ShowOptions q;
+    int i = 1;
+    char a0[] = "demo", a1[] = "--quality";
+    char* av[] = {a0, a1};
+    req(showopt::parse(i, 2, av, q, err) == showopt::Result::NotMine, "other options pass through");
+    double v = 0;
+    req(showopt::number("132", v) && v == 132 && !showopt::number("", v) && !showopt::number("1e999", v), "strict numbers");
   }
   // B26: wire exposure with wide lines
   {

@@ -15,6 +15,7 @@
 #include "Engine.hpp"
 #include "AdaptiveRes.hpp"
 #include "Director.hpp"
+#include "ShowOptions.hpp"
 #include "BackgroundStyle.hpp"
 #include "RenderScale.hpp"
 #include "Renderer.hpp"
@@ -101,20 +102,9 @@ int run(Demo& demo, int argc, char** argv) {
   bool bpmGiven = false;
   std::vector<fs::path> musicPaths;
   fs::path logoOverride;
-  int bgStyle = 0;
-  bool fixedPointer = false;   // --pointer X,Y: pin the pointer (screenshots, parallax checks)
-  float fixedX = 0, fixedY = 0;
-  std::string hideList;       // --hide: objects to start switched off
-  bool noGloss = false;
-  int startTrack = 0;     // --track N: start the playlist on track N (1-based on the command line)
-  double fixedStep = 0;   // --fixed-step S: advance the show clock S seconds per frame
-  bool adaptive = true;      // frame-time governor for the background resolution (--no-adaptive)
+  showopt::ShowOptions so;   // backgrounds, depth, gloss, pointer, clock, music start (ShowOptions.hpp)
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
-  bool noDepth = false, autoStyle = false;   // autoStyle: cycle the background styles by themselves
-  bool parallaxGiven = false;
-  double parallax = 1.6;     // effects plane: wires + depth motes (G; the director breathes it in auto mode)
-  double bgParallax = 1.6;   // background, independent of the effects (--bg-parallax, K)   // gain on every pointer-driven depth offset (--parallax, key P)
-  bool noTicker = false, noPost = false, noBackground = false, noLogo = false;
+  bool noTicker = false, noPost = false;
   double quality = 1.0;
   bool qualityGiven = false;
   int winW = 0, winH = 0;
@@ -159,9 +149,18 @@ int run(Demo& demo, int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
     if (demo.parseArg(arg, i, argc, argv)) continue;
+    {
+      std::string perr;
+      const showopt::Result pr = showopt::parse(i, argc, argv, so, perr);
+      if (pr == showopt::Result::Error) {
+        std::fprintf(stderr, "%s\n", perr.c_str());
+        return 2;
+      }
+      if (pr == showopt::Result::Ok) continue;
+    }
     if (arg == "--bpm" && i + 1 < argc) {
-      double v = std::atof(argv[++i]);
-      if (!std::isfinite(v)) {
+      double v = 0;
+      if (!showopt::number(argv[++i], v)) {
         std::fprintf(stderr, "--bpm: not a finite number\n");
         return 2;
       }
@@ -173,63 +172,9 @@ int run(Demo& demo, int argc, char** argv) {
       noTicker = true;
     else if (arg == "--no-post")
       noPost = true;
-    else if (arg == "--no-background")
-      noBackground = true;
-    else if (arg == "--parallax" && i + 1 < argc) {
-      const double v = std::atof(argv[++i]);
-      if (!std::isfinite(v)) {
-        std::fprintf(stderr, "--parallax: not a finite number\n");
-        return 2;
-      }
-      parallax = std::clamp(v, 0.0, 3.0);
-      parallaxGiven = true;
-    } else if (arg == "--bg-parallax" && i + 1 < argc) {
-      const double v = std::atof(argv[++i]);
-      if (!std::isfinite(v)) {
-        std::fprintf(stderr, "--bg-parallax: not a finite number\n");
-        return 2;
-      }
-      bgParallax = std::clamp(v, 0.0, 3.0);
-    } else if (arg == "--pointer" && i + 1 < argc) {
-      float px = 0, py = 0;
-      if (std::sscanf(argv[++i], "%f,%f", &px, &py) != 2 || !std::isfinite(px) || !std::isfinite(py)) {
-        std::fprintf(stderr, "--pointer: expected X,Y in -1..1\n");
-        return 2;
-      }
-      fixedPointer = true;
-      fixedX = std::clamp(px, -1.f, 1.f);
-      fixedY = std::clamp(py, -1.f, 1.f);
-    } else if (arg == "--fixed-step" && i + 1 < argc) {
-      const double v = std::atof(argv[++i]);
-      if (!std::isfinite(v) || v <= 0 || v > 1) {
-        std::fprintf(stderr, "--fixed-step: seconds per frame in (0, 1]\n");
-        return 2;
-      }
-      fixedStep = v;
-    } else if (arg == "--track" && i + 1 < argc) {
-      startTrack = std::max(0, std::atoi(argv[++i]) - 1);
-    } else if (arg == "--no-gloss")
-      noGloss = true;
-    else if (arg == "--hide" && i + 1 < argc)
-      hideList = argv[++i];
-    else if (arg == "--no-adaptive")
-      adaptive = false;
-    else if (arg == "--no-depth")
-      noDepth = true;
-    else if (arg == "--background-style" && i + 1 < argc) {
-      const std::string v = argv[++i];
-      const int st = bgstyle::parse(v);
-      if (st == -1) autoStyle = true;
-      else if (st >= 0) bgStyle = st;
-      else {
-        std::fprintf(stderr, "--background-style: use auto|classic|synthwave|nebula|mandala|blackhole|hyperspace|fractal (or 0-6)\n");
-        return 2;
-      }
-    } else if (arg == "--no-logo")
-      noLogo = true;
     else if (arg == "--quality" && i + 1 < argc) {
-      double v = std::atof(argv[++i]);
-      if (!std::isfinite(v)) {
+      double v = 0;
+      if (!showopt::number(argv[++i], v)) {
         std::fprintf(stderr, "--quality: not a finite number\n");
         return 2;
       }
@@ -330,7 +275,7 @@ int run(Demo& demo, int argc, char** argv) {
 #if defined(IW_HAS_AUDIO)
   if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) std::fprintf(stderr, "SDL audio init failed: %s\n", SDL_GetError());
 #endif
-  if (startTrack > 0) audio.startAt(startTrack);
+  if (so.startTrack > 0) audio.startAt(so.startTrack);
   if (!musicPaths.empty() && audio.open(musicPaths)) {
     // Lock the visuals to the first module's own tempo unless --bpm was given.
     if (!bpmGiven && audio.nativeBpm(0) > 0) bpm = audio.nativeBpm(0);
@@ -363,22 +308,22 @@ int run(Demo& demo, int argc, char** argv) {
   // Default: cap the HDR target to a pixel budget (Retina/4K); an explicit --quality means "exactly this".
   r.setMaxHdrPixels(qualityGiven ? 0.0 : rscale::kDefaultBudget);
   r.setPostEnabled(!noPost);
-  r.setShowBackground(!noBackground);
-  r.setBackgroundStyle(bgStyle);
-  r.setShowDepth(!noDepth);
-  r.setShowGloss(!noGloss);
-  if (!hideList.empty())
-    for (const auto& u : r.objects().hide(hideList)) std::fprintf(stderr, "--hide: no background object named '%s'\n", u.c_str());
+  r.setShowBackground(!so.noBackground);
+  r.setBackgroundStyle(so.bgStyle);
+  r.setShowDepth(!so.noDepth);
+  r.setShowGloss(!so.noGloss);
+  if (!so.hideList.empty())
+    for (const auto& u : r.objects().hide(so.hideList)) std::fprintf(stderr, "--hide: no background object named '%s'\n", u.c_str());
   adaptive::Governor governor;
-  double ptrT = fixedStep > 0 ? 1.0 : glfwGetTime();
+  double ptrT = so.fixedStep > 0 ? 1.0 : glfwGetTime();
   director::Director dj;
-  if (autoStyle) r.setBackgroundStyle(1);
+  if (so.autoStyle) r.setBackgroundStyle(1);
   bool djStarted = false;
   dj.objectCount = &bgstyle::elementCount;
   bgstyle::Objects userObjects = r.objects();   // the --hide / F-key choices; the director composes on top of them
   float ptrX = 0, ptrY = 0, ptrPulse = 0;
   bool mouseWas = false;
-  r.setShowLogos(!noLogo);
+  r.setShowLogos(!so.noLogo);
   r.setFxAmount(cfg.fxAmount);
   if (cfg.logoShow) {
     std::vector<fs::path> cands;
@@ -419,7 +364,7 @@ int run(Demo& demo, int argc, char** argv) {
   float lastRadius = .1f;
   bool tickerOn = !noTicker, shotTaken = false;
   int frameCount = 0;
-  double lastNow = fixedStep > 0 ? 1.0 - fixedStep : glfwGetTime();
+  double lastNow = so.fixedStep > 0 ? 1.0 - so.fixedStep : glfwGetTime();
   int exitCode = 0;
   while (!glfwWindowShouldClose(w) && !g_shutdown.load()) {
     // Minimised windows have no visible framebuffer; skip the frame and wait for a restore.
@@ -428,9 +373,9 @@ int run(Demo& demo, int argc, char** argv) {
       continue;
     }
     // --fixed-step: deterministic show clock (frame N is always at N*step): reproducible captures and A/B checks.
-    const double now = fixedStep > 0 ? 1.0 + frameCount * fixedStep : glfwGetTime();
+    const double now = so.fixedStep > 0 ? 1.0 + frameCount * so.fixedStep : glfwGetTime();
     const MusicState music = audio.state();
-    const double showTime = (music.active && fixedStep <= 0) ? music.seconds : now;
+    const double showTime = (music.active && so.fixedStep <= 0) ? music.seconds : now;
     // A new playlist track: lock to its tempo without a jump in the beat count.
     if (music.active && music.track >= 0 && music.track != lastTrack) {
       lastTrack = music.track;
@@ -445,7 +390,7 @@ int run(Demo& demo, int argc, char** argv) {
     fi.time = showTime;
     fi.musicPath = music.active ? audio.trackPath(std::max(0, music.track)).string() : std::string();
     fi.dt = now - lastNow;
-    if (adaptive && frameCount > 30 && governor.update(float(fi.dt))) {
+    if (so.adaptive && frameCount > 30 && governor.update(float(fi.dt))) {
       r.setArtDivisor(governor.divisor);
       std::fprintf(stdout, "background resolution: 1/%d (frame time %.1f ms)\n", governor.divisor, governor.ema * 1000.f);
     }
@@ -470,7 +415,7 @@ int run(Demo& demo, int argc, char** argv) {
       std::fprintf(stdout, "background: %s\n", r.showBackground() ? "on" : "off");
     }
     {   // pointer: smoothed -1..1 (y up) + click shockwave; drives the backgrounds and the depth layer
-      const double now = fixedStep > 0 ? 1.0 + frameCount * fixedStep : glfwGetTime();
+      const double now = so.fixedStep > 0 ? 1.0 + frameCount * so.fixedStep : glfwGetTime();
       const float dt = float(std::clamp(now - ptrT, 0.0, .1));
       ptrT = now;
       double mx = 0, my = 0;
@@ -478,8 +423,8 @@ int run(Demo& demo, int argc, char** argv) {
       glfwGetCursorPos(w, &mx, &my);
       glfwGetWindowSize(w, &ww, &wh);
       const bool inside = glfwGetWindowAttrib(w, GLFW_HOVERED) != 0;
-      const float tx = fixedPointer ? fixedX : inside ? std::clamp(float(mx / std::max(1, ww) * 2.0 - 1.0), -1.f, 1.f) : 0.f;
-      const float ty = fixedPointer ? fixedY : inside ? std::clamp(float(1.0 - my / std::max(1, wh) * 2.0), -1.f, 1.f) : 0.f;
+      const float tx = so.fixedPointer ? so.fixedX : inside ? std::clamp(float(mx / std::max(1, ww) * 2.0 - 1.0), -1.f, 1.f) : 0.f;
+      const float ty = so.fixedPointer ? so.fixedY : inside ? std::clamp(float(1.0 - my / std::max(1, wh) * 2.0), -1.f, 1.f) : 0.f;
       const float k = 1.f - std::exp(-dt * 6.f);
       ptrX += (tx - ptrX) * k;
       ptrY += (ty - ptrY) * k;
@@ -490,8 +435,8 @@ int run(Demo& demo, int argc, char** argv) {
       // Idle sway keeps the depth alive when the mouse is still; the gain scales the whole thing.
       float sx, sy;
       bgstyle::sway(now, sx, sy);
-      r.setPointer((ptrX + sx) * float(parallax), (ptrY + sy) * float(parallax), ptrPulse);   // effects plane
-      r.setBgPointer((ptrX + sx) * float(bgParallax), (ptrY + sy) * float(bgParallax));          // background, own gain
+      r.setPointer((ptrX + sx) * float(so.parallax), (ptrY + sy) * float(so.parallax), ptrPulse);   // effects plane
+      r.setBgPointer((ptrX + sx) * float(so.bgParallax), (ptrY + sy) * float(so.bgParallax));          // background, own gain
     }
     for (int k = 0; k < 12; k++)   // F1..F12: switch object k of the current style
       if (input.pressed(Key::F1 + k) && r.objects().toggle(r.backgroundStyle(), k)) {
@@ -509,15 +454,15 @@ int run(Demo& demo, int argc, char** argv) {
                    "keys: B background  V style  D depth  O gloss  G fx parallax  K bg parallax  S next track (Shift: previous)  L logos  T ticker  C capture PNG  H help  Esc quit\n"
                    "      mouse = steer depth, click = shockwave\n");
     if (input.pressed(Key::K)) {
-      bgParallax = bgstyle::nextGain(bgParallax);
-      std::fprintf(stdout, "background parallax: %.1f\n", bgParallax);
+      so.bgParallax = bgstyle::nextGain(so.bgParallax);
+      std::fprintf(stdout, "background parallax: %.1f\n", so.bgParallax);
     }
     if (input.pressed(Key::G)) {
-      parallaxGiven = true;
-      parallax = bgstyle::nextGain(parallax);
-      std::fprintf(stdout, "parallax: %.1f\n", parallax);
+      so.parallaxGiven = true;
+      so.parallax = bgstyle::nextGain(so.parallax);
+      std::fprintf(stdout, "parallax: %.1f\n", so.parallax);
     }
-    if (autoStyle) {   // the director: cuts on bar lines, reacts to drops/breakdowns, breathes the parallax (V takes over)
+    if (so.autoStyle) {   // the director: cuts on bar lines, reacts to drops/breakdowns, breathes the parallax (V takes over)
       if (!djStarted) {
         dj.start(1, fi.time);
         djStarted = true;
@@ -531,7 +476,7 @@ int run(Demo& demo, int argc, char** argv) {
         std::fprintf(stdout, "director: %s%s -> %s\n", dd.drop ? "drop " : dd.breakdown ? "breakdown " : "", bgstyle::name(fromStyle), bgstyle::name(dd.switchTo));
         if (dd.compose != 0xFFFF) std::fprintf(stdout, "director: composition  %s\n", r.objects().describe(dd.switchTo).c_str());
       }
-      if (!parallaxGiven) parallax = dd.gain;
+      if (!so.parallaxGiven) so.parallax = dd.gain;
     }
     if (input.pressed(Key::O)) {
       r.setShowGloss(!r.showGloss());
@@ -542,7 +487,7 @@ int run(Demo& demo, int argc, char** argv) {
       std::fprintf(stdout, "depth: %s\n", r.showDepth() ? "on" : "off");
     }
     if (input.pressed(Key::V)) {
-      autoStyle = false;
+      so.autoStyle = false;
       r.setBackgroundStyle(r.backgroundStyle() + 1);
       std::fprintf(stdout, "background style: %s   objects  %s\n", bgstyle::name(r.backgroundStyle()),
                    r.objects().describe(r.backgroundStyle()).c_str());
