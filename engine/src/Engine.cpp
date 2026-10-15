@@ -106,12 +106,14 @@ int run(Demo& demo, int argc, char** argv) {
   float fixedX = 0, fixedY = 0;
   std::string hideList;       // --hide: objects to start switched off
   bool noGloss = false;
+  int startTrack = 0;     // --track N: start the playlist on track N (1-based on the command line)
   double fixedStep = 0;   // --fixed-step S: advance the show clock S seconds per frame
   bool adaptive = true;      // frame-time governor for the background resolution (--no-adaptive)
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
   bool noDepth = false, autoStyle = false;   // autoStyle: cycle the background styles by themselves
   bool parallaxGiven = false;
-  double parallax = 1.6;   // gain on every pointer-driven depth offset (--parallax, key P)
+  double parallax = 1.6;     // effects plane: wires + depth motes (G; the director breathes it in auto mode)
+  double bgParallax = 1.6;   // background, independent of the effects (--bg-parallax, K)   // gain on every pointer-driven depth offset (--parallax, key P)
   bool noTicker = false, noPost = false, noBackground = false, noLogo = false;
   double quality = 1.0;
   bool qualityGiven = false;
@@ -130,9 +132,11 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
                  "  --no-background Start with the procedural background off (toggle with B)\n"
                  "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole|hyperspace|fractal (cycle with V)\n"
-                 "  --parallax F    Depth-parallax gain 0-3 (default 1.6; cycle with G)\n"
+                 "  --parallax F    Effects parallax gain 0-3: wires + depth motes (default 1.6; cycle with G)\n"
+                 "  --bg-parallax F Background parallax gain 0-3, independent of the effects (default 1.6; cycle with K)\n"
                  "  --pointer X,Y   Pin the pointer, -1..1 (screenshots, parallax checks)\n"
                  "  --fixed-step S  Deterministic clock: each frame advances the show by S s (captures, A/B)\n"
+                 "  --track N       Start the playlist on track N (1 = first; S skips to the next live)\n"
                  "  --no-gloss      Start with the gloss finish (specular sweep, glints) off (toggle with O)\n"
                  "  --hide A,B,..   Start with background objects off, e.g. sun,grid,jets (F1-F12 toggle live)\n"
                  "  --no-adaptive   Keep the background at fixed half resolution (default: governed by frame time)\n"
@@ -149,7 +153,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --version       Print version and exit\n"
                  "  -h, --help      Show this help\n"
                  "%s"
-                 "Keys: T ticker, B background, V background style, D depth layer, O gloss, F1-F12 background objects, G parallax gain, C capture PNG, H key list, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
+                 "Keys: T ticker, B background, V background style, D depth layer, O gloss, F1-F12 background objects, G effects parallax, K background parallax, S next track, C capture PNG, H key list, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
                  cfg.title.c_str(), cfg.version.c_str(), cfg.binaryName.c_str(), cfg.defaultBpm, demo.usage().c_str());
   };
   for (int i = 1; i < argc; i++) {
@@ -179,6 +183,13 @@ int run(Demo& demo, int argc, char** argv) {
       }
       parallax = std::clamp(v, 0.0, 3.0);
       parallaxGiven = true;
+    } else if (arg == "--bg-parallax" && i + 1 < argc) {
+      const double v = std::atof(argv[++i]);
+      if (!std::isfinite(v)) {
+        std::fprintf(stderr, "--bg-parallax: not a finite number\n");
+        return 2;
+      }
+      bgParallax = std::clamp(v, 0.0, 3.0);
     } else if (arg == "--pointer" && i + 1 < argc) {
       float px = 0, py = 0;
       if (std::sscanf(argv[++i], "%f,%f", &px, &py) != 2 || !std::isfinite(px) || !std::isfinite(py)) {
@@ -195,6 +206,8 @@ int run(Demo& demo, int argc, char** argv) {
         return 2;
       }
       fixedStep = v;
+    } else if (arg == "--track" && i + 1 < argc) {
+      startTrack = std::max(0, std::atoi(argv[++i]) - 1);
     } else if (arg == "--no-gloss")
       noGloss = true;
     else if (arg == "--hide" && i + 1 < argc)
@@ -317,6 +330,7 @@ int run(Demo& demo, int argc, char** argv) {
 #if defined(IW_HAS_AUDIO)
   if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) std::fprintf(stderr, "SDL audio init failed: %s\n", SDL_GetError());
 #endif
+  if (startTrack > 0) audio.startAt(startTrack);
   if (!musicPaths.empty() && audio.open(musicPaths)) {
     // Lock the visuals to the first module's own tempo unless --bpm was given.
     if (!bpmGiven && audio.nativeBpm(0) > 0) bpm = audio.nativeBpm(0);
@@ -476,18 +490,28 @@ int run(Demo& demo, int argc, char** argv) {
       // Idle sway keeps the depth alive when the mouse is still; the gain scales the whole thing.
       float sx, sy;
       bgstyle::sway(now, sx, sy);
-      r.setPointer((ptrX + sx) * float(parallax), (ptrY + sy) * float(parallax), ptrPulse);
+      r.setPointer((ptrX + sx) * float(parallax), (ptrY + sy) * float(parallax), ptrPulse);   // effects plane
+      r.setBgPointer((ptrX + sx) * float(bgParallax), (ptrY + sy) * float(bgParallax));          // background, own gain
     }
     for (int k = 0; k < 12; k++)   // F1..F12: switch object k of the current style
       if (input.pressed(Key::F1 + k) && r.objects().toggle(r.backgroundStyle(), k)) {
         userObjects.mask[r.backgroundStyle()] = r.objects().get(r.backgroundStyle());   // what you see is what you chose
         std::fprintf(stdout, "%s: %s\n", bgstyle::name(r.backgroundStyle()), r.objects().describe(r.backgroundStyle()).c_str());
       }
+    if (input.pressed(Key::S)) {   // swap music: next track of the playlist (Shift+S: previous)
+      const bool back = input.down(340) || input.down(344);   // GLFW_KEY_LEFT_SHIFT / RIGHT_SHIFT
+      audio.skip(back ? -1 : 1);
+      std::fprintf(stdout, "music: %s track\n", back ? "previous" : "next");
+    }
     if (input.pressed(Key::C)) captureNow = true;
     if (input.pressed(Key::H))
       std::fprintf(stdout,
-                   "keys: B background  V style  D depth  O gloss  G parallax gain  L logos  T ticker  C capture PNG  H help  Esc quit\n"
+                   "keys: B background  V style  D depth  O gloss  G fx parallax  K bg parallax  S next track (Shift: previous)  L logos  T ticker  C capture PNG  H help  Esc quit\n"
                    "      mouse = steer depth, click = shockwave\n");
+    if (input.pressed(Key::K)) {
+      bgParallax = bgstyle::nextGain(bgParallax);
+      std::fprintf(stdout, "background parallax: %.1f\n", bgParallax);
+    }
     if (input.pressed(Key::G)) {
       parallaxGiven = true;
       parallax = bgstyle::nextGain(parallax);

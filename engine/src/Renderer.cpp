@@ -583,8 +583,8 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
     ap.objects = objects_.get(styleFade_.shown);
       ap.style = styleFade_.shown;
     }
-    ap.pointerX = ptrX_;
-    ap.pointerY = ptrY_;
+    ap.pointerX = bgPtrX_;
+    ap.pointerY = bgPtrY_;
     ap.pulse = ptrPulse_;
     art_.render(ap);
   }

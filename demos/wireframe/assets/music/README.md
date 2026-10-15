@@ -1,7 +1,7 @@
 # Optional music
 
 The demo can run from its internal BPM clock and does not require bundled audio.
-Four tracks are bundled. By default the demo plays **Stars, then Digital Rendezvous**, looping:
+Four tracks are bundled. By default the demo plays **Stars, Digital Rendezvous, then Silicon Dancer**, looping (key S skips to the next track, `--track N` starts on track N):
 
 - **Stars (4ch. version)** — **cs127**, ProTracker module (`cs127_-_stars_4ch.mod`, 4 channels,
   4:21, 125 BPM, genre "Demo Style"). Source: The Mod Archive, module 201917,

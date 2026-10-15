@@ -2,6 +2,9 @@
 
 ## Unreleased: special effects
 
+- Swap music: key **S** jumps to the next track (Shift+S: previous), `--track N` starts on track N, and the default playlist now holds all three modules (Stars, Digital Rendezvous, Silicon Dancer). Tempo re-locks to each track as before.
+- Background parallax is independent of the effects: the background has its own gain (`--bg-parallax F`, key **K**), the effects plane (wires, depth motes) keeps `--parallax`/G, and the director's energy breathing now moves only the effects plane.
+
 - Seventh style `fractal`: a ray-marched fly-through of an infinite, slowly twisting and breathing Menger-sponge cathedral: orbit-trap tinted stone, step-count ambient occlusion, headlight and specular gloss, travelling light orbs that light the walls and pulse on the beat, volumetric glow and depth fog. Speed follows the music; the mouse steers the gaze. Objects: structure, orbs, glow, fog. Costs about the same as the black hole; the director favours it for driving and peak music.
 
 - Wire exposure accounts for wide-wire width (`WireGain.hpp`, test B26): the density gain was calibrated for 1-pixel lines, but the geometry-shader wires are 1.4-9 px wide (wider on Retina), so dense scenes deposited several times the light. Dense scenes are now pulled back toward 1-pixel energy; sparse scenes keep their bright strokes. At 1440x900: scene 3 pure-white pixels 1.7% -> 1.3%, scene 4 0.6% -> 0.4%; the gain grows with resolution.

@@ -161,6 +161,11 @@ void AudioPlayer::render(float* out, int frames) {
   // one ends, so there is no gap between tracks. A one-track playlist simply loops that track.
   int done = 0, switches = 0;
   int cur = current_.load();
+  if (const int step = skip_.exchange(0)) {   // S key / --track: jump, starting that track from the top
+    const int n = int(tracks_.size());
+    cur = ((cur + step) % n + n) % n;
+    rewind(tracks_[size_t(cur)]);
+  }
   while (done < frames) {
     Track& t = tracks_[size_t(cur)];
     const int want = frames - done;

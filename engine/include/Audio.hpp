@@ -39,7 +39,13 @@ public:
   // A track's own tempo in BPM, folded into 70..180 (tempo * 6 / speed assumes 4 rows per beat; fast
   // modules use 8, so 276 becomes 138). 0 for WAV tracks: the caller keeps its --bpm/default.
   double nativeBpm(int i) const;
+  // Jump to another track of the playlist (wraps; negative steps go back). Thread-safe: the audio
+  // callback picks the request up at its next block and starts that track from the top.
+  void skip(int step = 1) { skip_.fetch_add(step); }
+  // Start on track i instead of the first (call before or after open()).
+  void startAt(int i) { skip_.store(i); }
 private:
+  std::atomic<int> skip_{0};
   struct Track {
     std::filesystem::path path;
     double bpm = 0.0;

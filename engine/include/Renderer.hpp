@@ -29,7 +29,8 @@ public:
   void setBackgroundStyle(int s) { bgStyle_ = bgstyle::wrap(s); }  // 0 classic, 1 synthwave, 2 nebula, 3 mandala, 4 blackhole
   int backgroundStyle() const { return bgStyle_; }
   // Pointer in -1..1 (y up) and a 0..1 click pulse: the backgrounds react to it, the depth layer is pushed by it.
-  void setPointer(float x, float y, float pulse) { ptrX_ = x; ptrY_ = y; ptrPulse_ = pulse; }
+  void setPointer(float x, float y, float pulse) { ptrX_ = x; ptrY_ = y; ptrPulse_ = pulse; }   // effects plane (wires, motes)
+  void setBgPointer(float x, float y) { bgPtrX_ = x; bgPtrY_ = y; }                             // background: its own gain
   void setArtDivisor(int d) { art_.setDivisor(d, error_); }   // background resolution = HDR size / d
   bgstyle::Objects& objects() { return objects_; }   // per-style object switches (F1..F12)
   void setShowGloss(bool on) { showGloss_ = on; }
@@ -123,7 +124,7 @@ private:
   float lastArtT_ = -1.f;
   bool showDepth_ = true, showGloss_ = true;
   bgstyle::Objects objects_;
-  float ptrX_ = 0, ptrY_ = 0, ptrPulse_ = 0;
+  float ptrX_ = 0, ptrY_ = 0, ptrPulse_ = 0, bgPtrX_ = 0, bgPtrY_ = 0;
   bool logosActive() const { return hasLogos_ && showLogos_; }
   bool logoCapturePending_ = false;
   float renderScale_ = 1.f;

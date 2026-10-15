@@ -18,7 +18,7 @@ Docs: [ARCHITECTURE.md](ARCHITECTURE.md) | [docs/WRITING_A_DEMO.md](docs/WRITING
 
 Objects: every style is built from named objects; **F1-F12** switch the current style's objects on and off live (the list is printed when you press V or an F-key), and `--hide sun,grid,jets` starts with some off.
 
-Interaction: move the mouse to steer the background (black hole: fly the camera; synthwave: steer; nebula: layer parallax; mandala: follow), click for a shockwave. Every layer sits at its own depth (five mote planes, each background layer, the wires as the middle plane) and a slow idle sway keeps it alive; `--parallax F` / **G** sets the gain (0 = flat, 3 = extreme). **D** toggles the independent depth-mote layer (also `--no-depth`). Background (**B**), logos (**L**), depth (**D**) and style (**V**) are all independent switches.
+Interaction: move the mouse to steer the background (black hole: fly the camera; synthwave: steer; nebula: layer parallax; mandala: follow), click for a shockwave. Every layer sits at its own depth (five mote planes, each background layer, the wires as the middle plane) and a slow idle sway keeps it alive; `--parallax F` / **G** sets the effects-plane gain (wires, depth motes) and `--bg-parallax F` / **K** the background gain, independently (0 = flat, 3 = extreme). **D** toggles the independent depth-mote layer (also `--no-depth`). Background (**B**), logos (**L**), depth (**D**) and style (**V**) are all independent switches.
 
 ## Why
 Every demo needs the same plumbing: a window, a float framebuffer, bloom and tone mapping, audio, a beat clock, a ticker, a screenshot switch for CI. The engine owns that plumbing so a new demo is one file that answers a single question: *what should be on screen right now?*

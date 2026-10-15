@@ -24,7 +24,8 @@ public:
     // Default soundtrack: "Stars (4ch. version)" by cs127, CC BY 4.0 (see assets/music/README.md).
     // Playlist: "Stars (4ch. version)" by cs127 (CC BY 4.0), then "Digital Rendezvous" by Drozerix (Public Domain).
     c.musicFiles = {"demos/wireframe/assets/music/cs127_-_stars_4ch.mod",
-                    "demos/wireframe/assets/music/drozerix_-_digital_rendezvous.xm"};
+                    "demos/wireframe/assets/music/drozerix_-_digital_rendezvous.xm",
+                    "demos/wireframe/assets/music/drozerix_-_silicon_dancer.mod"};   // S skips to the next track
     return c;
   }
   bool parseArg(const std::string& arg, int& i, int argc, char** argv) override {
