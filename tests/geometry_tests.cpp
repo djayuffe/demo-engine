@@ -110,9 +110,9 @@ int main() {
   // B22: background styles, fade-through-black, parallax gain, idle sway
   {
     req(bgstyle::parse("blackhole") == 4 && bgstyle::parse("classic") == 0 && bgstyle::parse("3") == 3, "style parse by name and digit");
-    req(bgstyle::parse("auto") == -1 && bgstyle::parse("6") == -2 && bgstyle::parse("nope") == -2 && bgstyle::parse("") == -2, "style parse rejects junk");
-    req(bgstyle::wrap(6) == 0 && bgstyle::wrap(-1) == 5, "style index wraps both ways");
-    req(std::string(bgstyle::name(2)) == "nebula" && std::string(bgstyle::name(8)) == "nebula", "style names wrap");
+    req(bgstyle::parse("auto") == -1 && bgstyle::parse("7") == -2 && bgstyle::parse("nope") == -2 && bgstyle::parse("") == -2, "style parse rejects junk");
+    req(bgstyle::wrap(7) == 0 && bgstyle::wrap(-1) == 6, "style index wraps both ways");
+    req(std::string(bgstyle::name(2)) == "nebula" && std::string(bgstyle::name(9)) == "nebula", "style names wrap");
     bgstyle::Fade f;
     req(f.step(3, 0.f) == 1.f && f.shown == 3, "first frame shows the requested style at once");
     float mn = 1.f;

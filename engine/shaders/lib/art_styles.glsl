@@ -274,10 +274,85 @@ vec3 styleHyperspace(vec2 p,float ml,float beat){
   return col;
 }
 
+// ---- 6: FRACTAL -- a fly-through of an infinite, slowly twisting Menger cathedral. Ray-marched
+//         distance field with orbit-trap colour, step-count ambient occlusion, a headlight,
+//         travelling light orbs that pulse on the beat, volumetric glow and depth fog. ----
+float gFracTrap;
+float fracDE(vec3 p,float t){
+  float tw=p.z*.045+.25*sin(t*.07);
+  p.xy=rot2(p.xy,tw);
+  p=mod(p+1.,2.)-1.;
+  vec3 b=abs(p)-vec3(1.);
+  float d=length(max(b,0.))+min(max(b.x,max(b.y,b.z)),0.);
+  float s=1.;
+  gFracTrap=1e3;
+  for(int m=0;m<4;m++){
+    vec3 a=mod(p*s+vec3(0.,0.,.12*sin(t*.11+float(m))),2.)-1.;
+    s*=3.;
+    vec3 r=abs(1.-3.*abs(a));
+    float da=max(r.x,r.y),db=max(r.y,r.z),dc=max(r.z,r.x);
+    float c=(min(da,min(db,dc))-1.)/s;
+    d=max(d,c);
+    gFracTrap=min(gFracTrap,dot(a,a)*(.6+.1*float(m)));
+  }
+  return d;
+}
+vec3 styleFractal(vec2 p,float ml,float beat){
+  float t=uTime;
+  float z0=t*(.35+.25*ml);
+  vec3 ro=vec3(.0,.0,z0);
+  vec3 rd=normalize(vec3(p*.75,1.3));
+  rd.yz=rot2(rd.yz,-uPointer.y*.20);
+  rd.xz=rot2(rd.xz,uPointer.x*.25);
+  rd.xy=rot2(rd.xy,t*.03);
+  rd.xy=rot2(rd.xy,-(ro.z*.045+.25*sin(t*.07)));   // roll with the twist so the corridor stays centred
+  float tt=.02,d=1.;int steps=0;
+  vec3 glow=vec3(0.),orbs=vec3(0.);
+  for(int i=0;i<84;i++){
+    vec3 q=ro+rd*tt;
+    d=fracDE(q,t);
+    // light orbs: one per 4-unit cell, gliding down the central corridor
+    float cell=floor((q.z+2.)/4.);
+    vec3 lp=vec3(.18*sin(cell*2.1+t*.7),.18*cos(cell*1.7+t*.6),cell*4.+2.*sin(t*.3+cell));
+    float ld=length(q-lp);
+    vec3 lc=pal(cell*.17+t*.02);
+    if(on(1)) orbs+=lc*.004/(ld*ld+.002)*min(d,.25)*(1.+2.5*beat);
+    if(on(2)) glow+=pal(t*.03+tt*.04)*.009/(1.+d*d*1600.);
+    steps=i;
+    if(d<.0015*tt||tt>14.)break;
+    tt+=d*.92;
+  }
+  vec3 col=vec3(.0,.0,.0);
+  vec3 fogc=mix(vec3(.010,.006,.025),pal(t*.02+.6)*.08,.5+.5*sin(t*.1));
+  if(d<.01&&on(0)){
+    vec3 hp=ro+rd*tt;
+    vec2 h=vec2(.0015*tt+.0005,-.0015*tt-.0005);
+    vec3 n=normalize(h.xyy*fracDE(hp+h.xyy,t)+h.yyx*fracDE(hp+h.yyx,t)+h.yxy*fracDE(hp+h.yxy,t)+h.xxx*fracDE(hp+h.xxx,t));
+    fracDE(hp,t);
+    float trap=gFracTrap;
+    float ao=1.-float(steps)/84.;
+    vec3 base=mix(vec3(.30,.27,.34),pal(trap*.6+.1+t*.01)*.7,.30);         // dark stone, faint trap tint
+    float head=max(dot(n,-rd),0.);
+    float rim=pow(1.-head,4.);
+    // nearest orb lights the wall
+    float cell=floor((hp.z+2.)/4.);
+    vec3 lp=vec3(.18*sin(cell*2.1+t*.7),.18*cos(cell*1.7+t*.6),cell*4.+2.*sin(t*.3+cell));
+    vec3 L=lp-hp;float ll=length(L);L/=ll;
+    float orbLight=max(dot(n,L),0.)/(1.+ll*ll*3.)*(1.+2.*beat)*e(1);
+    col=base*(.07+.95*head*head)*ao*ao+pal(cell*.17+t*.02)*orbLight*1.8*ao+pal(trap*.4+.5)*rim*.18*(.5+ml)*ao;
+    col+=vec3(1.)*pow(max(dot(reflect(rd,n),-rd),0.),24.)*.15*ao;   // gloss
+  }
+  float fog=1.-exp(-tt*(.14+.05*(1.-ml)));
+  col=mix(col,fogc,fog*e(3));
+  col+=glow*(.5+1.0*ml)+orbs;
+  return col*.85;
+}
+
 vec3 styleLayer(int style,vec2 p,float ml,float beat){
   if(style==1) return styleSynthwave(p,ml,beat);
   if(style==2) return styleNebula(p,ml,beat);
   if(style==4) return styleBlackHole(p,ml,beat);
   if(style==5) return styleHyperspace(p,ml,beat);
+  if(style==6) return styleFractal(p,ml,beat);
   return styleMandala(p,ml,beat);
 }

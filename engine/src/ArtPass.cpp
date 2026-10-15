@@ -74,7 +74,7 @@ void ArtPass::render(const Params& p) {
   glUniform1f(uPulse_, std::clamp(p.pulse, 0.f, 1.f));
   glUniform1f(uFade_, std::clamp(p.fade, 0.f, 1.f));
   glUniform1i(uObjects_, p.objects & 0xFFFF);
-  glUniform1i(uStyle_, std::clamp(p.style, 0, 5));
+  glUniform1i(uStyle_, std::clamp(p.style, 0, 6));
   glBindVertexArray(vao_);
   glDrawArrays(GL_TRIANGLES, 0, 3);
 }

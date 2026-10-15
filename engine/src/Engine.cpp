@@ -129,7 +129,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --no-ticker     Start with the text ticker off (toggle with T)\n"
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
                  "  --no-background Start with the procedural background off (toggle with B)\n"
-                 "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole|hyperspace (cycle with V)\n"
+                 "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole|hyperspace|fractal (cycle with V)\n"
                  "  --parallax F    Depth-parallax gain 0-3 (default 1.6; cycle with G)\n"
                  "  --pointer X,Y   Pin the pointer, -1..1 (screenshots, parallax checks)\n"
                  "  --fixed-step S  Deterministic clock: each frame advances the show by S s (captures, A/B)\n"
@@ -209,7 +209,7 @@ int run(Demo& demo, int argc, char** argv) {
       if (st == -1) autoStyle = true;
       else if (st >= 0) bgStyle = st;
       else {
-        std::fprintf(stderr, "--background-style: use auto|classic|synthwave|nebula|mandala|blackhole|hyperspace (or 0-5)\n");
+        std::fprintf(stderr, "--background-style: use auto|classic|synthwave|nebula|mandala|blackhole|hyperspace|fractal (or 0-6)\n");
         return 2;
       }
     } else if (arg == "--no-logo")

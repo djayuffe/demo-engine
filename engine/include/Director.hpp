@@ -13,7 +13,7 @@
 #include <cstdint>
 
 namespace director {
-constexpr int kStyles = 6;
+constexpr int kStyles = 7;
 // affinity[style][class]: class 0 = calm, 1 = driving, 2 = peak
 inline float affinity(int style, int cls) {
   static const float a[kStyles][3] = {{.60f, .50f, .30f},   // classic
@@ -21,7 +21,8 @@ inline float affinity(int style, int cls) {
                                       {1.0f, .50f, .10f},   // nebula
                                       {.50f, .90f, .60f},   // mandala
                                       {.80f, .70f, .50f},   // blackhole
-                                      {.02f, .50f, 1.0f}};  // hyperspace
+                                      {.02f, .50f, 1.0f},   // hyperspace
+                                      {.40f, .85f, .80f}};  // fractal
   return a[((style % kStyles) + kStyles) % kStyles][std::clamp(cls, 0, 2)];
 }
 inline int energyClass(float slowEnergy) { return slowEnergy < .28f ? 0 : slowEnergy < .58f ? 1 : 2; }

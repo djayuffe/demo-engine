@@ -7,9 +7,9 @@
 #include <vector>
 
 namespace bgstyle {
-constexpr int kCount = 6;
+constexpr int kCount = 7;
 inline const char* name(int s) {
-  static const char* const k[kCount] = {"classic", "synthwave", "nebula", "mandala", "blackhole", "hyperspace"};
+  static const char* const k[kCount] = {"classic", "synthwave", "nebula", "mandala", "blackhole", "hyperspace", "fractal"};
   return k[((s % kCount) + kCount) % kCount];
 }
 // "auto" -> -1 (caller turns auto-cycling on); a name or a digit 0..4 -> that style; anything else -> -2.
@@ -33,13 +33,15 @@ inline const std::vector<const char*>& elements(int style) {
       {"gas", "stars", "flares", "supernova", "comets", "dust"},
       {"crystal", "neon", "folds", "mirror", "rings"},
       {"disk", "photonring", "jets", "galaxy", "stars"},
-      {"walls", "streaks", "glow", "flash"}};
+      {"walls", "streaks", "glow", "flash"},
+      {"structure", "orbs", "glow", "fog"}};
   return k[((style % kCount) + kCount) % kCount];
 }
 constexpr int kAllOn = 0xFFFF;
 inline int elementCount(int style) { return int(elements(style).size()); }
 struct Objects {
-  int mask[kCount] = {kAllOn, kAllOn, kAllOn, kAllOn, kAllOn, kAllOn};
+  int mask[kCount] = {kAllOn, kAllOn, kAllOn, kAllOn, kAllOn, kAllOn, kAllOn};
+  static_assert(kCount == 7, "extend the mask initialiser with the style count");
   int get(int style) const { return mask[wrap(style)]; }
   // Toggles object k of `style`; false when the style has no such object.
   bool toggle(int style, int k) {
