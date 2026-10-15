@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased: special effects
+## 1.6.0 - Impossible worlds
+
+Seven selectable background worlds with an auto-director that cuts on the music, interactive
+per-layer parallax depth, a gloss finish, cinematic scene flow, 14 new impossible-geometry scenes
+(73 in all), new special-effect passes, wide antialiased wires, a bloom pyramid, macOS/Retina tuning
+and a deterministic capture clock. Fully additive: existing demos build and run unchanged.
 
 - Scene flow (`Transition.hpp`, test B28): scenes no longer hard-cut. The last beat of every scene is an exit (the form rushes toward the camera, a radial zoom blur builds, the iris tightens and cinema bars close in); the first beat of the next is an entry (the new form lands with an exposure punch on the wires and glow, a chromatic split snaps back, the form grows in from 80% with a thicker stroke, the bars open). Manual scene changes get the entry. Logo cards are untouched.
 

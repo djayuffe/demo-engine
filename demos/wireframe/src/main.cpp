@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <tuple>
 namespace {
-constexpr const char* kVersion = "v5.0";
+constexpr const char* kVersion = "v5.1";
 
 class WireframeDemo final : public de::Demo {
 public:
