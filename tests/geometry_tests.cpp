@@ -617,17 +617,18 @@ int main() {
       req(im.rgba.size() == (size_t)1920 * 1080 * 4, "logo rgba size");
     }
   }
-  // Effect system: 80 CPU warpers + 30 recipes must be deterministic,
+  // Effect system: 93 CPU warpers + 38 recipes must be deterministic,
   // finite, and fail-safe (never return an empty/invalid mesh).
   {
-    req(effectCount() == 80, "effectCount 80");
-    req(recipeCount() == 30, "recipeCount 30");
+    req(effectCount() == 93, "effectCount 93");
+    req(recipeCount() == 38, "recipeCount 38");
     // recipeName must agree with recipe().name (regression: recipeName used
     // to return a string_view into a destroyed temporary).
     for (int i = 0; i < recipeCount(); i++) req(recipeName(i) == recipe(i).name, "recipeName matches recipe");
     req(recipeName(0) == "Raw" && recipeName(23) == "Dimensional Infection", "recipeName endpoints");
     req(recipeName(29) == "Quaternion Bloom", "recipeName last");
-    req(recipeName(30) == recipeName(0), "recipeName wraps");
+    req(recipeName(37) == "Indra's Net", "recipeName newest");
+    req(recipeName(38) == recipeName(0), "recipeName wraps");
     // every effect has a distinct, non-empty name
     {
       std::set<std::string> names;
@@ -639,7 +640,7 @@ int main() {
       req(names.size() == size_t(effectCount()), "effect names distinct");
     }
     // the unknown effects (64-79) must actually change a torus (no silent no-ops)
-    for (int id = 64; id < 80; ++id) {
+    for (int id = 64; id < effectCount(); ++id) {   // 64-79 unknown, 80-92 beyond
       auto a = geo::torus(24, 8), b = a;
       EffectContext ec;
       ec.time = 1.7f;

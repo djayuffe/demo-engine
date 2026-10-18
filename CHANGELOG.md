@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased: beyond effects
+
+- Thirteen new "beyond" mesh effects (80-92), each grounded in a real phenomenon:
+  - **Penrose Stairs**: four quantised flights around the axis that climb forever and arrive where they started.
+  - **Dzhanibekov Flip**: the mesh's inertia tensor is diagonalised and Euler's free rigid-body equations are integrated, so the mesh, spun about its intermediate axis, flips end over end with no torque (the tennis-racket theorem).
+  - **Tesseract Turn**: a fourth coordinate, rotation in the xw and zw planes, then 4D perspective; the form turns inside out.
+  - **Gravitational Wave**: the plus/cross strain of an inspiral chirp (frequency and amplitude rising to merger, then ring-down) passes through the object every 9 s.
+  - **Magnetosphere**: dipole field lines (r = L sin^2 theta) on three shells around a tilted, precessing magnetic axis, like a pulsar.
+  - **Voronoi Drift**: nine seeds cut the object into rigid shards that drift and spin; the edges across a crack let go.
+  - **Time Crystal**: the object snaps between two states at half the drive frequency (period doubling), in domains of opposite phase.
+  - **Droste Spiral**: log-polar folding into one scale band with a spiral twist, plus two nested copies at 1/3 and 1/9 (Escher's Print Gallery).
+  - **Origami**: three rigid creases sweep around the object; everything past a crease rotates about the crease line.
+  - **Phyllotaxis**: the surface gathers into golden-angle sunflower spirals and lets go.
+  - **Chladni Plate**: standing-wave modes of a square plate with still nodal lines, a new mode every 5 s, driven by the bass.
+  - **Triple Shadow**: the object casts flat shadows on a floor and two walls, the Goedel-Escher-Bach block.
+  - **Indra Pearls**: reduced words of sphere inversions in four orbiting spheres (a Kleinian group), copying the object into pearls within pearls.
+- Eight new curated recipes (30-37): Impossible Staircase, Tennis Racket Paradox, Fourth Dimension, LIGO Chirp, Magnetar, Escher Infinity, Time Crystal Garden, Indra's Net. There are now 93 effects and 38 recipes.
+- Proven additive with `tools/golden`: all 720 hash cases of the 80 existing effects, all 30 existing recipes and all 219 scene hashes are bit-identical. Only the random mutations differ, because the new effects join the mutation pool. In auto mode, scenes now cycle through 38 curated recipes instead of 30.
+
 ## 1.6.0 - Impossible worlds
 
 Seven selectable background worlds with an auto-director that cuts on the music, interactive

@@ -398,13 +398,316 @@ int fxMath(int id, Fx& f) {
   return -1;
 }
 
+
+// ---- "Beyond" effects (80-92): impossible stairs, rigid-body paradoxes, 4D, gravitational waves,
+// magnetospheres, Voronoi fracture, time crystals, Droste recursion, origami, phyllotaxis, Chladni
+// plates, Escher shadows and Kleinian inversion pearls. ---------------------------------------------
+// Symmetric 3x3 eigen-decomposition (cyclic Jacobi). Columns of E are the eigenvectors.
+void jacobi3(float a[3][3], float ev[3], float E[3][3]) {
+  for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) E[i][j] = i == j ? 1.f : 0.f;
+  for (int sweep = 0; sweep < 12; sweep++) {
+    for (int p = 0; p < 2; p++) for (int q = p + 1; q < 3; q++) {
+      if (fabsf(a[p][q]) < 1e-9f) continue;
+      const float th = .5f * atan2f(2 * a[p][q], a[q][q] - a[p][p]), c = cosf(th), s = sinf(th);
+      for (int k = 0; k < 3; k++) {   // A <- J^T A J
+        const float akp = a[k][p], akq = a[k][q];
+        a[k][p] = c * akp - s * akq; a[k][q] = s * akp + c * akq;
+      }
+      for (int k = 0; k < 3; k++) {
+        const float apk = a[p][k], aqk = a[q][k];
+        a[p][k] = c * apk - s * aqk; a[q][k] = s * apk + c * aqk;
+      }
+      for (int k = 0; k < 3; k++) {
+        const float ekp = E[k][p], ekq = E[k][q];
+        E[k][p] = c * ekp - s * ekq; E[k][q] = s * ekp + c * ekq;
+      }
+    }
+  }
+  for (int i = 0; i < 3; i++) ev[i] = a[i][i];
+}
+struct Quat { float w, x, y, z; };
+Quat qmul(Quat a, Quat b) {
+  return {a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z, a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+          a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w};
+}
+V3 qrot(Quat q, V3 v) {
+  const Quat p{0, v.x, v.y, v.z}, c{q.w, -q.x, -q.y, -q.z}, r = qmul(qmul(q, p), c);
+  return {r.x, r.y, r.z};
+}
+float fractf(float x) { return x - std::floor(x); }
+// Drops edges that a non-continuous map stretched far beyond their original length (fold seams).
+void cullStretched(Mesh3& m, const std::vector<float>& len0, float factor, float floorLen) {
+  std::vector<Edge> out; out.reserve(m.e.size());
+  for (size_t i = 0; i < m.e.size() && i < len0.size(); i++) {
+    const float l = vlen(vsub(m.v[m.e[i].a], m.v[m.e[i].b]));
+    if (l <= std::max(len0[i] * factor, floorLen)) out.push_back(m.e[i]);
+  }
+  m.e = std::move(out);
+}
+std::vector<float> edgeLengths(const Mesh3& m) {
+  std::vector<float> l(m.e.size());
+  for (size_t i = 0; i < m.e.size(); i++) l[i] = vlen(vsub(m.v[m.e[i].a], m.v[m.e[i].b]));
+  return l;
+}
+
+int fxBeyond(int id, Fx& f) {
+  Mesh3& m = f.m; [[maybe_unused]] const EffectContext& c = f.c;
+  const float A = f.A, t = f.t; const V3 C = f.C;
+  auto q = [&](V3 p) { return vsub(p, C); };
+  switch (id) {
+  case 80: {  // Penrose stairs: four flights climb around the axis and every flight ends where the next
+              // begins -- a staircase that rises forever and arrives where it started. Scrolls with time.
+    const float r0 = meanRadius(m, C), N = 4.f, steps = 6.f;
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p);
+      const float u = (atan2f(x.z, x.x) / (2 * PI) + .5f) * N + t * .22f;
+      const float s = std::floor(fractf(u) * steps) / steps;   // quantised climb inside one flight
+      x.y += A * .5f * r0 * (s - .5f);
+      return vadd(C, x); });
+  } break;
+  case 81: {  // Dzhanibekov flip: the mesh tumbles as a free rigid body spun about its INTERMEDIATE
+              // principal axis -- Euler's equations make it flip end over end at regular intervals
+              // (the tennis-racket theorem), with no torque at all.
+    float I[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+    for (auto p : m.v) {
+      const V3 x = q(p); const float r2 = vdot(x, x); const float xs[3] = {x.x, x.y, x.z};
+      for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) I[i][j] += (i == j ? r2 : 0.f) - xs[i] * xs[j];
+    }
+    float ev[3], E[3][3];
+    jacobi3(I, ev, E);
+    // Body frame = principal axes sorted by moment; use well-separated moments so even a symmetric
+    // object (a torus) shows the instability about its middle axis.
+    int ord[3] = {0, 1, 2};
+    std::sort(ord, ord + 3, [&](int a, int b) { return ev[a] < ev[b]; });
+    V3 ax[3];
+    for (int k = 0; k < 3; k++) ax[k] = vnorm(V3{E[0][ord[k]], E[1][ord[k]], E[2][ord[k]]});
+    ax[2] = vnorm(vcross(ax[0], ax[1]));   // right-handed
+    const float I1 = 1.f, I2 = 2.f, I3 = 3.f;
+    const float spin = 2.2f * (.4f + .6f * clampf(fabsf(A), 0, 2));
+    V3 w{.03f * spin, spin, .02f * spin};
+    Quat o{1, 0, 0, 0};
+    const float tau = fmodf(std::max(0.f, t) * .9f, 36.f), dt = .01f;
+    for (float s = 0; s < tau; s += dt) {   // Euler's equations (midpoint) + orientation update
+      auto dw = [&](V3 v) { return V3{(I2 - I3) / I1 * v.y * v.z, (I3 - I1) / I2 * v.z * v.x, (I1 - I2) / I3 * v.x * v.y}; };
+      const V3 mid = vadd(w, vmul(dw(w), dt * .5f));
+      w = vadd(w, vmul(dw(mid), dt));
+      const float wl = vlen(mid), ang = wl * dt;
+      if (wl > 1e-6f) { const V3 k = vmul(mid, sinf(ang * .5f) / wl); o = qmul(o, Quat{cosf(ang * .5f), k.x, k.y, k.z}); }
+    }
+    mapv(m, [&](V3 p, size_t) {
+      const V3 x = q(p); const V3 b{vdot(x, ax[0]), vdot(x, ax[1]), vdot(x, ax[2])};
+      const V3 r = qrot(o, b);
+      return vadd(C, vadd(vadd(vmul(ax[0], r.x), vmul(ax[1], r.y)), vmul(ax[2], r.z))); });
+  } break;
+  case 82: {  // Tesseract turn: each point gets a fourth coordinate (its distance from the mean shell),
+              // the object rotates in the xw and zw planes and is seen in 4D perspective, so it turns
+              // inside out through a direction that does not exist.
+    const float r0 = meanRadius(m, C), a = A * .9f * sinf(t * .4f) + t * .3f, b = t * .23f;
+    const float ca = cosf(a), sa = sinf(a), cb = cosf(b), sb = sinf(b);
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = vmul(q(p), 1.f / r0);
+      float w = .9f * sinf(2.5f * x.y + t * .4f) + 1.4f * (vlen(x) - 1.f);   // a fourth coordinate with real variety
+      float x1 = x.x * ca - w * sa; w = x.x * sa + w * ca;
+      float z1 = x.z * cb - w * sb; w = x.z * sb + w * cb;
+      const float k = 2.6f / std::max(.6f, 2.6f - w);
+      return vadd(C, vmul(V3{x1 * k, x.y * k, z1 * k}, r0)); });
+  } break;
+  case 83: {  // Gravitational wave: the chirp of a black-hole inspiral passes through the object --
+              // plus and cross polarisations stretch and squeeze space across the travel axis, rising
+              // in frequency and strength to the merger, then ringing down. Repeats every 8 s.
+    const float r0 = meanRadius(m, C), tc = 8.4f, tau = fmodf(std::max(0.f, t), 9.f);
+    float h, ph;
+    if (tau < 8.f) {
+      const float left = tc - tau;
+      h = .32f / powf(left, .25f);
+      ph = -2 * PI * 1.1f * (8.f / 5.f) * powf(left, .625f);
+    } else {
+      const float rd = tau - 8.f;
+      h = .32f / powf(.4f, .25f) * expf(-rd * 6.f);
+      ph = 2 * PI * 6.f * rd;
+    }
+    h *= clampf(A, -2, 2);
+    const float k = 2 * PI / (2.2f * r0);
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p);
+      const float s = ph - k * x.y, hp = h * cosf(s), hx = h * sinf(s);
+      return vadd(C, V3{x.x * (1 + hp) + x.z * hx, x.y, x.z * (1 - hp) + x.x * hx}); });
+  } break;
+  case 84: {  // Magnetosphere: dipole field lines (r = L sin^2 theta) loop out of the object around a
+              // tilted, precessing magnetic axis, like a pulsar; the shells breathe with the amount.
+    if (m.e.size() > kEdgeBudget - 1500) break;
+    const float r0 = maxRadius(m, C);
+    const float tilt = .35f, pre = t * .6f;
+    const V3 axis = vnorm(V3{sinf(tilt) * cosf(pre), cosf(tilt), sinf(tilt) * sinf(pre)});
+    const V3 e1 = vnorm(vcross(axis, V3{0, 0, 1})), e2 = vcross(axis, e1);
+    for (int shell = 0; shell < 3; shell++) {
+      const float L = r0 * (1.5f + .55f * float(shell)) * (1.f + .15f * clampf(A, -2, 2) * sinf(t * .8f + float(shell)));
+      const float th0 = asinf(clampf(sqrtf(r0 * .9f / L), 0.f, .999f));
+      for (int az = 0; az < 12; az++) {
+        const float phi = float(az) / 12.f * 2 * PI + t * .25f + float(shell) * .26f;
+        unsigned prev = 0;
+        for (int k = 0; k <= 24; k++) {
+          const float th = th0 + (PI - 2 * th0) * float(k) / 24.f, r = L * sinf(th) * sinf(th);
+          const V3 dir = vadd(vmul(axis, cosf(th)), vmul(vadd(vmul(e1, cosf(phi)), vmul(e2, sinf(phi))), sinf(th)));
+          const unsigned cur = (unsigned)m.v.size();
+          m.v.push_back(vadd(C, vmul(dir, r)));
+          if (k) m.e.push_back({prev, cur});
+          prev = cur;
+        }
+      }
+    }
+  } break;
+  case 85: {  // Voronoi drift: nine fixed seeds cut the object into rigid Voronoi shards; each shard
+              // drifts out along its seed and spins on its own, and the edges across a crack let go.
+    const float r0 = meanRadius(m, C);
+    V3 seeds[9];
+    for (int k = 0; k < 9; k++) {
+      const uint32_t hk = c.seed * 977u + uint32_t(k) * 7919u;
+      seeds[k] = vmul(vnorm(V3{rnd(hk), rnd(hk + 1), rnd(hk + 2)}), r0 * .75f);
+      if (vlen(seeds[k]) < 1e-3f) seeds[k] = V3{r0 * .75f, 0, 0};
+    }
+    std::vector<uint8_t> cell(m.v.size());
+    for (size_t i = 0; i < m.v.size(); i++) {
+      const V3 x = q(m.v[i]); float best = 1e30f;
+      for (int k = 0; k < 9; k++) { const float d = vdot(vsub(x, seeds[k]), vsub(x, seeds[k])); if (d < best) { best = d; cell[i] = uint8_t(k); } }
+    }
+    const float amt = clampf(fabsf(A), 0, 2);
+    mapv(m, [&](V3 p, size_t i) {
+      const int k = cell[i]; const V3 s = seeds[k], dir = vnorm(s);
+      const float out = amt * r0 * .22f * (.55f + .45f * sinf(t * .9f + float(k) * 1.7f));
+      const V3 local = rotAxis(vsub(q(p), s), dir, amt * .6f * sinf(t * .5f + float(k)));
+      return vadd(C, vadd(vadd(s, local), vmul(dir, out))); });
+    cull(m, [&](V3, V3, size_t i) { return cell[m.e[i].a] == cell[m.e[i].b]; });
+  } break;
+  case 86: {  // Time crystal: the object snaps between two configurations at HALF the drive frequency
+              // (period doubling), in domains of opposite phase -- a discrete time crystal.
+    const float r0 = meanRadius(m, C);
+    const float drive = sinf(t * PI * .5f), st = tanhf(7.f * drive) * (1.f + .3f * c.beat);
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p); float th, ph; sphAngles(x, th, ph);
+      const float dom = tanhf(4.f * sinf(3 * ph) * sinf(2 * th));   // domains with opposite phase
+      return vadd(C, vmul(x, 1 + A * .16f * st * dom * (vlen(x) / r0 > .05f ? 1.f : 0.f))); });
+  } break;
+  case 87: {  // Droste spiral: log-polar recursion in the xz plane -- the object is folded into one
+              // annulus of an endless self-similar zoom that spirals inward (Escher's Print Gallery).
+    const float r0 = meanRadius(m, C), lnS = logf(3.f), u = clampf(fabsf(A) * .7f, 0, 1);
+    const std::vector<float> len0 = edgeLengths(m);
+    mapv(m, [&](V3 p, size_t) {
+      const V3 x = q(p); const float rr = std::max(1e-4f, hyp(x)), th = atan2f(x.z, x.x);
+      float l = logf(rr / r0) - t * .25f;
+      l = l - lnS * std::floor(l / lnS);                      // fold into one scale band
+      const float nr = r0 * .45f * expf(l), nth = th + l * 1.6f;   // spiral twist through the band
+      const float sc = nr / rr;
+      const V3 d{nr * cosf(nth), x.y * std::min(sc, 3.f), nr * sinf(nth)};
+      return vlerp(p, vadd(C, d), u); });
+    cullStretched(m, len0, 3.5f, r0 * .35f);
+    // ... and the recursion itself: two smaller, further-twisted copies nested inside (scale 1/3, 1/9).
+    if (copiesThatFit(m, 2) >= 2 && !m.e.empty()) {
+      const Mesh3 band = m;
+      for (int level = 1; level <= 2; level++) {
+        const float sc = powf(1.f / 3.f, float(level)), tw = float(level) * lnS * 1.6f;
+        const unsigned base = (unsigned)m.v.size();
+        for (auto p : band.v) { const V3 x = rotAxis(q(p), V3{0, 1, 0}, -tw); m.v.push_back(vadd(C, vmul(x, sc))); }
+        for (auto e : band.e) m.e.push_back({base + e.a, base + e.b});
+      }
+    }
+  } break;
+  case 88: {  // Origami: three rigid creases sweep around the object; everything past a crease rotates
+              // about the crease line, so the form folds like paper instead of mirroring.
+    const float r0 = meanRadius(m, C);
+    for (int k = 0; k < 3; k++) {
+      const float a = t * (.21f + .07f * float(k)) + float(k) * 2.1f;
+      const V3 n = vnorm(V3{cosf(a), .35f * sinf(a * 1.3f), sinf(a)});
+      const V3 d = vnorm(vcross(n, fabsf(n.y) < .9f ? V3{0, 1, 0} : V3{1, 0, 0}));
+      const float off = r0 * (.15f + .2f * float(k)), ang = A * PI * .5f * (.5f + .5f * sinf(t * .6f + float(k) * 1.9f));
+      const V3 o = vadd(C, vmul(n, off));
+      mapv(m, [&](V3 p, size_t) {
+        const V3 x = vsub(p, o);
+        if (vdot(x, n) <= 0) return p;
+        return vadd(o, rotAxis(x, d, ang)); });
+    }
+  } break;
+  case 89: {  // Phyllotaxis: vertices unravel onto a golden-angle Fibonacci sphere (sunflower order)
+              // and fold back -- the object briefly becomes a seed head that keeps its wiring.
+    // Each vertex keeps its own latitude and distance and is drawn to the golden-angle seed of that
+    // latitude band (a 144-seed Fibonacci sphere), so the surface gathers into sunflower spirals.
+    const float u = clampf(fabsf(A) * .55f, 0, .8f) * (.5f - .5f * cosf(t * .45f));
+    const float nSeeds = 144.f;
+    mapv(m, [&](V3 p, size_t) {
+      const V3 x = q(p); const float r = std::max(1e-5f, vlen(x)), z = clampf(x.y / r, -1, 1);
+      const float k = std::round((1.f - z) * .5f * nSeeds - .5f);
+      const float zs = 1.f - 2.f * (k + .5f) / nSeeds, rs = sqrtf(std::max(0.f, 1 - zs * zs));
+      const float phi = k * 2.39996323f + t * .2f;
+      return vlerp(p, vadd(C, vmul(V3{rs * cosf(phi), zs, rs * sinf(phi)}, r)), u); });
+  } break;
+  case 90: {  // Chladni plate: the object vibrates in the standing-wave modes of a square plate; the
+              // nodal lines stay still while the antinodes ring, and the mode changes every 5 s.
+    const float R = std::max(.2f, maxRadius(m, C));
+    static const int modes[5][2] = {{1, 2}, {2, 3}, {1, 4}, {3, 4}, {2, 5}};
+    const float slot = std::max(0.f, t) / 5.f;
+    const int i0 = int(std::floor(slot)) % 5, i1 = (i0 + 1) % 5;
+    const float w = std::clamp((fractf(slot) - .8f) / .2f, 0.f, 1.f);
+    auto mode = [&](int k, float X, float Z) {
+      const float a = float(modes[k][0]) * PI, b = float(modes[k][1]) * PI;
+      return cosf(a * X) * cosf(b * Z) - cosf(b * X) * cosf(a * Z); };
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p); const float X = x.x / R, Z = x.z / R;
+      const float amp = (1 - w) * mode(i0, X, Z) + w * mode(i1, X, Z);
+      x.y += A * .22f * R * amp * sinf(t * 9.f) * (.6f + .4f * c.bass);
+      return vadd(C, x); });
+  } break;
+  case 91: {  // Triple shadow: the object casts three flat shadows on a floor and two walls (the
+              // Goedel-Escher-Bach block); the shadows follow every other deformation in the chain.
+    if (copiesThatFit(m, 3) < 3) break;
+    const Mesh3 src = m;
+    const float R = maxRadius(m, C) * (1.25f + .1f * clampf(A, -1, 1));
+    for (int axis = 0; axis < 3; axis++) {
+      const unsigned base = (unsigned)m.v.size();
+      for (auto p : src.v) {
+        V3 x = q(p);
+        if (axis == 0) x.x = -R; else if (axis == 1) x.y = -R; else x.z = -R;
+        m.v.push_back(vadd(C, x));
+      }
+      for (auto e : src.e) m.e.push_back({base + e.a, base + e.b});
+    }
+  } break;
+  case 92: {  // Indra's pearls: points are inverted through four slowly orbiting spheres (a Kleinian
+              // group), up to three times each, scattering the object into nested pearls.
+    const float r0 = meanRadius(m, C), u = clampf(fabsf(A) * .8f, 0, 1) * (.55f + .45f * sinf(t * .35f));
+    static const V3 tet[4] = {{1, 1, 1}, {1, -1, -1}, {-1, 1, -1}, {-1, -1, 1}};
+    V3 cen[4];
+    const float rs = r0 * .62f;
+    for (int k = 0; k < 4; k++) cen[k] = rotAxis(vmul(vnorm(tet[k]), r0 * .95f), V3{0, 1, 0}, t * .15f);
+    const std::vector<float> len0 = edgeLengths(m);
+    mapv(m, [&](V3 p, size_t) {
+      V3 x = q(p);
+      // A reduced word of up to three inversions: each step inverts in the nearest sphere other than
+      // the previous one, so the object is copied into the pearls and into pearls within pearls.
+      int last = -1;
+      const int depth = 1 + (int(std::floor(std::max(0.f, t) * .125f)) % 3);   // one word length for all points: copies stay whole
+      for (int j = 0; j < depth; j++) {
+        int k = -1; float best = 1e30f;
+        for (int s = 0; s < 4; s++) if (s != last) { const float dd = vdot(vsub(x, cen[s]), vsub(x, cen[s])); if (dd < best) { best = dd; k = s; } }
+        const V3 d = vsub(x, cen[k]); const float d2 = std::max(1e-4f, vdot(d, d));
+        x = vadd(cen[k], vmul(d, rs * rs / d2));
+        last = k;
+      }
+      const float l = vlen(x); if (l > 3.f * r0) x = vmul(x, 3.f * r0 / l);
+      return vlerp(p, vadd(C, x), u); });
+    cullStretched(m, len0, 3.f, r0 * .25f);
+  } break;
+  default: break;
+  }
+  return -1;
+}
+
 }  // namespace
 
 std::string_view effectName(int id) {
-  static const char* n[] = {"None", "Twist", "Bend", "Taper", "Pulse", "Ripple", "Noise Warp", "Quantize", "Mirror Fold", "Sphericalize", "Cubify", "Inversion", "Vortex", "Shear Wave", "Radial Wave", "Axis Permute", "Mobius Phase", "Kaleidoscope", "Polar Quantize", "Breathing Shell", "Pinch", "Explode", "Implode", "Shatter", "Edge Pulse", "Scan Slice", "Venetian Slice", "Checker Cull", "Radial Cull", "Depth Cull", "Phase Cull", "Echo Copies", "Orbit Copies", "Recursive Copies", "Trail Copies", "Time Shear", "Dual Bridge", "Nearest Bridge", "Centroid Spokes", "Constellation", "Edge Subdivide", "Edge Fracture", "Edge Braid", "Edge Lightning", "Gravity Lens", "Black Hole Ring", "Wormhole Pair", "Event Horizon", "Caustic Fold", "Projective Singularity", "Hyper Perspective", "Fisheye 3D", "Stereo Split", "Chromatic Geometry", "Audio Radial", "Audio Twist", "Audio Bands", "Beat Shatter", "Bass Breath", "Treble Noise", "Spectral Rings", "Flow Advection", "Curl Warp", "Domain Warp", "Hopf Rotation", "Klein Fold", "Hyperbolic Drift", "Thomas Flow", "Galactic Disk", "Harmonic Bloom", "FCC Crystal Snap", "Tendril Growth", "Shell Cage", "Barbed Wire", "Torus Attractor", "Mobius Map", "Soliton Wave", "Quaternion Square", "Lissajous Satellites", "Spectral Harmonics"};
+  static const char* n[] = {"None", "Twist", "Bend", "Taper", "Pulse", "Ripple", "Noise Warp", "Quantize", "Mirror Fold", "Sphericalize", "Cubify", "Inversion", "Vortex", "Shear Wave", "Radial Wave", "Axis Permute", "Mobius Phase", "Kaleidoscope", "Polar Quantize", "Breathing Shell", "Pinch", "Explode", "Implode", "Shatter", "Edge Pulse", "Scan Slice", "Venetian Slice", "Checker Cull", "Radial Cull", "Depth Cull", "Phase Cull", "Echo Copies", "Orbit Copies", "Recursive Copies", "Trail Copies", "Time Shear", "Dual Bridge", "Nearest Bridge", "Centroid Spokes", "Constellation", "Edge Subdivide", "Edge Fracture", "Edge Braid", "Edge Lightning", "Gravity Lens", "Black Hole Ring", "Wormhole Pair", "Event Horizon", "Caustic Fold", "Projective Singularity", "Hyper Perspective", "Fisheye 3D", "Stereo Split", "Chromatic Geometry", "Audio Radial", "Audio Twist", "Audio Bands", "Beat Shatter", "Bass Breath", "Treble Noise", "Spectral Rings", "Flow Advection", "Curl Warp", "Domain Warp", "Hopf Rotation", "Klein Fold", "Hyperbolic Drift", "Thomas Flow", "Galactic Disk", "Harmonic Bloom", "FCC Crystal Snap", "Tendril Growth", "Shell Cage", "Barbed Wire", "Torus Attractor", "Mobius Map", "Soliton Wave", "Quaternion Square", "Lissajous Satellites", "Spectral Harmonics", "Penrose Stairs", "Dzhanibekov Flip", "Tesseract Turn", "Gravitational Wave", "Magnetosphere", "Voronoi Drift", "Time Crystal", "Droste Spiral", "Origami", "Phyllotaxis", "Chladni Plate", "Triple Shadow", "Indra Pearls"};
   return n[wrap(id, effectCount())];
 }
-int effectCount() { return 80; }
+int effectCount() { return 93; }
 
 bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
   if (m.v.empty()) return false;
@@ -412,7 +715,7 @@ bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s) {
   const int id = wrap(iid, effectCount());
   Fx f{m, c, s, clampf(c.amount, -4, 4), c.time, center(m)};
   struct Family { int last; int (*run)(int, Fx&); };
-  static const Family families[] = {{0, nullptr}, {24, fxDeform}, {30, fxCull}, {43, fxGrow}, {53, fxLens}, {63, fxAudio}, {79, fxMath}};
+  static const Family families[] = {{0, nullptr}, {24, fxDeform}, {30, fxCull}, {43, fxGrow}, {53, fxLens}, {63, fxAudio}, {79, fxMath}, {92, fxBeyond}};
   for (const Family& fam : families) {
     if (id > fam.last || !fam.run) continue;
     const int r = fam.run(id, f);
@@ -465,13 +768,21 @@ EffectRecipe recipe(int id) {
   case 26: set("Keplerian Galaxy", {S(68, .9f), S(71, .7f), S(5, .2f)}); break;
   case 27: set("Barbed Crystal", {S(70, .9f), S(73, .8f), S(65, .5f)}); break;
   case 28: set("Soliton Garden", {S(76, 1), S(69, .6f), S(71, .5f)}); break;
-  default: set("Quaternion Bloom", {S(77, .8f), S(79, 1), S(72, .6f), S(78, .5f)}); break;
+  case 29: set("Quaternion Bloom", {S(77, .8f), S(79, 1), S(72, .6f), S(78, .5f)}); break;
+  case 30: set("Impossible Staircase", {S(80, 1), S(88, .45f), S(24, .4f)}); break;
+  case 31: set("Tennis Racket Paradox", {S(81, 1), S(85, .55f), S(73, .4f)}); break;
+  case 32: set("Fourth Dimension", {S(82, .9f), S(91, 1), S(5, .15f)}); break;
+  case 33: set("LIGO Chirp", {S(83, 1.2f), S(90, .5f), S(41, .3f)}); break;
+  case 34: set("Magnetar", {S(84, 1), S(81, .6f), S(69, .35f)}); break;
+  case 35: set("Escher Infinity", {S(87, .9f), S(80, .6f), S(91, 1)}); break;
+  case 36: set("Time Crystal Garden", {S(86, 1), S(89, .7f), S(71, .4f)}); break;
+  default: set("Indra's Net", {S(92, .9f), S(39, .45f), S(85, .4f)}); break;
   }
   return r;
 }
-int recipeCount() { return 30; }
+int recipeCount() { return 38; }
 std::string_view recipeName(int id) {
-  static const char* names[] = {"Raw","Singularity Bloom","Impossible Cathedral","Quantum Shatter","Hyper Echo","Wormhole Lattice","Spectral Organism","Topology Storm","Recursive Reactor","Kaleido Collapse","Black Star","Interference Bridge","Crystal Fracture","Mobius Lightning","Event Scanner","Dark Matter Flower","Projective Failure","Recursive Constellation","Alien Transmission","Fractal Orbit","Dual Singularity","Wireframe Supernova","Quasicrystal Ghost","Dimensional Infection","Hopf Fibration Storm","Hyperbolic Drift","Keplerian Galaxy","Barbed Crystal","Soliton Garden","Quaternion Bloom"};
+  static const char* names[] = {"Raw","Singularity Bloom","Impossible Cathedral","Quantum Shatter","Hyper Echo","Wormhole Lattice","Spectral Organism","Topology Storm","Recursive Reactor","Kaleido Collapse","Black Star","Interference Bridge","Crystal Fracture","Mobius Lightning","Event Scanner","Dark Matter Flower","Projective Failure","Recursive Constellation","Alien Transmission","Fractal Orbit","Dual Singularity","Wireframe Supernova","Quasicrystal Ghost","Dimensional Infection","Hopf Fibration Storm","Hyperbolic Drift","Keplerian Galaxy","Barbed Crystal","Soliton Garden","Quaternion Bloom","Impossible Staircase","Tennis Racket Paradox","Fourth Dimension","LIGO Chirp","Magnetar","Escher Infinity","Time Crystal Garden","Indra's Net"};
   return names[wrap(id, recipeCount())];
 }
 

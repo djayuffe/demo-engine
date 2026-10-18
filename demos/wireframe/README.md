@@ -41,11 +41,11 @@ Each feature below is a separate, independently degradable layer. If a shader fa
 
 Expensive scenes are cached and rebuilt only at their own update rate (for example the 600-cell at 60 Hz, the discovered object at 1/8 Hz), not at the display refresh. `data/object_catalog.csv` records provenance for every object. Select a scene with Left/Right or `--scene N`; Space returns to automatic beat and bar sequencing.
 
-### 2. Effect engine: 80 warpers, 30 recipes, mutation
+### 2. Effect engine: 93 warpers, 38 recipes, mutation
 A CPU vertex-warper system reshapes the active mesh every frame.
-- **80 effects** displace, twist, subdivide, bridge or fracture the mesh (swirls, lensing, shatter, wormhole, quasicrystal and so on). Full list in [docs/EFFECTS.md](docs/EFFECTS.md).
+- **93 effects** displace, twist, subdivide, bridge or fracture the mesh (swirls, lensing, shatter, wormhole, quasicrystal and so on). Full list in [docs/EFFECTS.md](docs/EFFECTS.md).
 - **16 "unknown" effects (64-79)** go beyond plain warps: a Hopf rotation through S3, a Klein fold, a hyperbolic Moebius drift in the Poincare ball, Thomas-attractor flow, a Keplerian galactic disk, harmonic bloom, FCC crystal snapping, growing tendrils, a counter-rotating shell cage, barbed wire, a torus attractor, a Moebius map, a soliton wave, quaternion squaring, Lissajous satellites and audio-driven spectral harmonics. Six new recipes use them: *Hopf Fibration Storm*, *Hyperbolic Drift*, *Keplerian Galaxy*, *Barbed Crystal*, *Soliton Garden*, *Quaternion Bloom*.
-- **30 curated recipes** chain up to six effects, for example *Singularity Bloom*, *Impossible Cathedral*, *Quantum Shatter*, *Wormhole Lattice*, *Black Star*, *Wireframe Supernova*.
+- **38 curated recipes** chain up to six effects, for example *Singularity Bloom*, *Impossible Cathedral*, *Quantum Shatter*, *Wormhole Lattice*, *Black Star*, *Wireframe Supernova*.
 - **Mutation**: in auto mode each scene gets a recipe (rotated by scene index) plus two deterministic procedural stages for per-scene variety. `P` re-rolls the seed.
 - **Audio driven**: bass, mid and treble bands from the music (or synthetic sines without audio) modulate the amounts, and `--bpm` syncs the beat pulse.
 - **Fail-safe**: any stage that leaves the mesh empty or invalid restores the previous frame; duplicate, self and out-of-range edges are sanitised away. Edge growth is capped at 50 000.
@@ -133,7 +133,7 @@ SDL2 and libopenmpt play the default soundtrack, *Stars* by cs127 (CC BY 4.0, se
 | Space | Back to automatic beat and bar sequencing |
 | T | Toggle the text scroller |
 | R | Toggle effect-recipe mode (auto per-scene recipe + mutation, or one fixed curated recipe) |
-| Up / Down | In recipe mode, cycle the 30 recipes |
+| Up / Down | In recipe mode, cycle the 38 recipes |
 | P | Re-roll the mutation seed |
 | Esc | Quit |
 
@@ -141,7 +141,7 @@ SDL2 and libopenmpt play the default soundtrack, *Stars* by cs127 (CC BY 4.0, se
 | Option | Meaning |
 |---|---|
 | `--scene N` | Start on scene N (0-58) in manual mode |
-| `--recipe N` | Start in recipe mode with curated recipe N (0-29) |
+| `--recipe N` | Start in recipe mode with curated recipe N (0-37) |
 | `--bpm N` | Tempo; default is the module's own tempo (Stars: 125), else 132. Also syncs the post-pass beat pulse |
 | `--music PATH` | Play a tracker module or wav |
 | `--logos DIR` | Directory of `UBER_*_1920x1080.jpg` cards |

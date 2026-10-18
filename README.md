@@ -41,7 +41,7 @@ make run                                  # the full wireframe demo
 | **Audio** | libopenmpt module and SDL WAV playback, bass/mid/treble band split, level, row/pattern; the beat clock locks to the module's own tempo; falls back to a BPM clock | `engine/src/Audio.cpp` |
 | **Timeline** | Beat, bar, phase and pulse from seconds and BPM | `engine/src/Timeline.cpp` |
 | **Ticker** | Beat-synced 5x7 pixel-font band, toggled with T | `engine/src/TextScroller.cpp`, `shaders/scroller.frag` |
-| **Effects library** | 80 CPU vertex warpers (including 16 "unknown" 4D, hyperbolic, attractor and growth effects), 30 curated recipes, deterministic mutation, a 60,000-edge budget, fast sort-based duplicate removal, undo on failure | `engine/src/Effects.cpp` |
+| **Effects library** | 93 CPU vertex warpers (including 16 "unknown" 4D, hyperbolic, attractor and growth effects and 13 "beyond" physics and paradox effects: Dzhanibekov flip, gravitational-wave chirp, magnetosphere, time crystal, Droste recursion, Indra pearls and more), 38 curated recipes, deterministic mutation, a 60,000-edge budget, fast sort-based duplicate removal, undo on failure | `engine/src/Effects.cpp` |
 | **Geometry kit** | `Mesh3`/`Polytope4`, cube, sphere, torus, 4D polytopes and projection, validation | `engine/src/Geometry.cpp` |
 | **Wire styles** | `Frame::wireStyle`: 0 = electric palette, 1 = golden glimmer (additive point-cloud accumulation, gold twinkle and cross glints, warps and grading off) | `wire.frag`, `post.frag` |
 | **Input** | Per-frame key state with rising-edge `pressed()` | `de::Input` |
