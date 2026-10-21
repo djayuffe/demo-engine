@@ -290,6 +290,7 @@ int run(Demo& demo, int argc, char** argv) {
     if (fs::exists(cand / "wire.vert")) shaderDir = cand.string();
   }
   const auto cleanup = [&](Renderer* r) {
+    demo.shutdown();
     if (r) r->shutdown();
     audio.close();
 #if defined(IW_HAS_AUDIO)
@@ -390,7 +391,7 @@ int run(Demo& demo, int argc, char** argv) {
     fi.time = showTime;
     fi.musicPath = music.active ? audio.trackPath(std::max(0, music.track)).string() : std::string();
     fi.dt = now - lastNow;
-    if (so.adaptive && frameCount > 30 && governor.update(float(fi.dt))) {
+    if (!cfg.customRendering && so.adaptive && frameCount > 30 && governor.update(float(fi.dt))) {
       r.setArtDivisor(governor.divisor);
       std::fprintf(stdout, "background resolution: 1/%d (frame time %.1f ms)\n", governor.divisor, governor.ema * 1000.f);
     }
@@ -462,7 +463,7 @@ int run(Demo& demo, int argc, char** argv) {
       so.parallax = bgstyle::nextGain(so.parallax);
       std::fprintf(stdout, "parallax: %.1f\n", so.parallax);
     }
-    if (so.autoStyle) {   // the director: cuts on bar lines, reacts to drops/breakdowns, breathes the parallax (V takes over)
+    if (!cfg.customRendering && so.autoStyle) {   // the director: cuts on bar lines, reacts to drops/breakdowns, breathes the parallax (V takes over)
       if (!djStarted) {
         dj.start(1, fi.time);
         djStarted = true;
@@ -503,7 +504,7 @@ int run(Demo& demo, int argc, char** argv) {
 
     // Mesh upload: skipped only when the demo promises it is unchanged (revision != 0).
     // An empty mesh keeps the previous one on screen (e.g. a scene still building on a worker thread).
-    if (!frame.mesh.e.empty() && (!haveUpload || frame.revision == 0 || frame.revision != lastRevision)) {
+    if (!cfg.customRendering && !frame.mesh.e.empty() && (!haveUpload || frame.revision == 0 || frame.revision != lastRevision)) {
       // A mesh the GPU cannot take (non-finite, out-of-range or self edges) is skipped, not fatal: the
       // previous mesh stays on screen and the problem is reported once.
       if (r.upload(frame.mesh)) {
@@ -542,14 +543,23 @@ int run(Demo& demo, int argc, char** argv) {
     r.setMemory(frame.memory);
     r.setLook(frame.look);
     r.setCut(frame.cutIn, frame.cutOut);
-    // 1) wireframe (+ logo backdrop) into the HDR target, 2) travellers, 3) post pass, 4) ticker.
-    if (!r.draw(float(fi.time), W, H, float(W) / float(H), frame.sceneIndex, scale, frame.lineWidth, music.level)) {
-      std::fprintf(stderr, "Renderer draw failed: %s\n", r.error().c_str());
-      exitCode = 6;
-      break;
+    if (cfg.customRendering) {
+      std::string error;
+      if (!demo.draw(fi, error)) {
+        std::fprintf(stderr, "Demo draw failed: %s\n", error.c_str());
+        exitCode = 6;
+        break;
+      }
+    } else {
+      // 1) wireframe (+ logo backdrop) into the HDR target, 2) travellers, 3) post pass, 4) ticker.
+      if (!r.draw(float(fi.time), W, H, float(W) / float(H), frame.sceneIndex, scale, frame.lineWidth, music.level)) {
+        std::fprintf(stderr, "Renderer draw failed: %s\n", r.error().c_str());
+        exitCode = 6;
+        break;
+      }
+      if (frame.travelers) r.drawTravelers(float(fi.time), W, H, float(W) / float(H), scale, music.level);
+      r.finishLogoFrame(float(fi.time), W, H, frame.sceneIndex, music.level, float(bpm));
     }
-    if (frame.travelers) r.drawTravelers(float(fi.time), W, H, float(W) / float(H), scale, music.level);
-    r.finishLogoFrame(float(fi.time), W, H, frame.sceneIndex, music.level, float(bpm));
     if (tickerOn && !frame.ticker.empty())
       r.drawScroller(float(fi.time), fi.sync.beatPhase, W, H, frame.ticker.c_str(), music.level);
 

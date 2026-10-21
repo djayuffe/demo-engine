@@ -40,6 +40,7 @@ struct Config {
   std::vector<std::string> logoDirs;   // directories holding *_1920x1080.jpg logo cards (optional)
   std::vector<std::string> musicFiles; // default playlist: every one found plays, in order, looping
   std::string shaderDir;               // empty = the engine's shaders next to the executable
+  bool customRendering=false;          // Demo::draw owns the framebuffer; engine still supplies audio, ticker, capture
   bool logoShow=true;                  // false = never draw logo cards even if found
   float fxAmount=1.f;                  // 0..1 strength of the signature post look (art, warps, lensing)
 };
@@ -103,6 +104,8 @@ public:
   // Extra lines appended to --help (one option per line, already formatted).
   virtual std::string usage() const { return {}; }
   virtual bool init(const RunInfo&) { return true; }
+  virtual bool draw(const FrameInfo&, std::string&) { return true; }
+  virtual void shutdown() {} // called with the GL context current, including failed init
   // Called once per frame. Fill `out`. Return false to end the demo.
   virtual bool update(const FrameInfo& f, const Input& in, Frame& out) = 0;
 };

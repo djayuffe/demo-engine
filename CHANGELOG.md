@@ -1,3 +1,11 @@
+# Hold Infinity native port — 2026-10-21
+
+- Port all three GPU optical pipelines and dodecahedron geometry from the user-supplied archive to GLSL 4.10/C++.
+- Make `hold_infinity` the default show; retain the prior entry point as `make run-wireframe`.
+- Direct 12 scenes, six light fronts, camera flow, glow and ray intensity from music beat/band analysis.
+- Preserve spectral Fresnel/TIR, horizon, seven printed layers, two-stage RK4 ray integration, mouse orbit and 400-sample still accumulation.
+- Add a custom-renderer lifecycle to the engine, bounded native float targets, Windows GL entry points, headless sync tests and a twelve-scene GPU smoke run.
+
 # Changelog
 
 ## 1.6.0 - Impossible worlds

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b10">
+  <title>Hold Infinity</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="wordmark" href="#top" aria-label="Hold Infinity home"><span class="mark">∞</span> FIELD NOTES <i>/ 01</i></a>
+    <a class="source-link" href="https://qualiacomputing.com/2018/08/19/materializing-hyperbolic-spaces-with-gradient-index-optics-and-one-way-mirrors/" target="_blank" rel="noreferrer">THE ORIGINAL IDEA <span>↗</span></a>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow"><span class="dot"></span> A THOUGHT EXPERIMENT IN OPTICS</div>
+        <h1>Hold<br><em>infinity</em><br>in your hand.</h1>
+        <p class="intro">What if a small object could make light behave as though it were traveling through an endlessly expanding universe?</p>
+        <a class="scroll-cue" href="#principle"><span class="scroll-line"></span> FOLLOW THE LIGHT</a>
+      </div>
+      <div class="hero-art" aria-label="Illustration of a glowing, mirrored dodecahedron with light paths repeating inside">
+        <div class="art-caption caption-top"><span>FIG. 01</span><span>HYPERBOLIC CHAMBER</span></div>
+        <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+        <canvas class="gpu-canvas chamber-canvas" id="chamber-object" aria-label="Real-time render of a gradient-index dodecahedron holding a hyperbolic honeycomb; drag to turn it"></canvas>
+        <svg class="polyhedron" viewBox="0 0 560 560" role="img" aria-label="A faceted glowing dodecahedron">
+          <defs>
+            <radialGradient id="core" cx="50%" cy="46%" r="58%"><stop stop-color="#d9ffff" stop-opacity=".3"/><stop offset=".48" stop-color="#53e2e6" stop-opacity=".13"/><stop offset="1" stop-color="#0a1018" stop-opacity=".08"/></radialGradient>
+            <linearGradient id="face" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a3faff" stop-opacity=".18"/><stop offset="1" stop-color="#8297ff" stop-opacity=".035"/></linearGradient>
+            <filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <clipPath id="chamber"><polygon points="280,47 409,92 490,205 464,339 355,449 205,449 96,339 70,205 151,92"/></clipPath>
+          </defs>
+          <g class="turntable">
+            <g class="light-loops" clip-path="url(#chamber)" fill="none">
+              <ellipse cx="280" cy="250" rx="175" ry="76" stroke="#50ecdf" stroke-width="1.4" opacity=".8"/>
+              <ellipse cx="280" cy="250" rx="145" ry="104" stroke="#7caaff" stroke-width="1.2" opacity=".8" transform="rotate(40 280 250)"/>
+              <ellipse cx="280" cy="250" rx="120" ry="148" stroke="#b997ff" stroke-width="1" opacity=".65" transform="rotate(-38 280 250)"/>
+              <ellipse cx="280" cy="250" rx="88" ry="174" stroke="#5de8da" stroke-width="1.2" opacity=".75" transform="rotate(70 280 250)"/>
+              <path d="M78 245 Q160 102 280 247 T482 246 M90 282 Q195 370 280 240 T470 286 M115 172 Q278 405 450 173" stroke="#fff" stroke-width=".7" opacity=".34"/>
+              <circle cx="280" cy="250" r="84" fill="url(#core)" stroke="#d8ffff" stroke-opacity=".35"/>
+              <g class="echoes" stroke="#a8fff9" stroke-opacity=".42" stroke-width=".7">
+                <polygon points="280,180 332,200 350,250 332,300 280,320 228,300 210,250 228,200"/>
+                <polygon points="280,203 315,216 328,250 315,284 280,297 245,284 232,250 245,216"/>
+                <polygon points="280,220 304,229 313,250 304,271 280,280 256,271 247,250 256,229"/>
+              </g>
+            </g>
+            <g class="faces" fill="url(#face)" stroke="#a8faff" stroke-opacity=".48" stroke-width="1.1">
+              <polygon points="280,47 355,94 409,92 490,205 423,229 409,168 355,138"/>
+              <polygon points="490,205 464,339 394,318 423,229"/>
+              <polygon points="464,339 355,449 344,374 394,318"/>
+              <polygon points="355,449 205,449 216,374 344,374"/>
+              <polygon points="205,449 96,339 166,318 216,374"/>
+              <polygon points="96,339 70,205 137,229 166,318"/>
+              <polygon points="70,205 151,92 205,94 225,138 171,168 137,229"/>
+              <polygon points="151,92 280,47 280,138 225,138 205,94"/>
+              <polygon points="280,47 355,94 355,138 280,138"/>
+              <polygon points="225,138 280,138 280,250 171,168"/>
+              <polygon points="280,138 355,138 423,229 280,250"/>
+              <polygon points="171,168 280,250 166,318 137,229"/>
+              <polygon points="280,250 423,229 394,318 280,374"/>
+              <polygon points="166,318 280,250 280,374 216,374"/>
+              <polygon points="280,250 394,318 344,374 280,374"/>
+            </g>
+            <g class="edge-lights" fill="none" stroke="#b7fff8" stroke-width="3.2" stroke-linecap="round" filter="url(#glow)">
+              <path d="M280 47 151 92 70 205 96 339 205 449 355 449 464 339 490 205 409 92 280 47M151 92 280 138 409 92M70 205 171 168 225 138 280 47M490 205 423 229 355 138M96 339 166 318 216 374 205 449M464 339 394 318 344 374 355 449M171 168 280 250 423 229M166 318 280 250 394 318M280 138 280 250 280 374"/>
+            </g>
+            <g class="spark-points" fill="#e6ffff" filter="url(#glow)"><circle cx="280" cy="47" r="3"/><circle cx="70" cy="205" r="3"/><circle cx="490" cy="205" r="3"/><circle cx="205" cy="449" r="3"/><circle cx="355" cy="449" r="3"/></g>
+          </g>
+        </svg>
+        <div class="art-caption caption-bottom"><span>LIGHT ENTERS</span><span>↗ &nbsp; RETURNS, REPEATS, RECEDES</span></div>
+        <div class="side-note">ONE OBJECT<br>INFINITE DEPTH</div>
+      </div>
+      <div class="hero-index">37° 46′ N &nbsp; / &nbsp; 122° 25′ W</div>
+    </section>
+
+    <section class="principle section" id="principle">
+      <div class="section-marker"><span>01</span><i></i><span>THE PRINCIPLE</span></div>
+      <div class="principle-grid">
+        <h2>A room that<br>keeps unfolding.</h2>
+        <div class="principle-text"><p class="big-copy">Two mirrors can make a corridor seem endless. Give the corridor a curved geometry, and the reflections begin to tell a different story.</p><p>A dodecahedron lined with one-way mirrors and traced in light already suggests an infinity chamber. The trouble is ordinary space: its flat geometry leaves gaps at the corners. In hyperbolic space, the dodecahedra can meet perfectly, each face opening onto another.</p></div>
+      </div>
+      <div class="comparison">
+        <div class="compare-card cube-card"><div class="compare-label"><span>A / FLAT · CUBE</span><span>TILES PERFECTLY</span></div><canvas class="gpu-canvas compare-canvas" id="chamber-cube" aria-label="Inside a mirrored cube; drag to look around"></canvas><p>Eight cubes fill 4π steradians at a corner. The mirror corridor closes.</p></div>
+        <div class="compare-card flat-card"><div class="compare-label"><span>B / FLAT · DODECAHEDRON</span><span>GAPS REMAIN</span></div><canvas class="gpu-canvas compare-canvas" id="chamber-flat" aria-label="Inside a Euclidean mirrored dodecahedron; drag to look around"></canvas><svg viewBox="0 0 500 200" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.1"><path d="M250 38 316 76 316 124 250 162 184 124 184 76Z M250 38V162 M184 76 316 124 M316 76 184 124"/><path d="M250 38 250 9 300 9 316 76M184 76 146 56 113 84 184 124M316 124 353 145 345 177 250 162" stroke-dasharray="2 6" opacity=".55"/></g><circle cx="250" cy="100" r="2" fill="currentColor"/></svg><p>Angles refuse to close. The reflections break at the vertices.</p></div>
+        <div class="compare-card curve-card"><div class="compare-label"><span>C / HYPERBOLIC · DODECAHEDRON</span><span>SPACE FILLS</span></div><canvas class="gpu-canvas compare-canvas" id="chamber-hyper" aria-label="Inside a right-angled hyperbolic dodecahedron; drag to look around"></canvas><svg viewBox="0 0 500 200" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1"><path d="M250 100 250 20 322 60 322 140 250 180 178 140 178 60Z M250 100 250 20 M250 100 322 60 M250 100 322 140 M250 100 250 180 M250 100 178 140 M250 100 178 60"/><path d="M250 20 205 0 160 18 178 60M322 60 365 40 405 67 322 100M322 140 364 166 400 148 322 100M250 180 214 198 179 176M178 140 132 160 96 131 178 100M178 60 135 38 100 66 178 100" opacity=".72"/></g><circle cx="250" cy="100" r="2" fill="currentColor"/></svg><p>Curvature makes room for a repeating tessellation.</p></div>
+      </div>
+    </section>
+
+    <section class="mechanism section" id="mechanism">
+      <div class="section-marker"><span>02</span><i></i><span>THE MATERIAL</span></div>
+      <div class="mechanism-head"><h2>Teach light<br>to take the long way.</h2><p>Gradient-index optics changes the refractive index smoothly through a material. Instead of crossing a sharp boundary, a ray curves as it travels.</p></div>
+      <div class="ray-lab">
+        <div class="lab-top"><span>RAY PATH STUDY</span><span id="curvature-readout">INDEX GRADIENT &nbsp; / &nbsp; 64%</span></div>
+        <div class="ray-stage">
+          <div class="gradient-field"></div>
+          <div class="index-wash"></div>
+          <canvas class="gpu-canvas grin-canvas" id="grin" aria-label="Light rays bending through a gradient-index medium, computed on the GPU"></canvas>
+          <svg class="ray-svg" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-label="Light ray bending through a gradient-index material">
+            <defs><linearGradient id="rayColor"><stop stop-color="#8cf5e9"/><stop offset=".52" stop-color="#9bb8ff"/><stop offset="1" stop-color="#d1a5ff"/></linearGradient><filter id="rayGlow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+            <path class="ray-trace faint" d="M36 230 C180 220 160 65 360 78 S520 242 678 205 818 54 975 75"/>
+            <path class="ray-trace main-ray" d="M36 230 C180 220 160 65 360 78 S520 242 678 205 818 54 975 75"/>
+            <circle class="ray-pulse" r="4" cx="36" cy="230"/>
+          </svg>
+          <div class="stage-point point-in"><span>LOWER INDEX</span><i></i></div><div class="stage-point point-out"><span>HIGHER INDEX</span><i></i></div>
+          <div class="index-scale"><span>n low</span><i></i><span>n high</span></div>
+        </div>
+        <div class="lab-bottom"><span>Drag to tune the imagined curvature</span><input id="curvature" type="range" min="15" max="95" value="64" aria-label="Tune the illustrative curvature of the light path"><span class="range-value" id="range-value">64</span><div class="seg" id="spectrum" role="group" aria-label="LED spectrum"><button type="button" data-v="mono" aria-pressed="true">MONO</button><button type="button" data-v="white" aria-pressed="false">WHITE</button></div></div>
+      </div>
+      <div class="build-sequence">
+        <article><span class="step-no">01</span><h3>Blend</h3><p>Layer transparent materials so their refractive index changes from the center outward.</p></article>
+        <article><span class="step-no">02</span><h3>Bend</h3><p>Shape that gradient so light paths mimic the chosen hyperbolic metric.</p></article>
+        <article><span class="step-no">03</span><h3>Reflect</h3><p>Seal the polyhedron with one-way film; trace its edges with monochrome LEDs.</p></article>
+      </div>
+    </section>
+
+    <section class="instrument section" id="instrument">
+      <div class="section-marker"><span>03</span><i></i><span>THE INSTRUMENT</span></div>
+      <div class="mechanism-head"><h2>Build it,<br><em>in light.</em></h2><p>A physical simulation of the object itself: index <span class="n-range">1.30</span> at the core rising to <span class="n-range" id="n-corner">1.85</span> at the corners, one-way film on every face, LED strips on every edge. Rays bend through the gradient, refract at the surface, and keep reflecting, losing a little light to the plastic on every pass, until the glow pools on the plinth below.</p></div>
+      <div class="ray-lab bench">
+        <div class="lab-top"><span>OPTICAL BENCH</span><span id="bench-readout">—</span></div>
+        <div class="bench-stage"><canvas class="gpu-canvas bench-canvas" id="bench" aria-label="Physically simulated gradient-index dodecahedron; drag to turn"></canvas><p class="bench-fallback">This bench needs WebGL2 with float render targets.</p></div>
+        <div class="bench-controls">
+          <div class="ctl"><span>MEDIUM</span><div class="seg" id="b-medium" role="group" aria-label="MEDIUM"><button type="button" data-v="0" aria-pressed="false">UNIFORM</button><button type="button" data-v="1" aria-pressed="true">HYPERBOLIC</button></div></div>
+          <div class="ctl"><span>GRADIENT</span><div class="seg" id="b-steps" role="group" aria-label="GRADIENT"><button type="button" data-v="0" aria-pressed="true">SMOOTH</button><button type="button" data-v="1" aria-pressed="false">PRINTED</button></div></div>
+          <div class="ctl"><span>FACES</span><div class="seg" id="b-curved" role="group" aria-label="FACES"><button type="button" data-v="0" aria-pressed="false">FLAT</button><button type="button" data-v="1" aria-pressed="true">CURVED</button></div></div>
+          <div class="ctl"><span>HORIZON</span><div class="seg" id="b-hole" role="group" aria-label="HORIZON"><button type="button" data-v="0" aria-pressed="true">OFF</button><button type="button" data-v="1" aria-pressed="false">ON</button></div></div>
+          <div class="ctl"><span>LEDS</span><div class="seg" id="b-white" role="group" aria-label="LEDS"><button type="button" data-v="0" aria-pressed="true">MONO</button><button type="button" data-v="1" aria-pressed="false">WHITE</button></div></div>
+          <div class="ctl"><span>SURROUND</span><div class="seg" id="b-nout" role="group" aria-label="SURROUND"><button type="button" data-v="0" aria-pressed="true">AIR</button><button type="button" data-v="1" aria-pressed="false">WATER</button></div></div>
+          <div class="ctl"><span>VIEW</span><div class="seg" id="b-inside" role="group" aria-label="VIEW"><button type="button" data-v="0" aria-pressed="true">OUTSIDE</button><button type="button" data-v="1" aria-pressed="false">INSIDE</button></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="questions section">
+      <div class="section-marker"><span>04</span><i></i><span>THE OPEN QUESTIONS</span></div>
+      <div class="question-grid"><h2>Beautiful idea.<br><em>Hard physics.</em></h2><div class="question-list">
+        <a class="question" href="#instrument" data-preset="blend"><span>01</span><div><h3>Can the materials blend?</h3><p>The plastics would need a wide range of refractive indices while staying clear and mixing smoothly.</p></div><b>TRY ↗</b></a>
+        <a class="question" href="#instrument" data-preset="smooth"><span>02</span><div><h3>Will the gradient look smooth?</h3><p>Printer layers might leave visible steps in the ray paths; finer layers or post-print diffusion could help.</p></div><b>TRY ↗</b></a>
+        <a class="question" href="#instrument" data-preset="color"><span>03</span><div><h3>What happens to color?</h3><p>Different wavelengths bend by different amounts. Narrow-spectrum LEDs could keep the geometry legible.</p></div><b>TRY ↗</b></a>
+        <a class="question" href="#instrument" data-preset="corners"><span>04</span><div><h3>Can the corners close?</h3><p>The outside medium and the shape of the faces affect whether the intended angles meet at each vertex.</p></div><b>TRY ↗</b></a>
+      </div></div>
+      <div class="closing-note"><span class="closing-symbol">∞</span><p>A speculative optical sculpture proposed by<br><a href="https://qualiacomputing.com/2018/08/19/materializing-hyperbolic-spaces-with-gradient-index-optics-and-one-way-mirrors/" target="_blank" rel="noreferrer">Qualia Computing, August 2018 <span>↗</span></a></p><span class="closing-meta">A MODEL OF AN IDEA<br>NOT A BUILT DEVICE</span></div>
+    </section>
+  </main>
+  <footer><span>FIELD NOTES &nbsp; / &nbsp; 01</span><span>LIGHT, BENT INTO ANOTHER GEOMETRY</span></footer>
+</body>
+</html>

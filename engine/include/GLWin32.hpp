@@ -95,6 +95,13 @@ typedef ptrdiff_t GLintptr;
 #endif
 
 
+#ifndef GL_RGBA16F
+#define GL_RGBA16F 0x881A
+#endif
+#ifndef GL_RGBA32F
+#define GL_RGBA32F 0x8814
+#endif
+
 #define DE_GL_FUNCTIONS(X) \
   X(void,    glActiveTexture,           (GLenum texture)) \
   X(void,    glAttachShader,            (GLuint program, GLuint shader)) \
@@ -115,6 +122,7 @@ typedef ptrdiff_t GLintptr;
   X(void,    glDeleteRenderbuffers,     (GLsizei n, const GLuint* renderbuffers)) \
   X(void,    glDeleteShader,            (GLuint shader)) \
   X(void,    glDeleteVertexArrays,      (GLsizei n, const GLuint* arrays)) \
+  X(void,    glDrawArraysInstanced,     (GLenum mode, GLint first, GLsizei count, GLsizei instancecount)) \
   X(void,    glEnableVertexAttribArray, (GLuint index)) \
   X(void,    glFramebufferRenderbuffer, (GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)) \
   X(void,    glFramebufferTexture2D,    (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)) \
@@ -133,6 +141,11 @@ typedef ptrdiff_t GLintptr;
   X(void,    glShaderSource,            (GLuint shader, GLsizei count, const GLchar* const* string, const GLint* length)) \
   X(void,    glUniform1f,               (GLint location, GLfloat v0)) \
   X(void,    glUniform1i,               (GLint location, GLint v0)) \
+  X(void,    glUniform1ui,              (GLint location, GLuint v0)) \
+  X(void,    glUniform3fv,              (GLint location, GLsizei count, const GLfloat* value)) \
+  X(void,    glUniform4fv,              (GLint location, GLsizei count, const GLfloat* value)) \
+  X(void,    glUniform4f,               (GLint location, GLfloat x, GLfloat y, GLfloat z, GLfloat w)) \
+  X(void,    glUniformMatrix3fv,        (GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)) \
   X(void,    glUniform2f,               (GLint location, GLfloat v0, GLfloat v1)) \
   X(void,    glUniform3f,               (GLint location, GLfloat v0, GLfloat v1, GLfloat v2)) \
   X(void,    glUniformMatrix4fv,        (GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)) \

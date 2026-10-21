@@ -1,0 +1,436 @@
+// Native OpenGL port of the user-supplied Hold Infinity optical renderers.
+#include "Engine.hpp"
+#include "GLUtil.hpp"
+#include "Shaders.hpp"
+#include "Dodecahedron.hpp"
+#include "Sync.hpp"
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdio>
+#include <stdexcept>
+#include <string>
+
+namespace {
+using namespace infinity_shader;
+using namespace infinity_geometry;
+constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
+                                 "EUCLIDEAN CUBE",
+                                 "EUCLIDEAN DODECAHEDRON",
+                                 "HYPERBOLIC HONEYCOMB",
+                                 "UNIFORM GLASS",
+                                 "HYPERBOLIC GRIN GLASS",
+                                 "OPTICAL HORIZON",
+                                 "SEVEN PRINTED INDEX LAYERS",
+                                 "SPECTRAL GLASS / WATER",
+                                 "INSIDE THE INSTRUMENT",
+                                 "GRADIENT INDEX / MONOCHROME",
+                                 "GRADIENT INDEX / SPECTRUM"};
+constexpr const char* composite = R"GLSL(#version 410 core
+in vec2 vUv; out vec4 outColor; uniform sampler2D uImg; uniform float uFade;
+void main(){outColor=vec4(texture(uImg,vUv).rgb*uFade,1.0);}
+)GLSL";
+struct Target {
+  GLuint texture = 0, fbo = 0;
+  int w = 0, h = 0;
+  bool mip = false;
+  void release() {
+    if (fbo) glDeleteFramebuffers(1, &fbo);
+    if (texture) glDeleteTextures(1, &texture);
+    texture = fbo = 0;
+    w = h = 0;
+  }
+  bool resize(int width, int height, GLint format, bool mips, std::string& error) {
+    if (w == width && h == height && texture) return true;
+    release();
+    w = width;
+    h = height;
+    mip = mips;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    int x = w, y = h, level = 0;
+    do {
+      glTexImage2D(GL_TEXTURE_2D, level++, format, x, y, 0, GL_RGBA, GL_FLOAT, nullptr);
+      if (!mips || (x == 1 && y == 1)) break;
+      x = std::max(1, x / 2);
+      y = std::max(1, y / 2);
+    } while (true);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    mips ? GL_LINEAR_MIPMAP_LINEAR : (format == GL_RGBA16F ? GL_LINEAR : GL_NEAREST));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (mips || format == GL_RGBA16F) ? GL_LINEAR : GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      error = "Infinity framebuffer incomplete";
+      return false;
+    }
+    return true;
+  }
+  void bind() const {
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glViewport(0, 0, w, h);
+  }
+  void sample() const {
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+  }
+  void generate() const {
+    sample();
+    glGenerateMipmap(GL_TEXTURE_2D);
+  }
+};
+struct Camera {
+  float m[9];
+  float back[3];
+};
+Camera camera(float yaw, float pitch) {
+  float cy = std::cos(yaw), sy = std::sin(yaw), cp = std::cos(pitch), sp = std::sin(pitch);
+  return {{cy, 0, -sy, -sy * sp, cp, -cy * sp, sy * cp, sp, cy * cp}, {sy * cp, sp, cy * cp}};
+}
+class Infinity final : public de::Demo {
+  std::array<GLuint, 4> chamber_{};
+  GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, field_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
+  Target image_, output_, state_, checkpoints_;
+  de::FrameInfo frame_;
+  infinity_sync::Cue cue_;
+  int manual_ = -1, previous_ = -1, announced_ = -1, pixels_ = 400000, samples_ = 0;
+  bool still_ = false, dragging_ = false, viewDirty_ = false;
+  double mouseX_ = 0, mouseY_ = 0;
+  float yawOffset_ = 0, pitchOffset_ = 0, grinCurvature_ = -1;
+  int instrumentState_ = -1;
+  std::string error_;
+  static GLint loc(GLuint p, const char* n) { return glGetUniformLocation(p, n); }
+  static void one(GLuint p, const char* n, float v) { glUniform1f(loc(p, n), v); }
+  static void integer(GLuint p, const char* n, int v) { glUniform1i(loc(p, n), v); }
+  static void two(GLuint p, const char* n, float a, float b) { glUniform2f(loc(p, n), a, b); }
+  static void three(GLuint p, const char* n, float a, float b, float c) { glUniform3f(loc(p, n), a, b, c); }
+  static void quad() { glDrawArrays(GL_TRIANGLES, 0, 3); }
+  GLuint program(const char* vs, const char* fs) { return glutil::linkProgram(vs, fs, error_); }
+  void view(GLuint p, const Camera& c, float distance, float fov, int w, int h) {
+    glUniformMatrix3fv(loc(p, "uCam"), 1, GL_FALSE, c.m);
+    three(p, "uRo", c.back[0] * distance, c.back[1] * distance, c.back[2] * distance);
+    one(p, "uTanHalf", std::tan(fov * 3.14159265359f / 360));
+    two(p, "uRes", float(w), float(h));
+  }
+  void faceUniforms(GLuint p, int scene) {
+    glUniform3fv(loc(p, "uU"), 12, faces);
+    if (scene == 1) {
+      const float cube[36] = {1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1};
+      glUniform3fv(loc(p, "uU"), 12, cube);
+    }
+    float hn[48];
+    const float s = 1 / std::sqrt(1 - kleinT * kleinT);
+    for (int i = 0; i < 12; ++i) {
+      for (int j = 0; j < 3; ++j) hn[i * 4 + j] = faces[i * 3 + j] * s;
+      hn[i * 4 + 3] = kleinT * s;
+    }
+    glUniform4fv(loc(p, "uHN"), 12, hn);
+    glUniform3fv(loc(p, "uEA"), 30, edgeA);
+    glUniform3fv(loc(p, "uEB"), 30, edgeB);
+    integer(p, "uNF", scene == 1 ? 6 : 12);
+    one(p, "uSinD", scene == 1 ? 1.f : .894427191f);
+    one(p, "uT", kleinT);
+  }
+  void chamber(int scene, int w, int h, const Camera& cam) {
+    image_.bind();
+    glDisable(GL_BLEND);
+    glUseProgram(chamber_[scene]);
+    auto p = chamber_[scene];
+    faceUniforms(p, scene);
+    view(p, cam, scene == 0 ? 6.4f : 0.f, scene == 0 ? 30.f : 78.f, w, h);
+    one(p, "uTime", float(frame_.time));
+    one(p, "uFlow", float(cue_.flow));
+    one(p, "uEnergy", cue_.energy);
+    one(p, "uMirror", .86f);
+    one(p, "uFog", .05f);
+    one(p, "uGlow", 2.1f + .7f * cue_.bass);
+    one(p, "uFX", scene == 0 ? 1.6f : .8f);
+    float pulses[24];
+    infinity_sync::pulses(frame_.sync.beat, cue_.bass, pulses);
+    glUniform4fv(loc(p, "uPulse"), 6, pulses);
+    if (scene == 1 || scene == 2)
+      three(p, "uRo", .15f * std::sin(float(cue_.flow) * .2f), .08f, .15f * std::cos(float(cue_.flow) * .13f));
+    glUniform4f(loc(p, "uBoost"), std::cos(float(cue_.flow) * .11f), 0, std::sin(float(cue_.flow) * .11f),
+                .28f * std::sin(float(cue_.flow) * .23f));
+    quad();
+    image_.generate();
+    output_.bind();
+    glUseProgram(post_);
+    integer(post_, "uImg", 0);
+    two(post_, "uRes", float(w), float(h));
+    one(post_, "uBloom", .5f + .25f * cue_.mid);
+    one(post_, "uStar", scene == 0 ? .12f : .04f);
+    one(post_, "uBeat", cue_.beat);
+    quad();
+  }
+  void instrument(int scene, int w, int h, const Camera& cam, bool resized) {
+    image_.bind();
+    if (!still_ || viewDirty_ || scene != previous_ || resized) samples_ = 0;
+    if (samples_ == 0) {
+      glClearColor(0, 0, 0, 0);
+      glClear(GL_COLOR_BUFFER_BIT);
+    }
+    glUseProgram(trace_);
+    glUniform3fv(loc(trace_, "uU"), 12, faces);
+    const int state = instrumentState_ >= 0 ? instrumentState_
+                                            : (scene == 4 ? 0
+                                                          : 1 | 4 | (scene == 6 ? 2 : 0) | (scene == 7 ? 64 : 0) |
+                                                                (scene == 8 ? 8 | 32 : 0) | (scene == 9 ? 16 : 0));
+    const bool inside = (state & 16) != 0;
+    view(trace_, cam, inside ? .2f : 2.35f, inside ? 82.f : 30.f, w, h);
+    integer(trace_, "uMedium", state & 1 ? 1 : 0);
+    integer(trace_, "uHole", state & 2 ? 1 : 0);
+    integer(trace_, "uCurved", state & 4 ? 1 : 0);
+    integer(trace_, "uWhite", state & 8 ? 1 : 0);
+    integer(trace_, "uInside", inside ? 1 : 0);
+    integer(trace_, "uSteps", state & 64 ? 1 : 0);
+    one(trace_, "uNout", state & 32 ? 1.33f : 1.f);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    for (int i = 0; i < 2 && samples_ < 400; ++i) {
+      glUniform1ui(loc(trace_, "uFrame"), uint32_t(frame_.frame) * 2u + uint32_t(i));
+      quad();
+      ++samples_;
+    }
+    glDisable(GL_BLEND);
+    image_.generate();
+    output_.bind();
+    glUseProgram(show_);
+    integer(show_, "uAcc", 0);
+    one(show_, "uExposure", float(samples_));
+    two(show_, "uScale", 1, 1);
+    one(show_, "uBloom", .45f + .3f * cue_.bass);
+    quad();
+  }
+  void common(GLuint p, float aspect, float k, int rays, int nw) {
+    one(p, "uK", k);
+    one(p, "uAspect", aspect);
+    integer(p, "uRays", rays);
+    integer(p, "uNW", nw);
+  }
+  void grin(int scene, int w, int h) {
+    const bool white = scene == 11;
+    int count = white ? 26 : 46, nw = white ? 7 : 1;
+    float aspect = float(w) / float(h),
+          k = grinCurvature_ >= 0 ? grinCurvature_ : .57f + .13f * std::sin(float(cue_.flow) * .12f) + .06f * cue_.bass;
+    glDisable(GL_BLEND);
+    glUseProgram(integrate_);
+    common(integrate_, aspect, k, count, nw);
+    two(integrate_, "uSource", .055f * aspect, .6f);
+    one(integrate_, "uSpread", 1.22f);
+    one(integrate_, "uDs", aspect * 1.7f / 512);
+    integer(integrate_, "uCk", 0);
+    state_.sample();
+    checkpoints_.bind();
+    integer(integrate_, "uPass", 0);
+    quad();
+    checkpoints_.sample();
+    state_.bind();
+    integer(integrate_, "uPass", 1);
+    quad();
+    output_.bind();
+    glUseProgram(field_);
+    common(field_, aspect, k, count, nw);
+    two(field_, "uRes", float(w), float(h));
+    two(field_, "uSource", .055f, .6f);
+    three(field_, "uSourceColor", white ? 1.f : .55f, 1.f, .93f);
+    quad();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glUseProgram(rays_);
+    state_.sample();
+    integer(rays_, "uState", 0);
+    common(rays_, aspect, k, count, nw);
+    two(rays_, "uRes", float(w), float(h));
+    one(rays_, "uTime", float(cue_.flow) * 4.f);
+    one(rays_, "uNMax", 1 / ((1 - k) + k * .045f / 1.045f));
+    for (int layer = 0; layer < 2; ++layer) {
+      one(rays_, "uWidth", layer ? 1.3f : 7.f);
+      one(rays_, "uIntensity", (layer ? .85f : .16f) * (1 + .5f * cue_.treble));
+      one(rays_, "uSharp", layer ? 1.6f : 2.2f);
+      glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 1024, count * nw);
+    }
+    glDisable(GL_BLEND);
+  }
+
+public:
+  de::Config config() const override {
+    de::Config c;
+    c.title = "HOLD INFINITY / music-driven optical geometry";
+    c.binaryName = "hold_infinity";
+    c.version = "1.0";
+    c.customRendering = true;
+    c.logoShow = false;
+    c.fxAmount = 0;
+    c.musicFiles = {"demos/wireframe/assets/music/cs127_-_stars_4ch.mod",
+                    "demos/wireframe/assets/music/drozerix_-_digital_rendezvous.xm"};
+    return c;
+  }
+  bool parseArg(const std::string& a, int& i, int argc, char** argv) override {
+    if (a == "--still") {
+      still_ = true;
+      return true;
+    }
+    if (a == "--grin-curvature") {
+      if (i + 1 >= argc) throw std::runtime_error(a + " needs a value");
+      std::string value = argv[++i];
+      size_t end = 0;
+      float k = std::stof(value, &end);
+      if (end != value.size() || !std::isfinite(k) || k < 0 || k > 1)
+        throw std::runtime_error("curvature must be 0..1");
+      grinCurvature_ = k;
+      if (manual_ < 0) manual_ = 10;
+      return true;
+    }
+    if (a == "--infinity-scene" || a == "--infinity-pixels" || a == "--instrument-state") {
+      if (i + 1 >= argc) throw std::runtime_error(a + " needs a value");
+      std::string value = argv[++i];
+      size_t end = 0;
+      int n = std::stoi(value, &end);
+      if (end != value.size() || (a == "--infinity-scene"     ? (n < 0 || n >= 12)
+                                  : a == "--instrument-state" ? (n < 0 || n > 127)
+                                                              : (n < 10000 || n > 4000000)))
+        throw std::runtime_error("invalid " + a);
+      if (a == "--instrument-state") {
+        instrumentState_ = n;
+        if (manual_ < 0) manual_ = 5;
+      } else if (a == "--infinity-scene")
+        manual_ = n;
+      else
+        pixels_ = n;
+      return true;
+    }
+    return false;
+  }
+  std::string usage() const override {
+    return "  --infinity-scene N  Hold one optical scene (0..11)\n"
+           "  --infinity-pixels N GPU budget (10000..4000000; default 400000)\n"
+           "  --still             Fixed camera; accumulate up to 400 samples\n"
+           "  --instrument-state N Seven-bit optical state (0..127; see demo README)\n"
+           "  --grin-curvature F   Index gradient 0..1 (selects ray lab if auto)\n"
+           "  Drag to orbit; Left/Right scenes; Space automatic show; Q quit.\n";
+  }
+  bool init(const de::RunInfo&) override {
+    const char* sources[] = {CHAMBER_OBJECT, CHAMBER_CUBE, CHAMBER_FLAT, CHAMBER_HYPER};
+    for (int i = 0; i < 4; ++i) chamber_[i] = program(FULLSCREEN_VS, sources[i]);
+    post_ = program(FULLSCREEN_VS, CHAMBER_POST);
+    trace_ = program(FULLSCREEN_VS, TRACE_FS);
+    show_ = program(FULLSCREEN_VS, SHOW_FS);
+    integrate_ = program(FULLSCREEN_VS, INTEGRATE_FS);
+    field_ = program(FULLSCREEN_VS, FIELD_FS);
+    rays_ = program(RAY_VS, RAY_FS);
+    compose_ = program(FULLSCREEN_VS, composite);
+    if (std::any_of(chamber_.begin(), chamber_.end(), [](GLuint p) { return !p; }) || !post_ || !trace_ || !show_ ||
+        !integrate_ || !field_ || !rays_ || !compose_) {
+      std::fprintf(stderr, "Infinity shader failure: %s\n", error_.c_str());
+      return false;
+    }
+    glutil::setupFullscreenVao(vao_, vbo_);
+    return state_.resize(512, 182, GL_RGBA32F, false, error_) &&
+           checkpoints_.resize(16, 182, GL_RGBA32F, false, error_);
+  }
+  bool update(const de::FrameInfo& f, const de::Input& in, de::Frame& out) override {
+    frame_ = f;
+    viewDirty_ = false;
+    if (auto* window = glfwGetCurrentContext()) {
+      double x = 0, y = 0;
+      glfwGetCursorPos(window, &x, &y);
+      const bool held = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+      if (held && dragging_) {
+        int width = 1, height = 1;
+        glfwGetWindowSize(window, &width, &height);
+        (void)height;
+        yawOffset_ -= float(x - mouseX_) * 4.f / float(std::max(1, width));
+        pitchOffset_ = std::clamp(pitchOffset_ - float(y - mouseY_) * 4.f / float(std::max(1, width)), -1.2f, 1.2f);
+        viewDirty_ = x != mouseX_ || y != mouseY_;
+      }
+      mouseX_ = x;
+      mouseY_ = y;
+      dragging_ = held;
+    }
+    int current = infinity_sync::sample(f.sync.beat, 0, false, 0, 0, 0, manual_).scene;
+    if (in.pressed(de::Key::Right)) manual_ = (current + 1) % 12;
+    if (in.pressed(de::Key::Left)) manual_ = (current + 11) % 12;
+    if (in.pressed(de::Key::Space)) manual_ = -1;
+    cue_ = infinity_sync::sample(f.sync.beat, f.sync.pulse, f.music.active, f.music.bass, f.music.mid, f.music.treble,
+                                 manual_);
+    if (cue_.scene != announced_) {
+      std::fprintf(stdout, "infinity scene %02d: %s / beat %.2f\n", cue_.scene, names[cue_.scene], f.sync.beat);
+      announced_ = cue_.scene;
+    }
+    out.travelers = false;
+    out.ticker = std::string(names[cue_.scene]) + "  /  HOLD INFINITY BY PURPLETWILIGHT  /  " +
+                 (f.musicPath.empty()                              ? "BPM CLOCK"
+                  : f.musicPath.find("cs127") != std::string::npos ? "STARS (4CH) BY CS127 / CC BY 4.0"
+                  : f.musicPath.find("drozerix_-_digital_rendezvous") != std::string::npos
+                      ? "DIGITAL RENDEZVOUS BY DROZERIX / PUBLIC DOMAIN"
+                      : f.musicPath);
+    return !in.pressed(de::Key::Q);
+  }
+  bool draw(const de::FrameInfo& f, std::string& error) override {
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+    glBindVertexArray(vao_);
+    int budget = cue_.scene >= 4 && cue_.scene < 10 ? pixels_ / 3 : pixels_;
+    double scale = std::min(1.0, std::sqrt(double(budget) / (double(f.width) * f.height)));
+    int w = std::max(1, int(f.width * scale)), h = std::max(1, int(f.height * scale));
+    bool resized = image_.w != w || image_.h != h;
+    if (!image_.resize(w, h, GL_RGBA16F, true, error) || !output_.resize(w, h, GL_RGBA16F, false, error)) return false;
+    float motion = still_ ? 0.f : float(cue_.flow);
+    Camera cam = camera(.6f + motion * .09f + yawOffset_, .22f + .1f * std::sin(motion * .07f) + pitchOffset_);
+    if (cue_.scene < 4)
+      chamber(cue_.scene, w, h, cam);
+    else if (cue_.scene < 10)
+      instrument(cue_.scene, w, h, cam, resized);
+    else
+      grin(cue_.scene, w, h);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, f.width, f.height);
+    glDisable(GL_BLEND);
+    glUseProgram(compose_);
+    output_.sample();
+    integer(compose_, "uImg", 0);
+    one(compose_, "uFade", cue_.fade);
+    quad();
+    previous_ = cue_.scene;
+    auto status = glGetError();
+    if (status != GL_NO_ERROR) {
+      error = "Infinity OpenGL error " + std::to_string(status);
+      return false;
+    }
+    return true;
+  }
+  void shutdown() override {
+    image_.release();
+    output_.release();
+    state_.release();
+    checkpoints_.release();
+    for (auto& p : chamber_)
+      if (p) {
+        glDeleteProgram(p);
+        p = 0;
+      }
+    for (auto* p : {&post_, &trace_, &show_, &integrate_, &field_, &rays_, &compose_})
+      if (*p) {
+        glDeleteProgram(*p);
+        *p = 0;
+      }
+    if (vao_) glDeleteVertexArrays(1, &vao_);
+    if (vbo_) glDeleteBuffers(1, &vbo_);
+    vao_ = vbo_ = 0;
+  }
+};
+} // namespace
+int main(int argc, char** argv) {
+  try {
+    Infinity demo;
+    return de::run(demo, argc, argv);
+  } catch (const std::exception& e) {
+    std::fprintf(stderr, "hold_infinity: %s\n", e.what());
+    return 2;
+  }
+}

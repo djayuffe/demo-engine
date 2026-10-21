@@ -6,7 +6,7 @@
 # Usage:
 #   make            # configure + build (Release)
 #   make test       # build + run ctest
-#   make run        # build + launch the wireframe demo (Stars by cs127, tempo from the module)
+#   make run        # build + launch Hold Infinity (tempo from the soundtrack)
 #   make run-silicon# the wireframe demo with Silicon Dancer by Drozerix
 #   make run-hello  # build + launch the minimal hello demo
 #   make run-pulse  # launch with the CC0 Wireframe Pulse track
@@ -28,7 +28,8 @@ TYPE        ?= Release
 NPROC       ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 CMAKE       ?= cmake
 CTEST       ?= ctest
-BIN         := $(BUILD_DIR)/impossible_wireframe
+BIN         := $(BUILD_DIR)/hold_infinity
+WIREFRAME   := $(BUILD_DIR)/impossible_wireframe
 HELLO       := $(BUILD_DIR)/hello_demo
 
 # Common CMake flags. -DIW_BUILD_TESTS=ON is explicit so a user who disables
@@ -88,6 +89,9 @@ test: build
 run: build
 	$(BIN)
 
+run-wireframe: build
+	$(WIREFRAME)
+
 run-silicon: build
 	$(BIN) --music demos/wireframe/assets/music/drozerix_-_silicon_dancer.mod
 
@@ -127,9 +131,10 @@ help:
 	@echo "Targets:"
 	@echo "  all / build     Configure (if needed) + build (Release, parallel)"
 	@echo "  test            Build + run ctest"
-	@echo "  run             Build + launch (default music, 132 bpm)"
+	@echo "  run             Build + launch Hold Infinity (music tempo)"
+	@echo "  run-wireframe   Build + launch the previous wireframe show"
 	@echo "  run-hello       Build + launch the minimal hello demo"
-	@echo "  run-pulse       Build + launch the wireframe demo with the CC0 Wireframe Pulse track"
+	@echo "  run-pulse       Build + launch Hold Infinity with the CC0 Pulse track"
 	@echo "  configure       Wipe build/ and reconfigure"
 	@echo "  reconfigure     Alias for configure"
 	@echo "  diag            Dump the resolved toolchain (SDK, GLFW, SDL2, openmpt)"
@@ -144,3 +149,5 @@ help:
 	@echo "  CTEST=ctest        ctest binary"
 	@echo "  CMAKE_EXTRA=       Extra CMake flags (e.g. -DIW_WARNINGS_AS_ERRORS=ON,"
 	@echo "                     -DIW_SYSROOT=\$$(xcrun --show-sdk-path))"
+
+.PHONY: run-wireframe

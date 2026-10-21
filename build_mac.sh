@@ -12,7 +12,7 @@ xcode-select -p >/dev/null 2>&1 || { echo "Install the Xcode command line tools:
 [[ $CLEAN == 1 ]] && rm -rf build
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build build -j"$(sysctl -n hw.ncpu)"
-(cd build && ./geometry_tests)
-echo "Built: $(pwd)/build/impossible_wireframe ($(uname -m), macOS $(sw_vers -productVersion))"
-[[ $RUN == 1 ]] && exec ./build/impossible_wireframe "$@"
+ctest --test-dir build --output-on-failure
+echo "Built: $(pwd)/build/hold_infinity ($(uname -m), macOS $(sw_vers -productVersion))"
+[[ $RUN == 1 ]] && exec ./build/hold_infinity "$@"
 exit 0

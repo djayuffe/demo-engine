@@ -90,3 +90,8 @@ Shaders live in `engine/shaders/`. To customise the look for one demo, copy that
 2. Add `de_add_demo(<name> demos/<name>/main.cpp)` to `CMakeLists.txt`.
 3. `make && ./build/<name> --window 960x540 --frames 120 --screenshot /tmp/a.png` and look at it.
 4. Add a test for any mesh generator, then `make test`.
+
+
+## Custom GPU rendering
+
+Set `Config::customRendering=true` to bypass the wireframe/post/traveller presentation. The engine still owns the window, audio, beat clock, keyboard state, ticker and screenshots. Allocate GPU resources in `Demo::init`, return frame/ticker metadata from `update`, draw to framebuffer 0 in `bool draw(const FrameInfo&, std::string& error)`, and release resources in `shutdown`. The engine calls `shutdown` while the context is current, including after a failed init, so it must be safe on partially initialized state. Restore the default framebuffer/viewport and appropriate blend/depth state before returning. See `demos/infinity/main.cpp`.
