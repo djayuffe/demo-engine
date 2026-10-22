@@ -104,7 +104,7 @@ int run(Demo& demo, int argc, char** argv) {
   fs::path logoOverride;
   showopt::ShowOptions so;   // backgrounds, depth, gloss, pointer, clock, music start (ShowOptions.hpp)
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
-  bool noTicker = false, noPost = false;
+  bool noTicker = false, noPost = false, silent = false;
   double quality = 1.0;
   bool qualityGiven = false;
   int winW = 0, winH = 0;
@@ -118,6 +118,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "Usage: %s [options]\n"
                  "  --bpm N         Tempo (default: the module's own tempo, else %g)\n"
                  "  --music PATH    Module or WAV to play; repeat for a playlist\n"
+                 "  --silent        Disable audio playback; use the BPM clock\n"
                  "  --no-ticker     Start with the text ticker off (toggle with T)\n"
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
                  "  --no-background Start with the procedural background off (toggle with B)\n"
@@ -172,6 +173,7 @@ int run(Demo& demo, int argc, char** argv) {
       noTicker = true;
     else if (arg == "--no-post")
       noPost = true;
+    else if (arg == "--silent") silent = true;
     else if (arg == "--quality" && i + 1 < argc) {
       double v = 0;
       if (!showopt::number(argv[++i], v)) {
@@ -217,7 +219,7 @@ int run(Demo& demo, int argc, char** argv) {
 
   const fs::path exe = executablePath();
   const fs::path exeDir = exe.has_parent_path() ? exe.parent_path() : fs::path();
-  if (musicPaths.empty()) {
+  if (!silent && musicPaths.empty()) {
     for (auto& m : cfg.musicFiles) {
       for (auto& c : assetCandidates(m, exeDir)) {
         std::error_code ec;
@@ -273,10 +275,10 @@ int run(Demo& demo, int argc, char** argv) {
 
   AudioPlayer audio;
 #if defined(IW_HAS_AUDIO)
-  if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) std::fprintf(stderr, "SDL audio init failed: %s\n", SDL_GetError());
+  if (!silent && SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) std::fprintf(stderr, "SDL audio init failed: %s\n", SDL_GetError());
 #endif
   if (so.startTrack > 0) audio.startAt(so.startTrack);
-  if (!musicPaths.empty() && audio.open(musicPaths)) {
+  if (!silent && !musicPaths.empty() && audio.open(musicPaths)) {
     // Lock the visuals to the first module's own tempo unless --bpm was given.
     if (!bpmGiven && audio.nativeBpm(0) > 0) bpm = audio.nativeBpm(0);
     for (int i = 0; i < audio.trackCount(); ++i)

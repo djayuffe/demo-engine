@@ -102,7 +102,20 @@ typedef ptrdiff_t GLintptr;
 #define GL_RGBA32F 0x8814
 #endif
 
+#ifndef GL_TIME_ELAPSED
+#define GL_TIME_ELAPSED 0x88BF
+#define GL_QUERY_RESULT 0x8866
+#define GL_QUERY_RESULT_AVAILABLE 0x8867
+#endif
+typedef unsigned long long GLuint64;
+
 #define DE_GL_FUNCTIONS(X) \
+  X(void,    glGenQueries,              (GLsizei n, GLuint* ids)) \
+  X(void,    glDeleteQueries,           (GLsizei n, const GLuint* ids)) \
+  X(void,    glBeginQuery,              (GLenum target, GLuint id)) \
+  X(void,    glEndQuery,                (GLenum target)) \
+  X(void,    glGetQueryObjectiv,        (GLuint id, GLenum pname, GLint* params)) \
+  X(void,    glGetQueryObjectui64v,      (GLuint id, GLenum pname, GLuint64* params)) \
   X(void,    glActiveTexture,           (GLenum texture)) \
   X(void,    glAttachShader,            (GLuint program, GLuint shader)) \
   X(void,    glBindBuffer,              (GLenum target, GLuint buffer)) \

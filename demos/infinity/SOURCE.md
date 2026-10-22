@@ -9,3 +9,5 @@ The eight original files are preserved in `reference/`; `source.json` records th
 The browser page, CSS, visibility observers and DOM controls remain reference material. The C++ host replaces their event loop, GPU resource allocation, orbit input, parameter UI and random light scheduler. The six light fronts and scene changes are driven by the engine music/beat clock.
 
 Bundled soundtrack licensing and credits remain in the repository `NOTICE.md` and `demos/wireframe/assets/music/README.md`; the live ticker credits the active bundled track.
+
+The GPU optimization pass adds constant-specialized program variants in `Optimize.hpp`; it preserves the source integrator and all numerical limits. The generic uniform-driven source remains available with `--infinity-reference` for image/workload comparisons.

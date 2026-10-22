@@ -7,7 +7,7 @@ make run
 # or: ./build/hold_infinity --infinity-scene 3
 ```
 
-[Controls, scene list, optical parameters and tests](demos/infinity/README.md) · [Source attribution](demos/infinity/SOURCE.md). `make run-wireframe` launches the previous demo.
+[Controls, scene list, optical parameters and tests](demos/infinity/README.md) · [GPU optimization measurements](demos/infinity/GPU_PERFORMANCE.md) · [Source attribution](demos/infinity/SOURCE.md). `make run-wireframe` launches the previous demo.
 
 ![The twelve native optical scenes](docs/infinity-contact.jpg)
 

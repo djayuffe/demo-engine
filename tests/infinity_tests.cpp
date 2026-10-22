@@ -1,4 +1,6 @@
 #include "Sync.hpp"
+#include "Optimize.hpp"
+#include "Shaders.hpp"
 #include "Dodecahedron.hpp"
 #include <cmath>
 #include <cstdio>
@@ -52,5 +54,22 @@ int main() {
       if (std::abs(d - 1 / std::sqrt(5.f)) < 1e-6)
         require(std::abs(d - kleinT * kleinT) < 1e-6, "hyperbolic adjacent mirrors not orthogonal");
     }
+  using namespace infinity_opt;
+  for (int mask = 0; mask < 128; ++mask) {
+    auto kernel = specialize(infinity_shader::TRACE_FS, mask);
+    require(kernel.find("uniform int uMedium;") == std::string::npos, "specialization kept medium branch uniform");
+    require(kernel.find("const int uHole = " + std::string(mask & 2 ? "1;" : "0;")) != std::string::npos,
+            "incorrect horizon specialization");
+    require(kernel.find(mask & 32 ? "const float uNout = 1.33;" : "const float uNout = 1.0;") != std::string::npos,
+            "incorrect surround specialization");
+  }
+  require(stateForScene(4) == 0 && stateForScene(5) == 5 && stateForScene(7) == 69 && stateForScene(8) == 45,
+          "preset states changed");
+  require(stateForScene(9, 127) == 127, "optical override dropped");
+  RaySolveKey key{1.5f, .65f, 46, 1};
+  require(key == RaySolveKey{1.5f, .65f, 46, 1}, "identical GPU field not reused");
+  require(!(key == RaySolveKey{1.6f, .65f, 46, 1}) && !(key == RaySolveKey{1.5f, .66f, 46, 1}) &&
+              !(key == RaySolveKey{1.5f, .65f, 26, 1}) && !(key == RaySolveKey{1.5f, .65f, 46, 7}),
+          "ray solve cache invalidation incomplete");
   std::puts("Infinity geometry, clock, beat fronts and band response passed");
 }

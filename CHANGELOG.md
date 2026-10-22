@@ -1,3 +1,10 @@
+# Hold Infinity 1.1 GPU optimization — 2026-10-21
+
+- Prepare GPU optical-state kernels and immutable geometry once; cache uniform locations and eliminate inactive parameter uploads.
+- Reuse unchanged GPU ray fields, dispatch active rows only, and stop rebuilding bloom after stationary convergence.
+- Add asynchronous GPU timing, deterministic silent captures, original-workload reference mode, all-state specialization/cache tests, and an alternating image/performance benchmark.
+- Local GPU-query means: continuous glass 21% faster, printed layers 61%, fixed-curvature ray lab 32%; chambers and dynamic spectral rays are effectively unchanged. Full conditions and raw data are in `demos/infinity/GPU_PERFORMANCE.md`.
+
 # Hold Infinity native port — 2026-10-21
 
 - Port all three GPU optical pipelines and dodecahedron geometry from the user-supplied archive to GLSL 4.10/C++.

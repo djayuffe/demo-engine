@@ -65,3 +65,8 @@ python3 tools/smoke_infinity.py
 Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 12 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A 200-frame accelerated clock run covers a full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
 
 [Source attribution, original archive hash and port boundaries](SOURCE.md).
+
+
+## GPU optimization and profiling
+
+The 1.1 renderer uses specialized optical kernels, cached immutable uniforms, active ray rows, exact-input GPU field reuse and converged bloom reuse. `--gpu-profile` reports non-blocking GPU timings; `--infinity-reference` retains the original workload for A/B checks. `--silent` uses the BPM clock without playing audio. [Measured performance, image comparisons and reproduction commands](GPU_PERFORMANCE.md).
