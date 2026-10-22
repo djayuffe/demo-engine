@@ -11,6 +11,8 @@
 #include "OpticalMath.hpp"
 #include "MatrixLife.hpp"
 #include "AntTraffic.hpp"
+#include "BouncingBall.hpp"
+#include "BallShader.hpp"
 #include "GpuTimer.hpp"
 #include <unordered_map>
 #include <algorithm>
@@ -123,6 +125,7 @@ class Infinity final : public de::Demo {
   float yawOffset_ = 0, pitchOffset_ = 0, grinCurvature_ = -1;
   GLuint antTexture_ = 0;
   infinity_ants::Traffic traffic_;
+  infinity_ball::World ballWorld_;
   infinity_ants::Traffic::Image antImage_;
   int instrumentState_ = -1;
   float pointerX_ = 0, pointerY_ = 0;
@@ -154,7 +157,7 @@ class Infinity final : public de::Demo {
   static void quad() { glDrawArrays(GL_TRIANGLES, 0, 3); }
   GLuint program(const char* vs, const char* fs) {
     const auto vertex = infinity_render::orderedRamps(vs);
-    const auto fragment = infinity_render::orderedRamps(infinity_matrix::expand(fs));
+    const auto fragment = infinity_render::orderedRamps(infinity_ball::shader(infinity_matrix::expand(fs)));
     return glutil::linkProgram(vertex.c_str(), fragment.c_str(), error_);
   }
   void view(GLuint p, const Camera& c, float distance, float fov, int w, int h) {
@@ -194,6 +197,13 @@ class Infinity final : public de::Demo {
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 64, 64, GL_RGBA, GL_FLOAT, antImage_.data());
     integer(p, "uAntField", 2);
     glActiveTexture(GL_TEXTURE0);
+    const auto flatBall = ballWorld_.sample(scene == 1 ? ballWorld_.cube : ballWorld_.flat, frame_.sync.beat);
+    const auto hyperBall = ballWorld_.sample(ballWorld_.hyper, frame_.sync.beat);
+    glUniform4f(loc(p, "uBallE"), float(flatBall.p[0]), float(flatBall.p[1]), float(flatBall.p[2]),
+                float(infinity_ball::Ball::radius));
+    glUniform4f(loc(p, "uBallH"), float(hyperBall.p[0]), float(hyperBall.p[1]), float(hyperBall.p[2]),
+                float(hyperBall.p[3]));
+    one(p, "uBallImpact", float(scene == 1 || scene == 2 ? flatBall.flash : hyperBall.flash));
     one(p, "uTime", float(frame_.time));
     one(p, "uFlow", float(cue_.flow));
     one(p, "uEnergy", cue_.energy);
@@ -340,7 +350,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "2.0";
+    c.version = "2.1";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
@@ -495,6 +505,7 @@ public:
   bool update(const de::FrameInfo& f, const de::Input& in, de::Frame& out) override {
     frame_ = f;
     traffic_.advance(f.sync.beat);
+    ballWorld_.advance(f.sync.beat);
     viewDirty_ = false;
     if (auto* window = glfwGetCurrentContext()) {
       double x = 0, y = 0;

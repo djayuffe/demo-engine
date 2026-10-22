@@ -153,3 +153,12 @@ Matrix walkers now come from a persistent sixteen-agent colony on an 8×8 wrappi
 The simulation runs on the CPU at half-beat boundaries; a small 64×64 float texture carries smoothly interpolated bodies and contact energy to the GPU. This replaces the independent lane formulas with actual shared traffic state. The texture is repeated in intrinsic surface coordinates with room-dependent offsets, so the colony pattern bends and reflects with the Matrix grid. Rooms share the colony pattern; they are not separate simulated worlds. Fine detail still fades at distance.
 
 Tests cover 500 decision steps, unique positions/target reservations, no head-on swaps, valid grid movement, deterministic catch-up under different frame cadences, path changes and finite raster output. Invalid clocks are ignored. Backward seeks or jumps over 4,096 decisions reset the colony instead of performing unbounded catch-up.
+
+
+## Bouncing chamber ball (2.1)
+
+Scenes 0–3 now contain a lit sphere, including its mirror images. The cube and flat dodecahedron use three-dimensional continuous sphere/plane collision times with finite-radius wall clearance. The hyperbolic chamber and exterior sculpture use a geodesic sphere: its center follows the hyperboloid, contacts a mirror at geodesic distance 0.14, and reflects in the local tangent-space wall normal. These are three spatial dimensions in Euclidean or hyperbolic geometry; the ball is not a four-dimensional hypersphere.
+
+Physics advances in fixed 1/120-beat steps, preserving elastic speed, with collision-time subdivision within a step. Rendering predicts the fractional remainder for smooth motion. The GPU tests sphere intersections on each ray segment before its next wall, so depth, occlusion and repeated mirror images follow the scene tracing rather than a screen overlay. Impact energy adds a brief warm glint through the existing HDR grade. Glass/instrument and final light scenes remain separate from the chamber ball.
+
+Long-run tests cover 24,000 steps for all three chamber models, checking wall clearance, unit speed, hyperboloid position norm, tangent velocity and repeated impacts. Different update cadences produce the same state. Large or backward clock seeks reset at the new clock position with bounded work, and playback can resume normally.

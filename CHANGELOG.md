@@ -1,3 +1,10 @@
+# Hold Infinity 2.1 bouncing chamber ball — 2026-10-22
+
+- Add a lit sphere and reflected images inside the cube, dodecahedron and hyperbolic chambers.
+- Solve finite-radius elastic collisions in Euclidean space and geodesic sphere/mirror contact in hyperbolic space.
+- Test ball hits within each traced ray segment for correct depth and reflection placement; add brief HDR impact glints.
+- Validate 24,000 steps of containment, speed, hyperboloid/tangent invariants, frame-cadence independence and large-seek recovery.
+
 # Hold Infinity 2.0 interacting ant traffic — 2026-10-22
 
 - Replace independent lane packets with a persistent sixteen-agent colony and beat-timed junction decisions.

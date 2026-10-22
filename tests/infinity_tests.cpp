@@ -3,6 +3,7 @@
 #include "OpticalMath.hpp"
 #include "MatrixLife.hpp"
 #include "AntTraffic.hpp"
+#include "BouncingBall.hpp"
 #include "RenderCorrections.hpp"
 #include "Optimize.hpp"
 #include "Shaders.hpp"
@@ -15,6 +16,34 @@ void require(bool ok, const char* message) {
   if (!ok) throw std::runtime_error(message);
 }
 int main() {
+  infinity_ball::World balls;
+  for (int frame = 0; frame < 24000; ++frame) {
+    balls.cube.step(.45 / 120);
+    balls.flat.step(.45 / 120);
+    balls.hyper.step(.45 / 120);
+    for (const auto* ball : {&balls.cube, &balls.flat, &balls.hyper}) {
+      require(std::abs(infinity_ball::dot(ball->v, ball->v) - 1) < 1e-5, "ball loses elastic speed");
+      for (int face = 0; face < (ball->cube ? 6 : 12); ++face) {
+        const double d = infinity_ball::dot(ball->p, ball->normal(face));
+        require(d <= (ball->hyper ? -std::sinh(ball->radius) : 1 - ball->radius) + 1e-6,
+                "ball escaped chamber or penetrated wall");
+      }
+      if (ball->hyper) {
+        require(std::abs(infinity_ball::dot(ball->p, ball->p) + 1) < 1e-6, "ball left hyperboloid");
+        require(std::abs(infinity_ball::dot(ball->p, ball->v)) < 1e-6, "ball velocity left tangent space");
+      }
+    }
+  }
+  require(balls.cube.impacts > 10 && balls.flat.impacts > 10 && balls.hyper.impacts > 10, "ball never bounces");
+  infinity_ball::World fastBall, slowBall;
+  fastBall.advance(20);
+  for (int n = 0; n <= 200; ++n) slowBall.advance(double(n) * .1);
+  for (int k = 0; k < 4; ++k)
+    require(std::abs(fastBall.hyper.p[k] - slowBall.hyper.p[k]) < 1e-8, "ball motion depends on frame rate");
+  infinity_ball::World seekBall;
+  seekBall.advance(5000);
+  seekBall.advance(5000.5);
+  require(seekBall.tick == 600060, "ball cannot recover after a large clock seek");
   infinity_ants::Traffic colony, stepped;
   for (int tick = 0; tick < 500; ++tick) {
     colony.advance(double(tick) * .5);
