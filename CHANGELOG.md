@@ -1,3 +1,10 @@
+# Hold Infinity 1.9 Matrix walkers and geometric validation — 2026-10-22
+
+- Add footprint-filtered, beat-accented ant-like walkers on intrinsic geodesic surface lanes.
+- Preserve colour ratios in chamber/glass highlight compression and bound texture mip sampling.
+- Share and test camera, plane rotation and Lorentz mirror construction; reduce long-running rotation angles in double precision.
+- Validate convex mesh topology, face planes, camera orthogonality, rotation length and hyperbolic reflection invariants.
+
 # Hold Infinity 1.8 detail and GPU cleanup — 2026-10-22
 
 - Filter minified filament detail using its screen-space footprint to reduce shimmer.

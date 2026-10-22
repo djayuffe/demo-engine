@@ -1,5 +1,7 @@
 #include "Sync.hpp"
 #include "Parallax.hpp"
+#include "OpticalMath.hpp"
+#include "MatrixLife.hpp"
 #include "RenderCorrections.hpp"
 #include "Optimize.hpp"
 #include "Shaders.hpp"
@@ -33,6 +35,24 @@ int main() {
   const float oneStep = infinity_parallax::smooth(0, 1, .1);
   const float twoSteps = infinity_parallax::smooth(infinity_parallax::smooth(0, 1, .05), 1, .05);
   require(std::abs(oneStep - twoSteps) < 1e-6, "pointer smoothing depends on frame rate");
+  for (int step = 0; step < 80; ++step) {
+    const auto cam = infinity_math::camera(float(step) * .31f, float(step - 40) * .03f);
+    for (int a = 0; a < 3; ++a)
+      for (int b = 0; b < 3; ++b) {
+        float dot = 0;
+        for (int k = 0; k < 3; ++k) dot += cam.m[a * 3 + k] * cam.m[b * 3 + k];
+        require(std::abs(dot - (a == b ? 1.f : 0.f)) < 1e-5, "camera basis loses orthogonality");
+      }
+    for (int sheet = 0; sheet < 3; ++sheet) {
+      const auto turn = infinity_math::turn(double(step) * 1e8, sheet);
+      require(std::abs(turn[0] * turn[0] + turn[1] * turn[1] - 1) < 1e-6 &&
+                  std::abs(turn[2] * turn[2] + turn[3] * turn[3] - 1) < 1e-6,
+              "plane bend changes radius");
+    }
+  }
+  for (const char* chamber : {infinity_shader::CHAMBER_OBJECT, infinity_shader::CHAMBER_CUBE,
+                              infinity_shader::CHAMBER_FLAT, infinity_shader::CHAMBER_HYPER})
+    require(infinity_matrix::expand(chamber).find("float ants=") != std::string::npos, "matrix walkers missing");
   using namespace infinity_sync;
   require(sample(31.999, 0, false, 0, 0, 0).scene == 0, "scene changes before boundary");
   require(sample(32, 0, false, 0, 0, 0).scene == 1, "bar-boundary cut missing");
@@ -86,6 +106,55 @@ int main() {
       if (std::abs(d - 1 / std::sqrt(5.f)) < 1e-6)
         require(std::abs(d - kleinT * kleinT) < 1e-6, "hyperbolic adjacent mirrors not orthogonal");
     }
+  for (int f = 0; f < 12; ++f) {
+    const auto n = infinity_math::hyperplane(faces[3 * f], faces[3 * f + 1], faces[3 * f + 2], kleinT);
+    auto dot = [](const auto& a, const auto& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] - a[3] * b[3]; };
+    require(std::abs(dot(n, n) - 1) < 1e-5, "Lorentz mirror normal is not spacelike unit");
+    std::array<float, 4> p = {0, 0, 0, 1}, reflected = p;
+    const float d = dot(p, n);
+    for (int k = 0; k < 4; ++k) reflected[k] -= 2 * d * n[k];
+    require(std::abs(dot(reflected, reflected) + 1) < 1e-5, "hyperbolic bend leaves unit hyperboloid");
+    const float back = dot(reflected, n);
+    for (int k = 0; k < 4; ++k) reflected[k] -= 2 * back * n[k];
+    for (int k = 0; k < 4; ++k) require(std::abs(reflected[k] - p[k]) < 1e-5, "mirror bend is not involutive");
+  }
+  int degrees[20] = {};
+  bool edgesSeen[20][20] = {};
+  auto vertexIndex = [&](const float* point) {
+    for (int v = 0; v < 20; ++v) {
+      float d = 0;
+      for (int k = 0; k < 3; ++k) d += std::abs(point[k] - vertices[3 * v + k]);
+      if (d < 1e-5) return v;
+    }
+    return -1;
+  };
+  float firstLength = 0;
+  for (int e = 0; e < 30; ++e) {
+    int a = vertexIndex(edgeA + 3 * e), b = vertexIndex(edgeB + 3 * e);
+    require(a >= 0 && b >= 0 && a != b, "edge endpoint is not a vertex");
+    require(!edgesSeen[a][b], "duplicate geometry edge");
+    edgesSeen[a][b] = edgesSeen[b][a] = true;
+    ++degrees[a];
+    ++degrees[b];
+    float d = 0;
+    for (int k = 0; k < 3; ++k) {
+      float x = edgeA[3 * e + k] - edgeB[3 * e + k];
+      d += x * x;
+    }
+    if (e == 0) firstLength = d;
+    require(std::abs(d - firstLength) < 1e-5, "dodecahedron edges have unequal lengths");
+  }
+  for (int degree : degrees) require(degree == 3, "dodecahedron vertex valence must be three");
+  for (int f = 0; f < 12; ++f) {
+    int count = 0;
+    for (int v = 0; v < 20; ++v) {
+      float d = 0;
+      for (int k = 0; k < 3; ++k) d += faces[3 * f + k] * vertices[3 * v + k];
+      require(d <= 1.00001f, "vertex escapes convex face plane");
+      if (std::abs(d - 1) < 1e-5) ++count;
+    }
+    require(count == 5, "face must contain five coplanar vertices");
+  }
   using namespace infinity_opt;
   for (int mask = 0; mask < 128; ++mask) {
     auto kernel = specialize(infinity_shader::TRACE_FS, mask);

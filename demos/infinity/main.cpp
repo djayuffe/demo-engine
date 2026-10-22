@@ -8,6 +8,8 @@
 #include "DimensionalRays.hpp"
 #include "RenderCorrections.hpp"
 #include "Parallax.hpp"
+#include "OpticalMath.hpp"
+#include "MatrixLife.hpp"
 #include "GpuTimer.hpp"
 #include <unordered_map>
 #include <algorithm>
@@ -72,6 +74,7 @@ struct Target {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
                     mips ? GL_LINEAR_MIPMAP_LINEAR : (format == GL_RGBA16F ? GL_LINEAR : GL_NEAREST));
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (mips || format == GL_RGBA16F) ? GL_LINEAR : GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, level - 1);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glGenFramebuffers(1, &fbo);
@@ -96,14 +99,8 @@ struct Target {
     glGenerateMipmap(GL_TEXTURE_2D);
   }
 };
-struct Camera {
-  float m[9];
-  float back[3];
-};
-Camera camera(float yaw, float pitch) {
-  float cy = std::cos(yaw), sy = std::sin(yaw), cp = std::cos(pitch), sp = std::sin(pitch);
-  return {{cy, 0, -sy, -sy * sp, cp, -cy * sp, sy * cp, sp, cy * cp}, {sy * cp, sp, cy * cp}};
-}
+using infinity_math::Camera;
+using infinity_math::camera;
 class Infinity final : public de::Demo {
   std::array<GLuint, 4> chamber_{};
   std::array<GLuint, 128> specialized_{};
@@ -153,7 +150,7 @@ class Infinity final : public de::Demo {
   static void quad() { glDrawArrays(GL_TRIANGLES, 0, 3); }
   GLuint program(const char* vs, const char* fs) {
     const auto vertex = infinity_render::orderedRamps(vs);
-    const auto fragment = infinity_render::orderedRamps(fs);
+    const auto fragment = infinity_render::orderedRamps(infinity_matrix::expand(fs));
     return glutil::linkProgram(vertex.c_str(), fragment.c_str(), error_);
   }
   void view(GLuint p, const Camera& c, float distance, float fov, int w, int h) {
@@ -169,10 +166,9 @@ class Infinity final : public de::Demo {
       glUniform3fv(loc(p, "uU"), 12, cube);
     }
     float hn[48];
-    const float s = 1 / std::sqrt(1 - kleinT * kleinT);
     for (int i = 0; i < 12; ++i) {
-      for (int j = 0; j < 3; ++j) hn[i * 4 + j] = faces[i * 3 + j] * s;
-      hn[i * 4 + 3] = kleinT * s;
+      const auto plane = infinity_math::hyperplane(faces[3 * i], faces[3 * i + 1], faces[3 * i + 2], kleinT);
+      std::copy(plane.begin(), plane.end(), hn + 4 * i);
     }
     glUniform4fv(loc(p, "uHN"), 12, hn);
     glUniform3fv(loc(p, "uEA"), 30, edgeA);
@@ -312,11 +308,8 @@ class Infinity final : public de::Demo {
     glUniformMatrix3fv(loc(rays_, "uCam"), 1, GL_FALSE, rayCamera.m);
     float turns[12];
     for (int sheet = 0; sheet < 3; ++sheet) {
-      const float a = float(cue_.flow) * .11f + float(sheet) * .34f, b = float(cue_.flow) * .07f + .25f;
-      turns[4 * sheet] = std::cos(a);
-      turns[4 * sheet + 1] = std::sin(a);
-      turns[4 * sheet + 2] = std::cos(b);
-      turns[4 * sheet + 3] = std::sin(b);
+      const auto turn = infinity_math::turn(cue_.flow, sheet);
+      std::copy(turn.begin(), turn.end(), turns + 4 * sheet);
     }
     glUniform4fv(loc(rays_, "uTurn"), 3, turns);
     one(rays_, "uNMax", 1 / ((1 - k) + k * .045f / 1.045f));
@@ -337,7 +330,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "1.8";
+    c.version = "1.9";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;

@@ -135,3 +135,12 @@ Chamber and refractive scenes trace from the translated world-space origin. Dime
 Fine filament striations now fade with their screen-space derivative before they become subpixel, reducing distant shimmer. The XW/YZ sine/cosine rotation coefficients are computed once per sheet on the host and uploaded as uniforms instead of being evaluated repeatedly during ribbon projection. Light-only scenes skip allocating/resizing the unused mipmapped optical image target; the actual output and full ray integration remain unchanged.
 
 Parallax helpers recover from non-finite pointer state and bound eye inputs. Benchmarks pin the eye at the center so pointer motion and automatic dolly cannot contaminate A/B images. Both headless suites and native GPU scene checks cover the final changes. An experimental per-point GPU projection pass was tested and removed because isolated alternating timings did not establish a consistent gain; no frame-rate improvement is claimed from that experiment.
+
+
+## Matrix walkers, geometry and HDR (1.9)
+
+Native chamber surface detail now includes deterministic ant-like packets along the existing geodesic lanes. Segmented bodies, per-lane direction, gait and beat accents are evaluated in intrinsic surface coordinates, so reflections and hyperbolic bending carry the detail with the geometry. They are procedural walkers, not an agent or pheromone simulation. Walkers fade with pixel footprint and skip their fine-detail calculations in distant rooms.
+
+Chamber and glass highlights now use a shared hue-preserving exponential shoulder before the existing display grade, retaining coloured highlights instead of separately saturating RGB channels. Float optical targets and restrained bloom remain in use. Texture maximum mip levels are explicitly bounded to their allocated chains.
+
+The camera and Lorentz mirror-plane construction now live in tested shared math helpers. Geometry checks verify every edge endpoint, edge uniqueness/equal length, three-edge vertex valence, convex face bounds and five vertices per face. Mirror checks validate spacelike unit normals, hyperboloid norm preservation and reflection involution. Sampled camera bases remain orthonormal, and plane rotations preserve length even for large clock values; their angles are reduced in double precision before trigonometry. These checks validate the transformations and mesh invariants, alongside native rendering checks; they are not a proof of every stochastic optical path.
