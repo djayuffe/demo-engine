@@ -1,3 +1,10 @@
+# Hold Infinity 1.4 black and HDR light — 2026-10-22
+
+- Clear the final light scenes to pure black and remove the unused field pass.
+- Deepen display blacks, expand the hue-preserving HDR shoulder, and contrast brighter narrow cores with softer halos.
+- Lock light packets to four-beat circuits and use a sharp phase-derived beat envelope.
+- Start with Digital Rendezvous (song two), retain explicit track overrides, and initialize tempo from the selected song.
+
 # Hold Infinity 1.3 dimensional light — 2026-10-22
 
 - Rebuild the final two scenes as a four-dimensional light loom and prismatic hyperspace threads, with layered GPU instances and XW/YZ rotation.

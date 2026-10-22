@@ -33,10 +33,11 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
 constexpr const char* composite = R"GLSL(#version 410 core
 in vec2 vUv; out vec4 outColor; uniform sampler2D uImg; uniform float uFade;
 void main(){
-  vec3 c=pow(max(texture(uImg,vUv).rgb,vec3(0.0)),vec3(1.12));
+  vec3 c=max(texture(uImg,vUv).rgb-vec3(0.008),vec3(0.0));
+  c=pow(c,vec3(1.18));
   // Hue-preserving shoulder: keep white-hot cores below display white.
   float peak=max(c.r,max(c.g,c.b));
-  float mapped=peak<=0.65?peak:0.65+0.25*(1.0-exp(-(peak-0.65)/0.25));
+  float mapped=peak<=0.58?peak:0.58+0.40*(1.0-exp(-(peak-0.58)/0.40));
   c*=mapped/max(peak,1e-6);
   outColor=vec4(c*uFade,1.0);
 }
@@ -112,7 +113,7 @@ class Infinity final : public de::Demo {
   infinity_opt::RaySolveKey solved_;
   size_t integrations_ = 0, uniformLookups_ = 0, submitFrames_ = 0, mipBuilds_ = 0;
 
-  GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, field_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
+  GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
   Target image_, output_, state_, checkpoints_;
   de::FrameInfo frame_;
   infinity_sync::Cue cue_;
@@ -277,12 +278,8 @@ class Infinity final : public de::Demo {
       ++integrations_;
     }
     output_.bind();
-    glUseProgram(field_);
-    common(field_, aspect, k, count, nw);
-    two(field_, "uRes", float(w), float(h));
-    two(field_, "uSource", .055f, .6f);
-    three(field_, "uSourceColor", white ? 1.f : .55f, 1.f, .93f);
-    quad();
+    glClearColor(0.f, 0.f, 0.f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
     glUseProgram(rays_);
@@ -298,8 +295,8 @@ class Infinity final : public de::Demo {
     glUniformMatrix3fv(loc(rays_, "uCam"), 1, GL_FALSE, rayCamera.m);
     one(rays_, "uNMax", 1 / ((1 - k) + k * .045f / 1.045f));
     for (int layer = 0; layer < 2; ++layer) {
-      one(rays_, "uWidth", layer ? 1.3f : 7.f);
-      one(rays_, "uIntensity", (layer ? .72f : .08f) * (1 + .25f * cue_.treble));
+      one(rays_, "uWidth", layer ? 1.15f : 9.f);
+      one(rays_, "uIntensity", (layer ? 1.05f : .045f) * (1 + .18f * cue_.treble));
       one(rays_, "uSharp", layer ? 1.6f : 2.2f);
       glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 1024, count * nw * (white ? 2 : 3));
     }
@@ -311,8 +308,9 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "1.3";
+    c.version = "1.4";
     c.customRendering = true;
+    c.defaultTrack = 1;
     c.logoShow = false;
     c.fxAmount = 0;
     c.musicFiles = {"demos/wireframe/assets/music/cs127_-_stars_4ch.mod",
@@ -403,15 +401,12 @@ public:
     if (reference_) trace_ = program(FULLSCREEN_VS, TRACE_FS);
     show_ = program(FULLSCREEN_VS, SHOW_FS);
     integrate_ = program(FULLSCREEN_VS, INTEGRATE_FS);
-    std::string fieldSource = FIELD_FS;
-    infinity_opt::replace(fieldSource, "outColor = vec4(col, 1.0);", "outColor = vec4(col*0.35, 1.0);");
-    field_ = program(FULLSCREEN_VS, fieldSource.c_str());
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
     compose_ = program(FULLSCREEN_VS, composite);
     if (std::any_of(chamber_.begin(), chamber_.end(), [](GLuint p) { return !p; }) || !post_ ||
-        (reference_ && !trace_) || !show_ || !integrate_ || !field_ || !rays_ || !compose_) {
+        (reference_ && !trace_) || !show_ || !integrate_ || !rays_ || !compose_) {
       std::fprintf(stderr, "Infinity shader failure: %s\n", error_.c_str());
       return false;
     }
@@ -546,7 +541,7 @@ public:
         glDeleteProgram(p);
         p = 0;
       }
-    for (auto* p : {&post_, &trace_, &show_, &integrate_, &field_, &rays_, &compose_})
+    for (auto* p : {&post_, &trace_, &show_, &integrate_, &rays_, &compose_})
       if (*p) {
         glDeleteProgram(*p);
         *p = 0;

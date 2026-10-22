@@ -31,7 +31,7 @@ Drag to orbit. Left/right select scenes; Space returns to the automatic show; Q 
 
 ## Music direction
 
-The default playlist reuses Stars by cs127 and Digital Rendezvous by Drozerix with their existing credits. Music playback supplies show time, native tempo and bass/mid/treble energy. Without a playable track, the engine BPM clock still drives the show.
+The default playlist reuses Stars by cs127 and Digital Rendezvous by Drozerix with their existing credits. Playback starts with the second song, Digital Rendezvous; `--track 1` starts with Stars. Music playback supplies show time, native tempo and bass/mid/treble energy. Without a playable track, the engine BPM clock still drives the show.
 
 A scene lasts 32 beats (eight bars). The cut fades through black at the bar boundary. Six deterministic optical fronts launch on beat crossings; their radii derive from fractional beat age, so dropped frames do not accumulate timing drift. Bass drives chamber glow, front strength and glass bloom; treble drives ray intensity; mid energy drives chamber bloom. Camera and glyph flow derive from beat position rather than independent wall-clock timers. Live module tempo changes use the existing engine timeline continuity contract.
 
@@ -98,3 +98,10 @@ The default grade now uses darker midtones and a hue-preserving highlight should
 The final two scenes lift the integrated ray paths into four coordinates, rotate them through XW and YZ planes, then project through a three-dimensional camera. Mouse orbit changes the view of the layered curves. Three monochrome sheets form the light loom; two seven-wavelength sheets form the prismatic threads. Screen-space tangents keep the ribbons aligned after projection, and depth controls their width and brightness.
 
 Traveling luminous packets follow musical beat position, with staggered phases across sheets and a restrained beat pulse. Narrow cores, attenuated distant sheets and a darker field preserve contrast. The underlying 512-step RK4 paths and spectral integration are unchanged: this is an artistic four-dimensional embedding, not an additional physical optical solver. Both optimized and reference modes share this presentation. The extra instanced sheets add rendering work; the adaptive pixel budget remains available.
+
+
+## Black and HDR light (1.4)
+
+The final two light scenes clear to pure black, without the former index-field backdrop. A small display black threshold and deeper midtones increase separation; the hue-preserving shoulder retains up to 0.98 display intensity while compressing HDR light energy. This is tone-mapped HDR on the existing display output, not an HDR-monitor output mode. Narrow cores are brighter, with wider but lower-energy halos.
+
+Packets complete one circuit every four beats, with phase offsets between dimensional sheets and circular distance across the seam. A fast exponential envelope attacks on the exact beat and decays within the beat, keeping light accents aligned with the continuous music clock. Band energy adds restrained detail. Startup tempo follows the selected track, and `--track` still overrides the default.

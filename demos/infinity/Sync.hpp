@@ -16,7 +16,9 @@ inline Cue sample(double beat, float pulse, bool active, float bass, float mid, 
   auto unit = [](float x) { return std::isfinite(x) ? std::clamp(x, 0.f, 1.f) : 0.f; };
   Cue c;
   c.scene = manual >= 0 ? manual % sceneCount : int(std::fmod(std::floor(beat / beatsPerScene), double(sceneCount)));
-  c.beat = unit(pulse);
+  // Phase-locked attack/decay follows the same continuous beat clock as packets.
+  const float clockPulse = std::exp(-float(beat - std::floor(beat)) * 9.f);
+  c.beat = std::max(clockPulse, .25f * unit(pulse));
   c.bass = active ? unit(bass) : c.beat;
   c.mid = active ? unit(mid) : .35f;
   c.treble = active ? unit(treble) : .2f;

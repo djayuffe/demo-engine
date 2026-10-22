@@ -39,6 +39,7 @@ struct Config {
   // ancestor of it, so a demo works from the repo root or from build/.
   std::vector<std::string> logoDirs;   // directories holding *_1920x1080.jpg logo cards (optional)
   std::vector<std::string> musicFiles; // default playlist: every one found plays, in order, looping
+  int defaultTrack=0;                 // zero-based starting playlist entry; --track overrides
   std::string shaderDir;               // empty = the engine's shaders next to the executable
   bool customRendering=false;          // Demo::draw owns the framebuffer; engine still supplies audio, ticker, capture
   bool logoShow=true;                  // false = never draw logo cards even if found

@@ -21,6 +21,10 @@ int main() {
   require(sample(std::numeric_limits<double>::quiet_NaN(), 0, false, 0, 0, 0).scene == 0, "invalid clock unsafe");
   const auto quiet = sample(10, 0, true, 0, 0, 0), loud = sample(10, 1, true, 1, 1, 1);
   require(loud.energy > quiet.energy, "audio bands do not excite scene");
+  require(sample(8, 0, true, 0, 0, 0).beat == 1.f, "downbeat attack missing");
+  require(sample(8.5, 0, true, 0, 0, 0).beat < .02f, "beat decay washes out lights");
+  require(sample(8.25, 0, false, 0, 0, 0).beat == sample(8.25, 0, true, 0, 0, 0).beat,
+          "clock pulse drifts with audio availability");
   float a[24], b[24];
   pulses(12.25, 1, a);
   pulses(12.25, 1, b);

@@ -43,11 +43,12 @@ inline std::string fragment(std::string source) {
       source, "in float vLambda;",
       "in float vLambda;\nin float vDepth;\nin float vSheet;\nuniform float uBeat;\nuniform float uPulse;");
   infinity_opt::replace(source, "float phase = fract(uTime * 0.085 + vRay * 0.37);",
-                        "float phase = fract(uBeat * 0.22 + vRay * 0.37 + vSheet * 0.23);");
+                        "float phase = fract(uBeat * 0.25 + vSheet * 0.25);");
+  infinity_opt::replace(source, "float dt = vT - phase;", "float dt = mod(vT-phase+0.5,1.0)-0.5;");
   infinity_opt::replace(source, "float a = prof * uIntensity * fade * (0.22 + pulse);",
                         R"GLSL(c=mix(c,c.brg,0.12*vSheet);
-  float a=prof*uIntensity*fade*(0.16+min(pulse,3.2))
-    *vDepth/(1.0+vSheet*0.6)*(0.9+0.12*uPulse);)GLSL");
+  float a=prof*uIntensity*fade*(0.10+min(pulse,4.5))
+    *vDepth/(1.0+vSheet*0.6)*(0.80+0.65*uPulse);)GLSL");
   return source;
 }
 } // namespace infinity_dimension

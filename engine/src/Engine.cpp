@@ -102,7 +102,8 @@ int run(Demo& demo, int argc, char** argv) {
   bool bpmGiven = false;
   std::vector<fs::path> musicPaths;
   fs::path logoOverride;
-  showopt::ShowOptions so;   // backgrounds, depth, gloss, pointer, clock, music start (ShowOptions.hpp)
+  showopt::ShowOptions so;   // backgrounds, depth, gloss, pointer, clock, music start
+  so.startTrack = std::max(0, cfg.defaultTrack);
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
   bool noTicker = false, noPost = false, silent = false;
   double quality = 1.0;
@@ -279,8 +280,9 @@ int run(Demo& demo, int argc, char** argv) {
 #endif
   if (so.startTrack > 0) audio.startAt(so.startTrack);
   if (!silent && !musicPaths.empty() && audio.open(musicPaths)) {
-    // Lock the visuals to the first module's own tempo unless --bpm was given.
-    if (!bpmGiven && audio.nativeBpm(0) > 0) bpm = audio.nativeBpm(0);
+    // Lock the visuals to the selected starting module unless --bpm was given.
+    const int startingTrack = so.startTrack % audio.trackCount();
+    if (!bpmGiven && audio.nativeBpm(startingTrack) > 0) bpm = audio.nativeBpm(startingTrack);
     for (int i = 0; i < audio.trackCount(); ++i)
       std::fprintf(stdout, "music %d/%d: %s (%.0f BPM)\n", i + 1, audio.trackCount(),
                    audio.trackPath(i).string().c_str(), audio.nativeBpm(i) > 0 ? audio.nativeBpm(i) : bpm);
@@ -352,7 +354,7 @@ int run(Demo& demo, int argc, char** argv) {
   ri.bpm = bpm;
   ri.executableDir = exeDir.string();
   ri.musicPath = audio.state().active ? audio.trackPath(0).string() : std::string();
-  int lastTrack = 0;
+  int lastTrack = -1;
   if (!demo.init(ri)) {
     std::fprintf(stderr, "demo init failed\n");
     cleanup(&r);
