@@ -350,7 +350,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "2.1";
+    c.version = "2.2";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;

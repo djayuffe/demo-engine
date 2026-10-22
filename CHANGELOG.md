@@ -1,3 +1,10 @@
+# Hold Infinity 2.2 physics and optical frames — 2026-10-22
+
+- Correct hyperbolic hit-ray transport, tangent-frame normal/view/light conversion and camera-origin parallax.
+- Add rough GGX/Fresnel sphere shading and stable conjugate sphere-intersection roots with a shared physical radius.
+- Cache normalized collision planes and fix impact-glow decay to follow elapsed time after contact.
+- Validate corner bounces, time reversal, local lighting angles and exact impact timing in addition to long-run containment.
+
 # Hold Infinity 2.1 bouncing chamber ball — 2026-10-22
 
 - Add a lit sphere and reflected images inside the cube, dodecahedron and hyperbolic chambers.

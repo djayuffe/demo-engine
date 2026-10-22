@@ -16,6 +16,44 @@ void require(bool ok, const char* message) {
   if (!ok) throw std::runtime_error(message);
 }
 int main() {
+  infinity_ball::Ball impact(false, true);
+  impact.p = {.85, 0, 0, 0};
+  impact.v = {1, 0, 0, 0};
+  impact.step(.1);
+  require(impact.impacts == 1 && std::abs(impact.flash - std::exp(-.09 * 16)) < 1e-8,
+          "impact glow decay uses pre-hit time");
+  infinity_ball::Ball corner(false, true);
+  corner.p = {.85, .85, 0, 0};
+  corner.v = {std::sqrt(.5), std::sqrt(.5), 0, 0};
+  corner.step(.1);
+  require(corner.impacts == 2 && corner.v[0] < 0 && corner.v[1] < 0, "simultaneous corner bounce incorrect");
+  for (bool hyper : {false, true}) {
+    infinity_ball::Ball reversible(hyper);
+    const auto initial = reversible.p;
+    for (int n = 0; n < 2000; ++n) reversible.step(.45 / 120);
+    for (auto& x : reversible.v) x = -x;
+    for (int n = 0; n < 2000; ++n) reversible.step(.45 / 120);
+    for (int k = 0; k < 4; ++k)
+      require(std::abs(reversible.p[k] - initial[k]) < 1e-5, "elastic dynamics are not time reversible");
+  }
+  for (int sample = 0; sample < 100; ++sample) {
+    infinity_ball::Ball ball(true);
+    ball.travel(double(sample) * .01);
+    auto p = ball.p, v = ball.v;
+    infinity_ball::V normal = {.3, .7, .2, 0};
+    const double tangent = infinity_ball::dot(normal, p);
+    for (int k = 0; k < 4; ++k) normal[k] += tangent * p[k];
+    const double norm = std::sqrt(infinity_ball::dot(normal, normal));
+    for (auto& x : normal) x /= norm;
+    auto local = [&](const auto& x) {
+      return std::array<double, 3>{x[0] - p[0] * x[3] / (p[3] + 1), x[1] - p[1] * x[3] / (p[3] + 1),
+                                   x[2] - p[2] * x[3] / (p[3] + 1)};
+    };
+    const auto a = local(normal), b = local(v);
+    double angle = 0;
+    for (int k = 0; k < 3; ++k) angle += a[k] * b[k];
+    require(std::abs(angle - infinity_ball::dot(normal, v)) < 1e-8, "hyperbolic local lighting changes angles");
+  }
   infinity_ball::World balls;
   for (int frame = 0; frame < 24000; ++frame) {
     balls.cube.step(.45 / 120);

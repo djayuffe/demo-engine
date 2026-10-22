@@ -162,3 +162,12 @@ Scenes 0–3 now contain a lit sphere, including its mirror images. The cube and
 Physics advances in fixed 1/120-beat steps, preserving elastic speed, with collision-time subdivision within a step. Rendering predicts the fractional remainder for smooth motion. The GPU tests sphere intersections on each ray segment before its next wall, so depth, occlusion and repeated mirror images follow the scene tracing rather than a screen overlay. Impact energy adds a brief warm glint through the existing HDR grade. Glass/instrument and final light scenes remain separate from the chamber ball.
 
 Long-run tests cover 24,000 steps for all three chamber models, checking wall clearance, unit speed, hyperboloid position norm, tangent velocity and repeated impacts. Different update cadences produce the same state. Large or backward clock seeks reset at the new clock position with bounded work, and playback can resume normally.
+
+
+## Physics and optical frames (2.2)
+
+Sphere shading now uses a rough GGX highlight, Schlick Fresnel response and a restrained diffuse/ambient body under the existing HDR shoulder. Hyperbolic hits transport the ray to the surface and transform the tangent-space normal, viewing ray and light into the hit point's orthonormal rest frame. This replaces the earlier XYZ-only approximation, preserving local angles in curved space.
+
+Euclidean sphere roots use a conjugate quadratic form. Hyperbolic roots solve for the exponential of geodesic distance with a conjugate form and one logarithm, avoiding the previous closest-point inverse-hyperbolic sequence. Both use the uploaded physical sphere radius. The hyperbolic camera now translates its origin and orthonormal tangent frame onto the hyperboloid before the scene boost, so pointer parallax changes the actual ray origin in the curved chamber too.
+
+Physics caches normalized plane sets. Impact emission decays over the time after contact rather than the entire enclosing step; invalid/nonpositive step lengths are ignored. Added checks cover simultaneous cube-corner contacts, exact post-impact decay, elastic time reversal in flat/curved chambers and preservation of local lighting angles, alongside the long-run invariant suite. Surface shading is a local lighting model; it does not add full global illumination or ball-to-ball dynamics.

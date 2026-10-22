@@ -29,21 +29,31 @@ struct Ball {
       n[face / 2] = (face % 2) ? -1 : 1;
       return n;
     }
-    const float* f = infinity_geometry::faces + 3 * face;
-    if (!hyper) {
-      V n = {f[0], f[1], f[2], 0};
-      const double length = std::sqrt(dot(n, n));
-      for (auto& x : n) x /= length;
-      return n;
-    }
-    auto n = infinity_math::hyperplane(f[0], f[1], f[2], infinity_geometry::kleinT);
-    // Normalize again in double precision for the integration invariants.
-    V result = {n[0], n[1], n[2], n[3]};
-    double scale = std::sqrt(dot(result, result));
-    for (auto& x : result) x /= scale;
-    return result;
+    static const auto euclidean = []() {
+      std::array<V, 12> planes{};
+      for (int i = 0; i < 12; ++i) {
+        const float* f = infinity_geometry::faces + 3 * i;
+        V n = {f[0], f[1], f[2], 0};
+        const double length = std::sqrt(dot(n, n));
+        for (auto& x : n) x /= length;
+        planes[i] = n;
+      }
+      return planes;
+    }();
+    static const auto curved = []() {
+      std::array<V, 12> planes{};
+      for (int i = 0; i < 12; ++i) {
+        const V& f = euclidean[i];
+        const double t = infinity_geometry::kleinT;
+        const double scale = 1 / std::sqrt(1 - t * t);
+        planes[i] = {f[0] * scale, f[1] * scale, f[2] * scale, t * scale};
+      }
+      return planes;
+    }();
+    return hyper ? curved[face] : euclidean[face];
   }
   void travel(double distance) {
+    flash *= std::exp(-distance * 16);
     if (!hyper) {
       for (int k = 0; k < 3; ++k) p[k] += v[k] * distance;
       return;
@@ -56,7 +66,7 @@ struct Ball {
     }
   }
   void step(double distance) {
-    flash *= std::exp(-distance * 16);
+    if (!std::isfinite(distance) || distance <= 0) return;
     for (int event = 0; distance > 1e-10 && event < 12; ++event) {
       double first = distance;
       int hit = -1;
