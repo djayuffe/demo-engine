@@ -30,6 +30,12 @@ private:
 public:
   const Reading& latest() const { return latest_; }
   void init(bool enabled, bool report = true) {
+    if (enabled_) shutdown();
+    latest_ = {};
+    cursor_ = 0;
+    active_ = -1;
+    for (auto& slot : slots_) slot = {};
+    for (auto& times : ms_) times.clear();
     enabled_ = enabled;
     report_ = report;
     if (enabled_)
@@ -51,8 +57,7 @@ public:
       }
   }
   void begin(int scene, int frame) {
-    if (!enabled_) return;
-    poll();
+    if (!enabled_ || scene < 0 || scene >= 12 || active_ >= 0) return;
     auto& s = slots_[cursor_];
     active_ = -1;
     if (!s.pending) {
@@ -72,6 +77,7 @@ public:
   }
   void shutdown() {
     if (!enabled_) return;
+    end();
     poll();
     for (size_t scene = 0; scene < ms_.size(); ++scene) {
       auto& v = ms_[scene];

@@ -14,6 +14,7 @@
 #include "BouncingBall.hpp"
 #include "BallShader.hpp"
 #include "GpuTimer.hpp"
+#include "SequentialRays.hpp"
 #include <unordered_map>
 #include <algorithm>
 #include <array>
@@ -21,6 +22,7 @@
 #include <cstdio>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace {
 using namespace infinity_shader;
@@ -50,24 +52,34 @@ void main(){
 }
 )GLSL";
 struct Target {
+  Target() = default;
+  Target(const Target&) = delete;
+  Target& operator=(const Target&) = delete;
   GLuint texture = 0, fbo = 0;
   int w = 0, h = 0;
   bool mip = false;
+  GLint storageFormat = 0;
   void release() {
     if (fbo) glDeleteFramebuffers(1, &fbo);
     if (texture) glDeleteTextures(1, &texture);
     texture = fbo = 0;
     w = h = 0;
+    mip = false;
+    storageFormat = 0;
   }
   bool resize(int width, int height, GLint format, bool mips, std::string& error) {
-    if (w == width && h == height && texture) return true;
-    release();
-    w = width;
-    h = height;
-    mip = mips;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    int x = w, y = h, level = 0;
+    if (w == width && h == height && texture && fbo && storageFormat == format && mip == mips) return true;
+    GLint maximum = 0;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maximum);
+    if (width < 1 || height < 1 || width > maximum || height > maximum) {
+      error = "Infinity target exceeds GPU texture limits";
+      return false;
+    }
+    GLuint nextTexture = 0, nextFbo = 0;
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &nextTexture);
+    glBindTexture(GL_TEXTURE_2D, nextTexture);
+    int x = width, y = height, level = 0;
     do {
       glTexImage2D(GL_TEXTURE_2D, level++, format, x, y, 0, GL_RGBA, GL_FLOAT, nullptr);
       if (!mips || (x == 1 && y == 1)) break;
@@ -80,13 +92,25 @@ struct Target {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, level - 1);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-      error = "Infinity framebuffer incomplete";
+    glGenFramebuffers(1, &nextFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, nextFbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, nextTexture, 0);
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    const GLenum apiError = glGetError();
+    if (status != GL_FRAMEBUFFER_COMPLETE || apiError != GL_NO_ERROR) {
+      glDeleteFramebuffers(1, &nextFbo);
+      glDeleteTextures(1, &nextTexture);
+      error =
+          "Infinity target allocation failed (FBO " + std::to_string(status) + ", GL " + std::to_string(apiError) + ")";
       return false;
     }
+    release();
+    texture = nextTexture;
+    fbo = nextFbo;
+    w = width;
+    h = height;
+    mip = mips;
+    storageFormat = format;
     return true;
   }
   void bind() const {
@@ -116,6 +140,9 @@ class Infinity final : public de::Demo {
   size_t integrations_ = 0, uniformLookups_ = 0, submitFrames_ = 0, mipBuilds_ = 0;
 
   GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
+  std::array<GLuint, 2> sequential_{};
+  bool rasterIntegrator_ = false, forceSequential_ = false, validateRays_ = false, validatedRays_ = false,
+       validateTargets_ = false;
   Target image_, output_, state_, checkpoints_;
   de::FrameInfo frame_;
   infinity_sync::Cue cue_;
@@ -152,6 +179,9 @@ class Infinity final : public de::Demo {
   }
   void one(GLuint p, const char* n, float v) { glUniform1f(loc(p, n), v); }
   void integer(GLuint p, const char* n, int v) { glUniform1i(loc(p, n), v); }
+  void sampler(GLuint p, const char* n, int unit) {
+    if (reference_) integer(p, n, unit);
+  }
   void two(GLuint p, const char* n, float a, float b) { glUniform2f(loc(p, n), a, b); }
   void three(GLuint p, const char* n, float a, float b, float c) { glUniform3f(loc(p, n), a, b, c); }
   static void quad() { glDrawArrays(GL_TRIANGLES, 0, 3); }
@@ -195,7 +225,7 @@ class Infinity final : public de::Demo {
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, antTexture_);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 64, 64, GL_RGBA, GL_FLOAT, antImage_.data());
-    integer(p, "uAntField", 2);
+    sampler(p, "uAntField", 2);
     glActiveTexture(GL_TEXTURE0);
     const auto flatBall = ballWorld_.sample(scene == 1 ? ballWorld_.cube : ballWorld_.flat, frame_.sync.beat);
     const auto hyperBall = ballWorld_.sample(ballWorld_.hyper, frame_.sync.beat);
@@ -214,16 +244,17 @@ class Infinity final : public de::Demo {
     float pulses[24];
     infinity_sync::pulses(frame_.sync.beat, cue_.bass, pulses);
     glUniform4fv(loc(p, "uPulse"), 6, pulses);
+    const float cameraFlow = still_ ? 0.f : float(cue_.flow);
     if (scene == 1 || scene == 2)
-      origin(p, cam, .15f * std::sin(float(cue_.flow) * .2f), .08f, .15f * std::cos(float(cue_.flow) * .13f));
-    glUniform4f(loc(p, "uBoost"), std::cos(float(cue_.flow) * .11f), 0, std::sin(float(cue_.flow) * .11f),
-                .28f * std::sin(float(cue_.flow) * .23f));
+      origin(p, cam, .15f * std::sin(cameraFlow * .2f), .08f, .15f * std::cos(cameraFlow * .13f));
+    glUniform4f(loc(p, "uBoost"), std::cos(cameraFlow * .11f), 0, std::sin(cameraFlow * .11f),
+                .28f * std::sin(cameraFlow * .23f));
     quad();
     image_.generate();
     ++mipBuilds_;
     output_.bind();
     glUseProgram(post_);
-    integer(post_, "uImg", 0);
+    sampler(post_, "uImg", 0);
     two(post_, "uRes", float(w), float(h));
     one(post_, "uBloom", .13f + .06f * cue_.mid + .045f * cue_.strike);
     one(post_, "uStar", scene == 0 ? .035f : .01f);
@@ -268,7 +299,7 @@ class Infinity final : public de::Demo {
       image_.sample();
     output_.bind();
     glUseProgram(show_);
-    integer(show_, "uAcc", 0);
+    sampler(show_, "uAcc", 0);
     one(show_, "uExposure", 1.25f * float(samples_));
     two(show_, "uScale", 1, 1);
     one(show_, "uBloom", .12f + .05f * cue_.bass + .04f * cue_.strike);
@@ -280,6 +311,56 @@ class Infinity final : public de::Demo {
     integer(p, "uRays", rays);
     integer(p, "uNW", nw);
   }
+  bool validateField(float aspect, float k, int count, int nw) {
+    std::vector<float> actual(size_t(512 * count * nw * 4)), expected(actual.size());
+    state_.bind();
+    glReadPixels(0, 0, 512, count * nw, GL_RGBA, GL_FLOAT, actual.data());
+    Target referenceState, referenceCheck;
+    if (!referenceState.resize(512, 182, GL_RGBA32F, false, error_) ||
+        !referenceCheck.resize(16, 182, GL_RGBA32F, false, error_)) {
+      referenceState.release();
+      referenceCheck.release();
+      return false;
+    }
+    glUseProgram(integrate_);
+    common(integrate_, aspect, k, count, nw);
+    two(integrate_, "uSource", .055f * aspect, .6f);
+    one(integrate_, "uSpread", 1.22f);
+    one(integrate_, "uDs", aspect * 1.7f / 512);
+    sampler(integrate_, "uCk", 0);
+    state_.sample();
+    referenceCheck.bind();
+    integer(integrate_, "uPass", 0);
+    glViewport(0, 0, 16, count * nw);
+    quad();
+    referenceCheck.sample();
+    referenceState.bind();
+    integer(integrate_, "uPass", 1);
+    glViewport(0, 0, 512, count * nw);
+    quad();
+    glReadPixels(0, 0, 512, count * nw, GL_RGBA, GL_FLOAT, expected.data());
+    referenceState.release();
+    referenceCheck.release();
+    float maximum = 0;
+    for (size_t i = 0; i < actual.size(); ++i) {
+      float delta = std::abs(actual[i] - expected[i]);
+      maximum = std::max(maximum, delta);
+      if (!std::isfinite(actual[i]) || !std::isfinite(expected[i]) || delta > 3e-5f * (1 + std::abs(expected[i]))) {
+        error_ = "Ray-state mismatch at component " + std::to_string(i);
+        return false;
+      }
+    }
+    for (size_t i = 0; i < actual.size(); i += 4) {
+      float norm = actual[i + 2] * actual[i + 2] + actual[i + 3] * actual[i + 3];
+      if (std::abs(norm - 1) > 5e-4f) {
+        error_ = "Ray tangent lost unit length";
+        return false;
+      }
+    }
+    std::printf("Ray-state validation: %d points, max error %.9g, all finite/unit tangents\n", 512 * count * nw,
+                double(maximum));
+    return true;
+  }
   void grin(int scene, int w, int h) {
     const bool white = scene == 11;
     int count = white ? 26 : 46, nw = white ? 7 : 1;
@@ -288,22 +369,46 @@ class Infinity final : public de::Demo {
     infinity_opt::RaySolveKey key{aspect, k, count, nw};
     if (reference_ || !(key == solved_)) {
       glDisable(GL_BLEND);
-      glUseProgram(integrate_);
-      common(integrate_, aspect, k, count, nw);
-      two(integrate_, "uSource", .055f * aspect, .6f);
-      one(integrate_, "uSpread", 1.22f);
-      one(integrate_, "uDs", aspect * 1.7f / 512);
-      integer(integrate_, "uCk", 0);
-      state_.sample();
-      checkpoints_.bind();
-      integer(integrate_, "uPass", 0);
-      glViewport(0, 0, 16, reference_ ? 182 : count * nw);
-      quad();
-      checkpoints_.sample();
-      state_.bind();
-      integer(integrate_, "uPass", 1);
-      glViewport(0, 0, 512, reference_ ? 182 : count * nw);
-      quad();
+      if (!reference_ && !rasterIntegrator_ && (!white || forceSequential_)) {
+        for (int pass = 0; pass < 2; ++pass) {
+          const auto p = sequential_[size_t(pass)];
+          glUseProgram(p);
+          common(p, aspect, k, count, nw);
+          two(p, "uSource", .055f * aspect, .6f);
+          one(p, "uSpread", 1.22f);
+          one(p, "uDs", aspect * 1.7f / 512);
+          sampler(p, "uCk", 0);
+          if (pass == 0)
+            checkpoints_.bind();
+          else {
+            checkpoints_.sample();
+            state_.bind();
+          }
+          glViewport(0, 0, pass == 0 ? 16 : 512, count * nw);
+          glDrawArrays(GL_POINTS, 0, count * nw * (pass == 0 ? 1 : 16));
+        }
+      } else {
+        glUseProgram(integrate_);
+        common(integrate_, aspect, k, count, nw);
+        two(integrate_, "uSource", .055f * aspect, .6f);
+        one(integrate_, "uSpread", 1.22f);
+        one(integrate_, "uDs", aspect * 1.7f / 512);
+        sampler(integrate_, "uCk", 0);
+        state_.sample();
+        checkpoints_.bind();
+        integer(integrate_, "uPass", 0);
+        glViewport(0, 0, 16, reference_ ? 182 : count * nw);
+        quad();
+        checkpoints_.sample();
+        state_.bind();
+        integer(integrate_, "uPass", 1);
+        glViewport(0, 0, 512, reference_ ? 182 : count * nw);
+        quad();
+      }
+      if (validateRays_ && !validatedRays_) {
+        if (!validateField(aspect, k, count, nw)) throw std::runtime_error(error_);
+        validatedRays_ = true;
+      }
       solved_ = key;
       ++integrations_;
     }
@@ -314,12 +419,10 @@ class Infinity final : public de::Demo {
     glBlendFunc(GL_ONE, GL_ONE);
     glUseProgram(rays_);
     state_.sample();
-    integer(rays_, "uState", 0);
+    sampler(rays_, "uState", 0);
     common(rays_, aspect, k, count, nw);
     two(rays_, "uRes", float(w), float(h));
-    one(rays_, "uTime", float(cue_.flow) * 4.f);
-    one(rays_, "uFlow", float(cue_.flow));
-    one(rays_, "uBeat", float(frame_.sync.beat));
+    one(rays_, "uBeat", float(std::fmod(std::max(0.0, frame_.sync.beat), 16.0)));
     one(rays_, "uPulse", cue_.strike);
     one(rays_, "uBass", cue_.bass);
     three(rays_, "uEye", eye_.x, eye_.y, eye_.z);
@@ -350,7 +453,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "2.2";
+    c.version = "2.3";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
@@ -391,6 +494,24 @@ public:
       pointerX_ = values[0];
       pointerY_ = values[1];
       fixedEye_ = true;
+      return true;
+    }
+    if (a == "--infinity-raster-integrator") {
+      rasterIntegrator_ = true;
+      forceSequential_ = false;
+      return true;
+    }
+    if (a == "--infinity-sequential-integrator") {
+      forceSequential_ = true;
+      rasterIntegrator_ = false;
+      return true;
+    }
+    if (a == "--validate-targets") {
+      validateTargets_ = true;
+      return true;
+    }
+    if (a == "--validate-ray-state") {
+      validateRays_ = true;
       return true;
     }
     if (a == "--gpu-profile") {
@@ -448,6 +569,10 @@ public:
            "  --infinity-fps N    Adaptive GPU target 24..144 FPS (default 60)\n"
            "  --infinity-fixed-budget Disable automatic resolution adjustment\n"
            "  --infinity-adaptive Re-enable adaptation after an explicit pixel budget\n"
+           "  --infinity-sequential-integrator Force sequential RK4 on all ray scenes\n"
+           "  --infinity-raster-integrator Original raster RK4 for isolated GPU comparison\n"
+           "  --validate-targets Test GPU target storage and failed-resize recovery\n"
+           "  --validate-ray-state Compare every active float ray sample against raster RK4\n"
            "  --gpu-profile       Report non-blocking GPU timings and submission counts\n"
            "  --infinity-reference Original GPU workload for A/B comparisons\n"
            "  Drag to orbit; Left/Right scenes; Space automatic show; Q quit.\n";
@@ -459,14 +584,46 @@ public:
     if (reference_) trace_ = program(FULLSCREEN_VS, TRACE_FS);
     show_ = program(FULLSCREEN_VS, SHOW_FS);
     integrate_ = program(FULLSCREEN_VS, INTEGRATE_FS);
+    if (!reference_ && !rasterIntegrator_)
+      for (int pass = 0; pass < 2; ++pass) {
+        const auto gs = infinity_sequential::geometry(INTEGRATE_FS, pass == 0);
+        sequential_[size_t(pass)] =
+            glutil::linkProgram(infinity_sequential::vertex, gs, infinity_sequential::fragment, error_);
+      }
+    if (!reference_ && !rasterIntegrator_ && (!sequential_[0] || !sequential_[1])) {
+      std::fprintf(stderr, "Sequential ray kernels unavailable; using raster RK4: %s\n", error_.c_str());
+      for (auto& p : sequential_)
+        if (p) {
+          glDeleteProgram(p);
+          p = 0;
+        }
+      rasterIntegrator_ = true;
+      forceSequential_ = false;
+      if (integrate_) error_.clear();
+    }
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
     compose_ = program(FULLSCREEN_VS, composite);
     if (std::any_of(chamber_.begin(), chamber_.end(), [](GLuint p) { return !p; }) || !post_ ||
-        (reference_ && !trace_) || !show_ || !integrate_ || !rays_ || !compose_) {
+        (reference_ && !trace_) || !show_ || !integrate_ || !rays_ || !compose_ || (validateRays_ && !integrate_)) {
       std::fprintf(stderr, "Infinity shader failure: %s\n", error_.c_str());
       return false;
+    }
+    if (!reference_) {
+      const auto assign = [&](GLuint p, const char* name, int unit) {
+        if (p) {
+          glUseProgram(p);
+          integer(p, name, unit);
+        }
+      };
+      assign(post_, "uImg", 0);
+      assign(show_, "uAcc", 0);
+      assign(integrate_, "uCk", 0);
+      assign(rays_, "uState", 0);
+      assign(compose_, "uImg", 0);
+      assign(sequential_[1], "uCk", 0);
+      for (auto p : chamber_) assign(p, "uAntField", 2);
     }
     if (!reference_) {
       for (int i = 0; i < 4; ++i) {
@@ -499,6 +656,32 @@ public:
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     timer_.init(profile_ || (adaptive_ && !still_ && !reference_), profile_);
     glutil::setupFullscreenVao(vao_, vbo_);
+    if (validateTargets_) {
+      Target test;
+      std::string expectedError;
+      bool valid = test.resize(17, 11, GL_RGBA16F, false, error_);
+      const auto first = test.texture;
+      valid = valid && test.resize(17, 11, GL_RGBA32F, false, error_) && test.texture != first;
+      GLint format = 0, maximum = 0;
+      glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &format);
+      valid = valid && format == GL_RGBA32F;
+      const auto changedFormat = test.texture;
+      valid = valid && test.resize(17, 11, GL_RGBA32F, true, error_) && test.texture != changedFormat;
+      glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &format);
+      glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, &maximum);
+      const auto retained = test.texture;
+      valid = valid && test.resize(17, 11, GL_RGBA32F, true, error_) && test.texture == retained;
+      valid = valid && format == GL_RGBA32F && maximum == 4 && !test.resize(0, 11, GL_RGBA16F, false, expectedError) &&
+              test.texture == retained;
+      test.bind();
+      valid = valid && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+      test.release();
+      if (!valid) {
+        std::fprintf(stderr, "GPU target validation failed: %s\n", error_.c_str());
+        return false;
+      }
+      std::printf("GPU target validation: format/mip changes and invalid resize recovery passed\n");
+    }
     return state_.resize(512, 182, GL_RGBA32F, false, error_) &&
            checkpoints_.resize(16, 182, GL_RGBA32F, false, error_);
   }
@@ -586,7 +769,7 @@ public:
     glDisable(GL_BLEND);
     glUseProgram(compose_);
     output_.sample();
-    integer(compose_, "uImg", 0);
+    sampler(compose_, "uImg", 0);
     one(compose_, "uFade", cue_.fade);
     quad();
     timer_.end();
@@ -608,6 +791,11 @@ public:
       std::printf("GPU workload: frames=%zu ray-solves=%zu uniform-lookups=%zu mipmaps=%zu mode=%s\n", submitFrames_,
                   integrations_, uniformLookups_, mipBuilds_, reference_ ? "reference" : "optimized");
     for (auto& p : specialized_)
+      if (p) {
+        glDeleteProgram(p);
+        p = 0;
+      }
+    for (auto& p : sequential_)
       if (p) {
         glDeleteProgram(p);
         p = 0;

@@ -12,7 +12,7 @@ public:
     float flash = 0;
   };
   std::array<Ant, count> ants{};
-  int tick = 0, conflicts = 0, turns = 0;
+  uint64_t tick = 0, conflicts = 0, turns = 0;
 
 private:
   std::array<int, side * side> visits_{};
@@ -30,7 +30,7 @@ private:
     for (const auto& a : ants) busy[cell(a.x, a.y)] = true;
     constexpr int dx[] = {1, 0, -1, 0}, dy[] = {0, 1, 0, -1};
     for (int j = 0; j < count; ++j) {
-      const int id = (j + tick) % count;
+      const int id = int((uint64_t(j) + tick) % count);
       auto& a = ants[id];
       int choice = -1;
       float best = 1e9f;
@@ -67,10 +67,11 @@ public:
   }
   void advance(double beat) {
     if (!std::isfinite(beat) || beat < 0) return;
-    const double target = std::floor(beat * 2.0);
+    const uint64_t target = uint64_t(std::floor(std::min(beat, 1e9) * 2.0));
     if (target < tick || target - tick > 4096) {
       *this = Traffic();
-      tick = int(std::fmod(target, 1000000.0));
+      tick = target;
+      plan();
       return;
     }
     while (tick < target) {
@@ -88,7 +89,7 @@ public:
   using Image = std::array<float, resolution * resolution * 4>;
   void raster(double beat, Image& image) const {
     image.fill(0);
-    double phase = std::isfinite(beat) ? beat * 2.0 - std::floor(beat * 2.0) : 0;
+    double phase = std::isfinite(beat) ? std::fmod(std::clamp(beat, 0.0, 1e9), .5) * 2.0 : 0;
     phase = std::clamp(phase, 0.0, 1.0);
     const float t = float(phase * phase * (3 - 2 * phase));
     for (int id = 0; id < count; ++id) {

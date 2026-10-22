@@ -48,3 +48,8 @@ python3 tools/benchmark_infinity.py
 `build/infinity-benchmark/` receives captures, full driver logs and results JSON. FFmpeg, when available, provides PSNR/SSIM comparisons. Reference mode retains the original shader switches, uniform/geometry uploads, integration dispatches and mip rebuilds for A/B checks.
 
 The implementation stays within the engine's OpenGL 4.1 contract; it does not pretend to enable OpenGL 4.3 compute shaders on macOS. GPU integration remains parallel fragment/FBO work. Primary API references: [Khronos timer query specification](https://registry.khronos.org/OpenGL/extensions/ARB/ARB_timer_query.txt) and [OpenGL 4.3 additions](https://www.khronos.org/news/press/khronos-releases-opengl-4.3-specification-with-major-enhancements).
+
+
+## 2.3 integration audit
+
+The monochrome ray lab now uses sequential point emission for RK4 prefixes; the spectral scene retains raster integration based on measured workload behavior. In an isolated three-repeat comparison on M1 Pro, the changing monochrome scene averaged 2.208 ms raster versus 1.720 ms sequential, a 22.1% GPU-query reduction. Full active ray textures matched the original solver at all twelve curvature/aspect/wavelength test combinations. These are current integration measurements, separate from the older workload figures above. [Conditions, caveats and validation](LOW_LEVEL_AUDIT.md), [raw runs](GPU_AUDIT_BENCHMARK.json).

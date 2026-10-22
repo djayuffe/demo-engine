@@ -4,6 +4,7 @@
 #include "MatrixLife.hpp"
 #include "AntTraffic.hpp"
 #include "BouncingBall.hpp"
+#include "SequentialRays.hpp"
 #include "RenderCorrections.hpp"
 #include "Optimize.hpp"
 #include "Shaders.hpp"
@@ -16,6 +17,24 @@ void require(bool ok, const char* message) {
   if (!ok) throw std::runtime_error(message);
 }
 int main() {
+  const auto checkpointShader = infinity_sequential::geometry(infinity_shader::INTEGRATE_FS, true);
+  const auto fillShader = infinity_sequential::geometry(infinity_shader::INTEGRATE_FS, false);
+  require(checkpointShader.find("max_vertices=16") != std::string::npos &&
+              fillShader.find("max_vertices=32") != std::string::npos,
+          "sequential RK4 output limits changed");
+  require(checkpointShader.find("s += uDs / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4);") != std::string::npos,
+          "sequential pass changed imported RK4 equation");
+  infinity_ants::Traffic sought;
+  sought.advance(10000000);
+  const auto seekTick = sought.tick;
+  sought.advance(10000000.5);
+  require(sought.tick == seekTick + 1, "ant colony freezes after a large seek");
+  sought.advance(std::numeric_limits<double>::max());
+  require(sought.tick == 2000000000ull, "ant seek clock exceeds bounded integer range");
+  infinity_ball::World hugeClock;
+  hugeClock.advance(std::numeric_limits<double>::max());
+  const auto hugeBall = hugeClock.sample(hugeClock.hyper, std::numeric_limits<double>::max());
+  for (double x : hugeBall.p) require(std::isfinite(x), "large clock corrupts ball interpolation");
   infinity_ball::Ball impact(false, true);
   impact.p = {.85, 0, 0, 0};
   impact.v = {1, 0, 0, 0};
@@ -294,5 +313,5 @@ int main() {
   SceneQuality stable;
   for (int f = 0; f < 100; ++f) stable.observe(16, f, 16.667);
   require(stable.fraction() == 1.f, "GPU governor oscillates near target");
-  std::puts("Infinity geometry, clock, beat fronts and band response passed");
+  std::puts("Infinity geometry, optics, physics, traffic, clocks and GPU contracts passed");
 }

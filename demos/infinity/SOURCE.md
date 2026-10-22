@@ -15,3 +15,5 @@ The GPU optimization pass adds constant-specialized program variants in `Optimiz
 The native 1.3 presentation adds `DimensionalRays.hpp`: four-coordinate embedding, plane rotations, camera projection, layered instancing and beat-driven light packets for the last two scenes. These artistic transformations are separate from the preserved source shaders and do not replace their RK4 solver.
 
 Native `RenderCorrections.hpp` normalizes decreasing smooth ramps before compilation to avoid undefined reversed GLSL smoothstep bounds. Dimensional projection corrections remain in the separate native presentation layer. Archived sources and generated import headers are preserved.
+
+The 2.3 `SequentialRays.hpp` geometry kernels extract the optical definitions, derivative and RK4 update from the imported integration shader at startup. They change scheduling and prefix reuse while retaining those source equations and their attribution. Generated `Shaders.hpp`, geometry constants and archived reference files are not rewritten by this audit.

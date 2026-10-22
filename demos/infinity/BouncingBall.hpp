@@ -128,7 +128,7 @@ struct World {
   void advance(double beat) {
     if (!std::isfinite(beat) || beat < 0) return;
     double target = std::floor(std::min(beat, 1e9) * 120);
-    if (target < tick || target - tick > 120000) {
+    if (target < tick || target - tick > 4096) {
       *this = World();
       tick = target;
       return;
@@ -142,7 +142,8 @@ struct World {
   }
   Ball sample(const Ball& ball, double beat) const {
     Ball result = ball;
-    const double sub = std::isfinite(beat) ? beat * 120 - std::floor(beat * 120) : 0;
+    const double clock = std::isfinite(beat) ? std::clamp(beat, 0.0, 1e9) * 120 : 0;
+    const double sub = clock - std::floor(clock);
     result.step(std::clamp(sub, 0.0, 1.0) * .45 / 120);
     return result;
   }

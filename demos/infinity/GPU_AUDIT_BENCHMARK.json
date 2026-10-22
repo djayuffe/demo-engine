@@ -1,0 +1,164 @@
+{
+  "date": "2026-10-22",
+  "device": "Apple M1 Pro",
+  "opengl": "4.1 Metal - 91.7",
+  "conditions": {
+    "frames": 120,
+    "repeats": 3,
+    "warmup_frames": 10,
+    "pixels": 120000,
+    "window": "640x360",
+    "fixed_step": 0.0166667,
+    "bpm": 132,
+    "eye": [
+      0,
+      0
+    ],
+    "silent": true,
+    "vsync": false
+  },
+  "default_policy": "sequential emission for monochrome; raster for seven wavelengths; explicit flags override",
+  "monochrome_final": [
+    {
+      "scene": 10,
+      "repeat": 0,
+      "mode": "reference",
+      "samples": 110,
+      "avg_ms": 2.206,
+      "p95_ms": 2.253,
+      "ray_solves": 120,
+      "uniform_lookups": 68,
+      "comparison": "integration"
+    },
+    {
+      "scene": 10,
+      "repeat": 0,
+      "mode": "optimized",
+      "samples": 110,
+      "avg_ms": 1.673,
+      "p95_ms": 2.143,
+      "ray_solves": 120,
+      "uniform_lookups": 75,
+      "comparison": "integration",
+      "image_ssim": 1.0,
+      "image_psnr_db": null
+    },
+    {
+      "scene": 10,
+      "repeat": 1,
+      "mode": "optimized",
+      "samples": 110,
+      "avg_ms": 1.843,
+      "p95_ms": 2.235,
+      "ray_solves": 120,
+      "uniform_lookups": 75,
+      "comparison": "integration"
+    },
+    {
+      "scene": 10,
+      "repeat": 1,
+      "mode": "reference",
+      "samples": 110,
+      "avg_ms": 2.209,
+      "p95_ms": 2.266,
+      "ray_solves": 120,
+      "uniform_lookups": 68,
+      "comparison": "integration",
+      "image_ssim": 1.0,
+      "image_psnr_db": null
+    },
+    {
+      "scene": 10,
+      "repeat": 2,
+      "mode": "reference",
+      "samples": 110,
+      "avg_ms": 2.209,
+      "p95_ms": 2.261,
+      "ray_solves": 120,
+      "uniform_lookups": 68,
+      "comparison": "integration"
+    },
+    {
+      "scene": 10,
+      "repeat": 2,
+      "mode": "optimized",
+      "samples": 110,
+      "avg_ms": 1.643,
+      "p95_ms": 2.142,
+      "ray_solves": 120,
+      "uniform_lookups": 75,
+      "comparison": "integration",
+      "image_ssim": 1.0,
+      "image_psnr_db": null
+    }
+  ],
+  "spectral_trial": [
+    {
+      "scene": 11,
+      "repeat": 0,
+      "mode": "reference",
+      "samples": 110,
+      "avg_ms": 4.422,
+      "p95_ms": 4.979,
+      "ray_solves": 120,
+      "uniform_lookups": 62
+    },
+    {
+      "scene": 11,
+      "repeat": 0,
+      "mode": "optimized",
+      "samples": 110,
+      "avg_ms": 4.937,
+      "p95_ms": 6.172,
+      "ray_solves": 120,
+      "uniform_lookups": 69,
+      "image_ssim": 1.0,
+      "image_psnr_db": null
+    },
+    {
+      "scene": 11,
+      "repeat": 1,
+      "mode": "optimized",
+      "samples": 110,
+      "avg_ms": 5.039,
+      "p95_ms": 5.687,
+      "ray_solves": 120,
+      "uniform_lookups": 69
+    },
+    {
+      "scene": 11,
+      "repeat": 1,
+      "mode": "reference",
+      "samples": 110,
+      "avg_ms": 4.365,
+      "p95_ms": 5.002,
+      "ray_solves": 120,
+      "uniform_lookups": 62,
+      "image_ssim": 1.0,
+      "image_psnr_db": null
+    },
+    {
+      "scene": 11,
+      "repeat": 2,
+      "mode": "reference",
+      "samples": 110,
+      "avg_ms": 4.232,
+      "p95_ms": 4.976,
+      "ray_solves": 120,
+      "uniform_lookups": 62
+    },
+    {
+      "scene": 11,
+      "repeat": 2,
+      "mode": "optimized",
+      "samples": 110,
+      "avg_ms": 4.088,
+      "p95_ms": 5.962,
+      "ray_solves": 120,
+      "uniform_lookups": 69,
+      "image_ssim": 1.0,
+      "image_psnr_db": null
+    }
+  ],
+  "note": "GPU-query timings, not whole-application FPS. Spectral trials were inconsistent and do not justify changing its default kernel."
+}

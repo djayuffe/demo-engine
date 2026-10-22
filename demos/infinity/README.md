@@ -171,3 +171,19 @@ Sphere shading now uses a rough GGX highlight, Schlick Fresnel response and a re
 Euclidean sphere roots use a conjugate quadratic form. Hyperbolic roots solve for the exponential of geodesic distance with a conjugate form and one logarithm, avoiding the previous closest-point inverse-hyperbolic sequence. Both use the uploaded physical sphere radius. The hyperbolic camera now translates its origin and orthonormal tangent frame onto the hyperboloid before the scene boost, so pointer parallax changes the actual ray origin in the curved chamber too.
 
 Physics caches normalized plane sets. Impact emission decays over the time after contact rather than the entire enclosing step; invalid/nonpositive step lengths are ignored. Added checks cover simultaneous cube-corner contacts, exact post-impact decay, elastic time reversal in flat/curved chambers and preservation of local lighting angles, alongside the long-run invariant suite. Surface shading is a local lighting model; it does not add full global illumination or ball-to-ball dynamics.
+
+
+## Low-level audit and sequential RK4 (2.3)
+
+The monochrome ray lab now emits checkpoints and path samples sequentially in two OpenGL 4.1 geometry-shader passes. It derives the index function, gradient, derivative and RK4 update directly from the preserved imported shader. Each ray still has 512 samples with the same step size and normalization. Sharing prefixes reduces RK4 updates per active ray from 11,776 to 976. This is a work-count reduction, not a 12× frame-rate claim.
+
+The 46-ray monochrome workload uses sequential emission by default. The 182-row spectral workload retains raster integration because longer alternating trials did not establish a consistent sequential benefit. `--infinity-sequential-integrator` and `--infinity-raster-integrator` force either path; reference mode keeps the original raster workload. If sequential shader compilation fails, the renderer reports the error and falls back to raster RK4. Immutable sampler bindings are assigned once in optimized mode.
+
+Target replacement now validates device size limits, format, mip configuration, allocation errors and framebuffer completeness before releasing working storage. Timer polling is no longer repeated within a frame. Large seeks recover the colony at the requested tick instead of repeatedly resetting, physics catch-up has a smaller bounded budget, and interpolation handles extreme clocks without NaNs. Still-camera origins/boosts remain fixed; periodic light phases are reduced before conversion to float.
+
+```sh
+python3 tools/validate_infinity.py
+python3 tools/benchmark_infinity.py --integration-only --scenes 10,11 --frames 120 --repeats 3
+```
+
+`--validate-ray-state` reads every active float sample and compares it against the original raster solver, also checking finite values and unit tangents. `--validate-targets` exercises format changes, mip changes, storage reuse and invalid-resize recovery. These are explicit diagnostics with synchronous readback; ordinary playback has no ray-field readback. [Audit findings and validation](LOW_LEVEL_AUDIT.md), [GPU measurements](GPU_AUDIT_BENCHMARK.json).

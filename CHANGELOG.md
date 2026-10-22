@@ -1,3 +1,11 @@
+# Hold Infinity 2.3 low-level audit — 2026-10-22
+
+- Reuse RK4 prefixes through sequential geometry emission for monochrome rays; retain raster spectral integration after workload-specific GPU measurements.
+- Preserve all samples and integration equations; add full-float GPU comparison against the original solver and shader-compile fallback.
+- Replace render targets transactionally with complete format/mip keys and hardware-limit checks; prepare immutable samplers once and remove duplicate timer polling.
+- Fix large-seek colony recovery, bound physics catch-up/interpolation and keep chamber camera origins/boosts still when requested.
+- Add deterministic extended GPU validation, sanitizer coverage and an audit report with measured results and platform limits.
+
 # Hold Infinity 2.2 physics and optical frames — 2026-10-22
 
 - Correct hyperbolic hit-ray transport, tangent-frame normal/view/light conversion and camera-origin parallax.

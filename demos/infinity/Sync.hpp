@@ -30,7 +30,7 @@ inline Cue sample(double beat, float pulse, bool active, float bass, float mid, 
   c.mid = active ? unit(mid) : .35f;
   c.treble = active ? unit(treble) : .2f;
   c.energy = std::clamp(.15f + .55f * c.bass + .25f * c.mid + .2f * c.beat, 0.f, 1.5f);
-  c.flow = beat * .55;
+  c.flow = std::min(beat, 1e9) * .55;
   if (manual < 0) {
     const double phase = std::fmod(beat, beatsPerScene);
     float edge = float(std::min(phase, beatsPerScene - phase));
@@ -40,6 +40,7 @@ inline Cue sample(double beat, float pulse, bool active, float bass, float mid, 
   return c;
 }
 inline void pulses(double beat, float bass, float* out) {
+  bass = std::isfinite(bass) ? std::clamp(bass, 0.f, 1.f) : 0.f;
   beat = std::isfinite(beat) ? std::max(0.0, beat) : 0.0;
   for (int i = 0; i < 6; ++i) {
     const double index = std::floor(beat) - i;
