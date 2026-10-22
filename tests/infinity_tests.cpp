@@ -20,6 +20,10 @@ int main() {
               corrected.find("orderedRamp(0.0,1.0,0.5)") != std::string::npos,
           "increasing or decreasing fade left undefined");
   require(shader.find("orderedRamp") == std::string::npos, "source shader mutated");
+  require(std::isfinite(infinity_parallax::smooth(std::numeric_limits<float>::quiet_NaN(), 1, .1)),
+          "invalid pointer state did not recover");
+  const auto invalidEye = infinity_parallax::eye(0, std::numeric_limits<float>::infinity(), 10, true);
+  require(invalidEye.x == 0 && std::abs(invalidEye.y - .16f) < 1e-6, "invalid eye coordinates not bounded");
   const auto leftEye = infinity_parallax::eye(0, -1, 0, true);
   const auto rightEye = infinity_parallax::eye(0, 1, 0, true);
   require(leftEye.x < 0 && rightEye.x > 0, "eye translation direction incorrect");

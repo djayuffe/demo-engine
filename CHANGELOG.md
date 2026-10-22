@@ -1,3 +1,10 @@
+# Hold Infinity 1.8 detail and GPU cleanup — 2026-10-22
+
+- Filter minified filament detail using its screen-space footprint to reduce shimmer.
+- Upload shared plane-rotation coefficients once per sheet and skip unused optical image allocation for light-only scenes.
+- Recover invalid pointer state, bound parallax inputs and pin benchmark eye position for deterministic comparisons.
+- Retain the original integration limits and discard a projection-pass experiment that did not show a consistent GPU benefit.
+
 # Hold Infinity 1.7 translational parallax — 2026-10-22
 
 - Translate the camera origin across every optical scene; apply matching view-space translation to dimensional light sheets.

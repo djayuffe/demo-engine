@@ -310,6 +310,15 @@ class Infinity final : public de::Demo {
     const auto rayCamera =
         camera(yawOffset_ + (still_ ? 0.f : 0.18f * std::sin(float(cue_.flow) * 0.08f)), pitchOffset_ + 0.12f);
     glUniformMatrix3fv(loc(rays_, "uCam"), 1, GL_FALSE, rayCamera.m);
+    float turns[12];
+    for (int sheet = 0; sheet < 3; ++sheet) {
+      const float a = float(cue_.flow) * .11f + float(sheet) * .34f, b = float(cue_.flow) * .07f + .25f;
+      turns[4 * sheet] = std::cos(a);
+      turns[4 * sheet + 1] = std::sin(a);
+      turns[4 * sheet + 2] = std::cos(b);
+      turns[4 * sheet + 3] = std::sin(b);
+    }
+    glUniform4fv(loc(rays_, "uTurn"), 3, turns);
     one(rays_, "uNMax", 1 / ((1 - k) + k * .045f / 1.045f));
     constexpr float widths[] = {10.f, 3.2f, .95f};
     constexpr float intensities[] = {.028f, .15f, 1.20f};
@@ -328,7 +337,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "1.7";
+    c.version = "1.8";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
@@ -536,7 +545,9 @@ public:
     double scale = std::min(1.0, std::sqrt(double(budget) / (double(f.width) * f.height)));
     int w = std::max(1, int(f.width * scale)), h = std::max(1, int(f.height * scale));
     bool resized = image_.w != w || image_.h != h;
-    if (!image_.resize(w, h, GL_RGBA16F, true, error) || !output_.resize(w, h, GL_RGBA16F, false, error)) return false;
+    if ((cue_.scene < 10 && !image_.resize(w, h, GL_RGBA16F, true, error)) ||
+        !output_.resize(w, h, GL_RGBA16F, false, error))
+      return false;
     timer_.begin(cue_.scene, f.frame);
     ++submitFrames_;
     float motion = still_ ? 0.f : float(cue_.flow);

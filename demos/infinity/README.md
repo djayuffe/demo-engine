@@ -128,3 +128,10 @@ Three additive HDR ribbon layers separate the narrow hot core, coloured inner gl
 All twelve scenes now translate the camera origin in addition to orbiting it. Moving the pointer shifts the eye along camera-local right/up axes, smoothly and independently of frame rate. A small 64-beat horizontal/depth dolly and vertical figure-eight make parallax visible during unattended playback. Near geometry shifts more than distant geometry through the actual perspective projection; no flat image displacement is applied.
 
 Chamber and refractive scenes trace from the translated world-space origin. Dimensional lights subtract the same camera-local offset before perspective projection. Mouse drag still orbits. Leaving the window smoothly recenters the pointer contribution. `--still` disables pointer translation and automatic dolly to preserve accumulation. `--infinity-eye X Y` pins a normalized eye offset in [-1,1] and disables automatic dolly, useful for reproducible left/right comparisons; combine with `--still` for stationary glass accumulation.
+
+
+## Detail, math and GPU cleanup (1.8)
+
+Fine filament striations now fade with their screen-space derivative before they become subpixel, reducing distant shimmer. The XW/YZ sine/cosine rotation coefficients are computed once per sheet on the host and uploaded as uniforms instead of being evaluated repeatedly during ribbon projection. Light-only scenes skip allocating/resizing the unused mipmapped optical image target; the actual output and full ray integration remain unchanged.
+
+Parallax helpers recover from non-finite pointer state and bound eye inputs. Benchmarks pin the eye at the center so pointer motion and automatic dolly cannot contaminate A/B images. Both headless suites and native GPU scene checks cover the final changes. An experimental per-point GPU projection pass was tested and removed because isolated alternating timings did not establish a consistent gain; no frame-rate improvement is claimed from that experiment.

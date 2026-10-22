@@ -29,7 +29,7 @@ def main():
                 image=root/f'{tag}.png'
                 cmd=[str(binary),'--infinity-scene',str(scene),'--infinity-pixels','120000','--window','640x360',
                      '--frames',str(a.frames),'--fixed-step','0.0166667','--no-ticker','--silent','--bpm','132',
-                     '--no-vsync','--gpu-profile','--screenshot',str(image)]
+                     '--no-vsync','--infinity-eye','0','0','--gpu-profile','--screenshot',str(image)]
                 if scene==10:cmd+=['--grin-curvature','0.65']
                 if reference:cmd+=['--infinity-reference']
                 run=subprocess.run(cmd,capture_output=True,text=True,timeout=180)
