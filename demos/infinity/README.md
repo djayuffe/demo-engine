@@ -112,3 +112,12 @@ Packets complete one circuit every four beats, with phase offsets between dimens
 All native shader stages now use defined increasing or decreasing smooth ramps. The imported LED coverage, reflected underside light and distance-detail fades previously used reversed GLSL `smoothstep` bounds, whose results are undefined. Native preprocessing retains the intended decreasing fade as the complement of an increasing ramp; archived source files remain unchanged.
 
 Dimensional rays use the inverse camera basis for world-to-view projection and real homogeneous clip W for perspective-correct path, depth and packet interpolation. Centered neighboring samples follow bends more smoothly, with one-sided endpoint tangents. Derivative-filtered ribbon edges fade to zero at their boundaries rather than ending at a visible Gaussian cutoff. Transparent light sheets continue to add together at crossings; they do not behave as opaque surfaces. Existing physical reflection, refraction and RK4 calculations remain intact.
+
+
+## Organic light and rhythmic dynamics (1.6)
+
+The final light sheets carry bounded traveling waves through their four-dimensional embedding. The deformation is anchored at both path endpoints; bass and beat accents flex the body without modifying the RK4 optical solver. Fine moving striations and an eight-beat breathing envelope give the filaments an organic character.
+
+Beat attacks now depend only on beat phase, so sustained loud passages cannot hold them open. A four-beat accent pattern emphasizes the downbeat, while half-beat transients gate treble detail. All these envelopes derive directly from the existing tempo-aware music clock, with deterministic fallback timing. This adds rhythmic direction rather than audio onset detection or a new tempo estimator.
+
+Three additive HDR ribbon layers separate the narrow hot core, coloured inner glow and faint broad halo. Only the central packet is slightly desaturated toward its peak colour intensity, preserving spectral edges. Chamber glow and glass bloom also use the bar accents. Output remains tone-mapped to the existing display framebuffer; extra ribbon layers add GPU drawing work and remain covered by adaptive resolution.

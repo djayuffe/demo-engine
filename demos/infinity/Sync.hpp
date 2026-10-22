@@ -9,6 +9,7 @@ inline constexpr double beatsPerScene = 32.0;
 struct Cue {
   int scene = 0;
   float beat = 0, bass = 0, mid = 0, treble = 0, energy = 0, fade = 1;
+  float strike = 0, flutter = 0, breath = 0;
   double flow = 0;
 };
 inline Cue sample(double beat, float pulse, bool active, float bass, float mid, float treble, int manual = -1) {
@@ -18,7 +19,13 @@ inline Cue sample(double beat, float pulse, bool active, float bass, float mid, 
   c.scene = manual >= 0 ? manual % sceneCount : int(std::fmod(std::floor(beat / beatsPerScene), double(sceneCount)));
   // Phase-locked attack/decay follows the same continuous beat clock as packets.
   const float clockPulse = std::exp(-float(beat - std::floor(beat)) * 9.f);
-  c.beat = std::max(clockPulse, .25f * unit(pulse));
+  c.beat = clockPulse;
+  // Keep loud sustained notes from holding the rhythmic attack open.
+  (void)pulse;
+  const int beatInBar = int(std::fmod(std::floor(beat), 4.0));
+  c.strike = clockPulse * (beatInBar == 0 ? 1.f : beatInBar == 2 ? .82f : .58f);
+  c.flutter = std::exp(-float(beat * 2.0 - std::floor(beat * 2.0)) * 12.f);
+  c.breath = .5f - .5f * std::cos(float(std::fmod(beat, 8.0)) * .7853981634f);
   c.bass = active ? unit(bass) : c.beat;
   c.mid = active ? unit(mid) : .35f;
   c.treble = active ? unit(treble) : .2f;

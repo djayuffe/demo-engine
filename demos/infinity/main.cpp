@@ -184,7 +184,7 @@ class Infinity final : public de::Demo {
     one(p, "uEnergy", cue_.energy);
     one(p, "uMirror", .86f);
     one(p, "uFog", .05f);
-    one(p, "uGlow", 1.35f + .25f * cue_.bass);
+    one(p, "uGlow", 1.25f + .30f * cue_.bass + .32f * cue_.strike);
     one(p, "uFX", scene == 0 ? 1.6f : .8f);
     float pulses[24];
     infinity_sync::pulses(frame_.sync.beat, cue_.bass, pulses);
@@ -200,9 +200,9 @@ class Infinity final : public de::Demo {
     glUseProgram(post_);
     integer(post_, "uImg", 0);
     two(post_, "uRes", float(w), float(h));
-    one(post_, "uBloom", .16f + .08f * cue_.mid);
+    one(post_, "uBloom", .13f + .06f * cue_.mid + .045f * cue_.strike);
     one(post_, "uStar", scene == 0 ? .035f : .01f);
-    one(post_, "uBeat", .55f * cue_.beat);
+    one(post_, "uBeat", .65f * cue_.strike);
     quad();
   }
   void instrument(int scene, int w, int h, const Camera& cam, bool resized) {
@@ -246,7 +246,7 @@ class Infinity final : public de::Demo {
     integer(show_, "uAcc", 0);
     one(show_, "uExposure", 1.25f * float(samples_));
     two(show_, "uScale", 1, 1);
-    one(show_, "uBloom", .14f + .08f * cue_.bass);
+    one(show_, "uBloom", .12f + .05f * cue_.bass + .04f * cue_.strike);
     quad();
   }
   void common(GLuint p, float aspect, float k, int rays, int nw) {
@@ -295,14 +295,18 @@ class Infinity final : public de::Demo {
     one(rays_, "uTime", float(cue_.flow) * 4.f);
     one(rays_, "uFlow", float(cue_.flow));
     one(rays_, "uBeat", float(frame_.sync.beat));
-    one(rays_, "uPulse", cue_.beat);
+    one(rays_, "uPulse", cue_.strike);
+    one(rays_, "uBass", cue_.bass);
     const auto rayCamera = camera(yawOffset_ + 0.18f * std::sin(float(cue_.flow) * 0.08f), pitchOffset_ + 0.12f);
     glUniformMatrix3fv(loc(rays_, "uCam"), 1, GL_FALSE, rayCamera.m);
     one(rays_, "uNMax", 1 / ((1 - k) + k * .045f / 1.045f));
-    for (int layer = 0; layer < 2; ++layer) {
-      one(rays_, "uWidth", layer ? 1.15f : 9.f);
-      one(rays_, "uIntensity", (layer ? 1.05f : .045f) * (1 + .18f * cue_.treble));
-      one(rays_, "uSharp", layer ? 1.6f : 2.2f);
+    constexpr float widths[] = {10.f, 3.2f, .95f};
+    constexpr float intensities[] = {.028f, .15f, 1.20f};
+    for (int layer = 0; layer < 3; ++layer) {
+      one(rays_, "uWidth", widths[layer] * (1.f + .06f * cue_.breath));
+      one(rays_, "uIntensity", intensities[layer] * (1 + .14f * cue_.treble * cue_.flutter));
+      one(rays_, "uCore", layer == 2 ? 1.f : 0.f);
+      one(rays_, "uSharp", layer == 2 ? 2.f : 2.6f);
       glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 1024, count * nw * (white ? 2 : 3));
     }
     glDisable(GL_BLEND);
@@ -313,7 +317,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "1.5";
+    c.version = "1.6";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;

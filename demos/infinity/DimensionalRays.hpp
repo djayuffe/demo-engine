@@ -9,12 +9,22 @@ inline std::string vertex(std::string source) {
 out float vDepth;
 out float vSheet;
 uniform float uFlow;
+uniform float uBeat;
+uniform float uPulse;
+uniform float uBass;
 uniform mat3 uCam;
 vec3 projectRay(vec2 r,float along,float ray,float sheet){
   float phi=ray*6.2831853+sheet*1.8;
   vec4 q=vec4((r.x/uAspect-0.5)*2.0*uAspect,(r.y-0.5)*2.0,
     0.32*sin(along*6.2831853+phi)+(sheet-1.0)*0.38,
     0.30*cos(along*6.2831853-phi)+(sheet-1.0)*0.24);
+  // Traveling muscular waves: bounded and anchored at the path endpoints.
+  float body=sin(3.14159265*along); body*=body;
+  float wave=along*9.42477796-uBeat*1.57079633+sheet*1.8;
+  float coil=body*(0.065+0.045*uBass+0.035*uPulse);
+  q.xy+=coil*vec2(sin(wave),cos(wave*0.75+phi*0.18));
+  q.z+=body*(0.10*sin(wave+phi*0.25)+0.055*sin(wave*2.0));
+  q.w+=coil*cos(wave*0.5);
   float a=uFlow*0.11+sheet*0.34,b=uFlow*0.07+0.25;
   q.xw=mat2(cos(a),-sin(a),sin(a),cos(a))*q.xw;
   q.yz=mat2(cos(b),-sin(b),sin(b),cos(b))*q.yz;
@@ -46,9 +56,9 @@ vec3 projectRay(vec2 r,float along,float ray,float sheet){
   return source;
 }
 inline std::string fragment(std::string source) {
-  infinity_opt::replace(
-      source, "in float vLambda;",
-      "in float vLambda;\nin float vDepth;\nin float vSheet;\nuniform float uBeat;\nuniform float uPulse;");
+  infinity_opt::replace(source, "in float vLambda;",
+                        "in float vLambda;\nin float vDepth;\nin float vSheet;\nuniform float uBeat;\nuniform float "
+                        "uPulse;\nuniform float uCore;");
   infinity_opt::replace(source, "float prof = exp(-vSide * vSide * uSharp);",
                         R"GLSL(float edge=max(fwidth(vSide),0.025);
   float prof=exp(-vSide*vSide*uSharp)
@@ -58,8 +68,12 @@ inline std::string fragment(std::string source) {
   infinity_opt::replace(source, "float dt = vT - phase;", "float dt = mod(vT-phase+0.5,1.0)-0.5;");
   infinity_opt::replace(source, "float a = prof * uIntensity * fade * (0.22 + pulse);",
                         R"GLSL(c=mix(c,c.brg,0.12*vSheet);
-  float a=prof*uIntensity*fade*(0.10+min(pulse,4.5))
-    *vDepth/(1.0+vSheet*0.6)*(0.80+0.65*uPulse);)GLSL");
+  // Hot central filaments retain spectral shoulders instead of washing out.
+  float hot=exp(-vSide*vSide*12.0)*smoothstep(1.0,4.5,pulse)*uCore;
+  c=mix(c,vec3(max(c.r,max(c.g,c.b))),0.18*hot);
+  float tendon=0.88+0.12*sin(vT*94.24778-uBeat*3.14159265+vSheet);
+  float a=prof*uIntensity*fade*(0.14*tendon+min(pulse,5.0))
+    *vDepth/(1.0+vSheet*0.6)*(0.78+0.85*uPulse);)GLSL");
   return source;
 }
 } // namespace infinity_dimension

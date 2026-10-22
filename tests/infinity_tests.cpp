@@ -34,6 +34,11 @@ int main() {
   require(sample(8.5, 0, true, 0, 0, 0).beat < .02f, "beat decay washes out lights");
   require(sample(8.25, 0, false, 0, 0, 0).beat == sample(8.25, 0, true, 0, 0, 0).beat,
           "clock pulse drifts with audio availability");
+  require(sample(8, 0, true, 0, 0, 0).strike > sample(9, 0, true, 0, 0, 0).strike, "bar accent missing");
+  require(sample(8.5, 1, true, 1, 1, 1).beat < .02f, "sustained audio washes out beat attack");
+  require(sample(8.5, 0, true, 0, 0, 0).flutter == 1.f, "offbeat transient missing");
+  require(std::abs(sample(8, 0, false, 0, 0, 0).breath - sample(16, 0, false, 0, 0, 0).breath) < 1e-6,
+          "organic phrase does not loop");
   float a[24], b[24];
   pulses(12.25, 1, a);
   pulses(12.25, 1, b);

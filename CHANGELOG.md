@@ -1,3 +1,10 @@
+# Hold Infinity 1.6 organic light and rhythm — 2026-10-22
+
+- Add bounded, endpoint-anchored traveling waves and fine moving striations to dimensional light sheets.
+- Separate bar accents, half-beat treble detail and eight-beat breathing from sustained audio volume.
+- Render hot filaments, coloured inner glow and faint outer halos as three GPU layers; retain deep black backgrounds.
+- Drive chamber glow and glass bloom with rhythmic accents; cover beat decay and phrase boundaries in regression tests.
+
 # Hold Infinity 1.5 projection and light corrections — 2026-10-22
 
 - Correct undefined reversed smoothstep fades throughout native LED, reflected-light and distance-detail shaders.
