@@ -7,6 +7,7 @@
 #include "Optimize.hpp"
 #include "DimensionalRays.hpp"
 #include "RenderCorrections.hpp"
+#include "Parallax.hpp"
 #include "GpuTimer.hpp"
 #include <unordered_map>
 #include <algorithm>
@@ -123,6 +124,14 @@ class Infinity final : public de::Demo {
   double mouseX_ = 0, mouseY_ = 0;
   float yawOffset_ = 0, pitchOffset_ = 0, grinCurvature_ = -1;
   int instrumentState_ = -1;
+  float pointerX_ = 0, pointerY_ = 0;
+  bool fixedEye_ = false;
+  infinity_parallax::Eye eye_;
+  void origin(GLuint p, const Camera& c, float x, float y, float z) {
+    three(p, "uRo", x + c.m[0] * eye_.x + c.m[3] * eye_.y + c.m[6] * eye_.z,
+          y + c.m[1] * eye_.x + c.m[4] * eye_.y + c.m[7] * eye_.z,
+          z + c.m[2] * eye_.x + c.m[5] * eye_.y + c.m[8] * eye_.z);
+  }
   std::string error_;
   GLint loc(GLuint p, const char* n) {
     if (reference_) {
@@ -149,7 +158,7 @@ class Infinity final : public de::Demo {
   }
   void view(GLuint p, const Camera& c, float distance, float fov, int w, int h) {
     glUniformMatrix3fv(loc(p, "uCam"), 1, GL_FALSE, c.m);
-    three(p, "uRo", c.back[0] * distance, c.back[1] * distance, c.back[2] * distance);
+    origin(p, c, c.back[0] * distance, c.back[1] * distance, c.back[2] * distance);
     one(p, "uTanHalf", std::tan(fov * 3.14159265359f / 360));
     two(p, "uRes", float(w), float(h));
   }
@@ -190,7 +199,7 @@ class Infinity final : public de::Demo {
     infinity_sync::pulses(frame_.sync.beat, cue_.bass, pulses);
     glUniform4fv(loc(p, "uPulse"), 6, pulses);
     if (scene == 1 || scene == 2)
-      three(p, "uRo", .15f * std::sin(float(cue_.flow) * .2f), .08f, .15f * std::cos(float(cue_.flow) * .13f));
+      origin(p, cam, .15f * std::sin(float(cue_.flow) * .2f), .08f, .15f * std::cos(float(cue_.flow) * .13f));
     glUniform4f(loc(p, "uBoost"), std::cos(float(cue_.flow) * .11f), 0, std::sin(float(cue_.flow) * .11f),
                 .28f * std::sin(float(cue_.flow) * .23f));
     quad();
@@ -297,7 +306,9 @@ class Infinity final : public de::Demo {
     one(rays_, "uBeat", float(frame_.sync.beat));
     one(rays_, "uPulse", cue_.strike);
     one(rays_, "uBass", cue_.bass);
-    const auto rayCamera = camera(yawOffset_ + 0.18f * std::sin(float(cue_.flow) * 0.08f), pitchOffset_ + 0.12f);
+    three(rays_, "uEye", eye_.x, eye_.y, eye_.z);
+    const auto rayCamera =
+        camera(yawOffset_ + (still_ ? 0.f : 0.18f * std::sin(float(cue_.flow) * 0.08f)), pitchOffset_ + 0.12f);
     glUniformMatrix3fv(loc(rays_, "uCam"), 1, GL_FALSE, rayCamera.m);
     one(rays_, "uNMax", 1 / ((1 - k) + k * .045f / 1.045f));
     constexpr float widths[] = {10.f, 3.2f, .95f};
@@ -317,7 +328,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "1.6";
+    c.version = "1.7";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
@@ -343,6 +354,21 @@ public:
       if (end != value.size() || !std::isfinite(fps) || fps < 24 || fps > 144)
         throw std::runtime_error("infinity fps must be 24..144");
       targetMs_ = 1000.0 / fps;
+      return true;
+    }
+    if (a == "--infinity-eye") {
+      if (i + 2 >= argc) throw std::runtime_error(a + " needs X Y in -1..1");
+      float values[2];
+      for (int j = 0; j < 2; ++j) {
+        std::string text = argv[++i];
+        size_t end = 0;
+        values[j] = std::stof(text, &end);
+        if (end != text.size() || !std::isfinite(values[j]) || std::abs(values[j]) > 1)
+          throw std::runtime_error("eye coordinates must be -1..1");
+      }
+      pointerX_ = values[0];
+      pointerY_ = values[1];
+      fixedEye_ = true;
       return true;
     }
     if (a == "--gpu-profile") {
@@ -393,6 +419,7 @@ public:
   std::string usage() const override {
     return "  --infinity-scene N  Hold one optical scene (0..11)\n"
            "  --infinity-pixels N GPU budget (10000..4000000; default 400000)\n"
+           "  --infinity-eye X Y  Fixed camera offset (-1..1); disables automatic dolly\n"
            "  --still             Fixed camera; accumulate up to 400 samples\n"
            "  --instrument-state N Seven-bit optical state (0..127; see demo README)\n"
            "  --grin-curvature F   Index gradient 0..1 (selects ray lab if auto)\n"
@@ -460,10 +487,18 @@ public:
         pitchOffset_ = std::clamp(pitchOffset_ - float(y - mouseY_) * 4.f / float(std::max(1, width)), -1.2f, 1.2f);
         viewDirty_ = x != mouseX_ || y != mouseY_;
       }
+      if (!still_ && !fixedEye_) {
+        int width = 1, height = 1;
+        glfwGetWindowSize(window, &width, &height);
+        const bool inside = glfwGetWindowAttrib(window, GLFW_HOVERED) == GLFW_TRUE;
+        pointerX_ = infinity_parallax::smooth(pointerX_, inside ? float(2 * x / std::max(1, width) - 1) : 0.f, f.dt);
+        pointerY_ = infinity_parallax::smooth(pointerY_, inside ? float(1 - 2 * y / std::max(1, height)) : 0.f, f.dt);
+      }
       mouseX_ = x;
       mouseY_ = y;
       dragging_ = held;
     }
+    eye_ = infinity_parallax::eye(f.sync.beat, pointerX_, pointerY_, still_ || fixedEye_);
     int current = infinity_sync::sample(f.sync.beat, 0, false, 0, 0, 0, manual_).scene;
     if (in.pressed(de::Key::Right)) manual_ = (current + 1) % 12;
     if (in.pressed(de::Key::Left)) manual_ = (current + 11) % 12;

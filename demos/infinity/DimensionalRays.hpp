@@ -13,6 +13,7 @@ uniform float uBeat;
 uniform float uPulse;
 uniform float uBass;
 uniform mat3 uCam;
+uniform vec3 uEye;
 vec3 projectRay(vec2 r,float along,float ray,float sheet){
   float phi=ray*6.2831853+sheet*1.8;
   vec4 q=vec4((r.x/uAspect-0.5)*2.0*uAspect,(r.y-0.5)*2.0,
@@ -29,6 +30,7 @@ vec3 projectRay(vec2 r,float along,float ray,float sheet){
   q.xw=mat2(cos(a),-sin(a),sin(a),cos(a))*q.xw;
   q.yz=mat2(cos(b),-sin(b),sin(b),cos(b))*q.yz;
   vec3 p=transpose(uCam)*(q.xyz*(2.8/max(1.2,3.0-q.w)));
+  p-=uEye;
   float depth=3.2/max(1.6,3.8-p.z);
   return vec3(vec2(0.5)+p.xy*depth/vec2(2.0*uAspect,2.0),depth);
 })GLSL");

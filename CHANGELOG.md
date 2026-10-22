@@ -1,3 +1,9 @@
+# Hold Infinity 1.7 translational parallax — 2026-10-22
+
+- Translate the camera origin across every optical scene; apply matching view-space translation to dimensional light sheets.
+- Add smoothed pointer-driven eye movement and a subtle beat-clock dolly, preserving mouse orbit and fixed still rendering.
+- Add deterministic eye-offset controls and regression coverage for translation direction, still behavior and frame-rate-independent smoothing.
+
 # Hold Infinity 1.6 organic light and rhythm — 2026-10-22
 
 - Add bounded, endpoint-anchored traveling waves and fine moving striations to dimensional light sheets.

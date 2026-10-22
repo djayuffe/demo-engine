@@ -1,4 +1,5 @@
 #include "Sync.hpp"
+#include "Parallax.hpp"
 #include "RenderCorrections.hpp"
 #include "Optimize.hpp"
 #include "Shaders.hpp"
@@ -19,6 +20,15 @@ int main() {
               corrected.find("orderedRamp(0.0,1.0,0.5)") != std::string::npos,
           "increasing or decreasing fade left undefined");
   require(shader.find("orderedRamp") == std::string::npos, "source shader mutated");
+  const auto leftEye = infinity_parallax::eye(0, -1, 0, true);
+  const auto rightEye = infinity_parallax::eye(0, 1, 0, true);
+  require(leftEye.x < 0 && rightEye.x > 0, "eye translation direction incorrect");
+  const float nearShift = (rightEye.x - leftEye.x) / 2.f, farShift = (rightEye.x - leftEye.x) / 5.f;
+  require(nearShift > farShift, "near layer must show larger parallax");
+  require(infinity_parallax::eye(20, 0, 0, true).z == 0, "fixed eye still dollies");
+  const float oneStep = infinity_parallax::smooth(0, 1, .1);
+  const float twoSteps = infinity_parallax::smooth(infinity_parallax::smooth(0, 1, .05), 1, .05);
+  require(std::abs(oneStep - twoSteps) < 1e-6, "pointer smoothing depends on frame rate");
   using namespace infinity_sync;
   require(sample(31.999, 0, false, 0, 0, 0).scene == 0, "scene changes before boundary");
   require(sample(32, 0, false, 0, 0, 0).scene == 1, "bar-boundary cut missing");

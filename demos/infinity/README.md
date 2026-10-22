@@ -121,3 +121,10 @@ The final light sheets carry bounded traveling waves through their four-dimensio
 Beat attacks now depend only on beat phase, so sustained loud passages cannot hold them open. A four-beat accent pattern emphasizes the downbeat, while half-beat transients gate treble detail. All these envelopes derive directly from the existing tempo-aware music clock, with deterministic fallback timing. This adds rhythmic direction rather than audio onset detection or a new tempo estimator.
 
 Three additive HDR ribbon layers separate the narrow hot core, coloured inner glow and faint broad halo. Only the central packet is slightly desaturated toward its peak colour intensity, preserving spectral edges. Chamber glow and glass bloom also use the bar accents. Output remains tone-mapped to the existing display framebuffer; extra ribbon layers add GPU drawing work and remain covered by adaptive resolution.
+
+
+## Translational parallax (1.7)
+
+All twelve scenes now translate the camera origin in addition to orbiting it. Moving the pointer shifts the eye along camera-local right/up axes, smoothly and independently of frame rate. A small 64-beat horizontal/depth dolly and vertical figure-eight make parallax visible during unattended playback. Near geometry shifts more than distant geometry through the actual perspective projection; no flat image displacement is applied.
+
+Chamber and refractive scenes trace from the translated world-space origin. Dimensional lights subtract the same camera-local offset before perspective projection. Mouse drag still orbits. Leaving the window smoothly recenters the pointer contribution. `--still` disables pointer translation and automatic dolly to preserve accumulation. `--infinity-eye X Y` pins a normalized eye offset in [-1,1] and disables automatic dolly, useful for reproducible left/right comparisons; combine with `--still` for stationary glass accumulation.
