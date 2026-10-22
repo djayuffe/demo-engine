@@ -71,5 +71,18 @@ int main() {
   require(!(key == RaySolveKey{1.6f, .65f, 46, 1}) && !(key == RaySolveKey{1.5f, .66f, 46, 1}) &&
               !(key == RaySolveKey{1.5f, .65f, 26, 1}) && !(key == RaySolveKey{1.5f, .65f, 46, 7}),
           "ray solve cache invalidation incomplete");
+  SceneQuality slow;
+  for (int f = 0; f < 250; ++f) slow.observe(60, f, 16.667);
+  require(slow.fraction() >= .25f && slow.fraction() < .4f, "slow GPU budget did not reduce safely");
+  float held = slow.fraction();
+  slow.observe(1, 249, 16.667);
+  require(slow.fraction() == held, "stale GPU query changed budget");
+  slow.observe(std::numeric_limits<double>::quiet_NaN(), 250, 16.667);
+  require(slow.fraction() == held, "invalid GPU query changed budget");
+  for (int f = 251; f < 1000; ++f) slow.observe(4, f, 16.667);
+  require(slow.fraction() == 1.f, "GPU budget did not recover with headroom");
+  SceneQuality stable;
+  for (int f = 0; f < 100; ++f) stable.observe(16, f, 16.667);
+  require(stable.fraction() == 1.f, "GPU governor oscillates near target");
   std::puts("Infinity geometry, clock, beat fronts and band response passed");
 }

@@ -16,11 +16,22 @@ class InfinityGpuTimer {
   std::array<std::vector<double>, 12> ms_;
   size_t cursor_ = 0;
   int active_ = -1;
-  bool enabled_ = false;
+  bool enabled_ = false, report_ = false;
 
 public:
-  void init(bool enabled) {
+  struct Reading {
+    int frame = -1, scene = -1;
+    double milliseconds = 0;
+  };
+
+private:
+  Reading latest_;
+
+public:
+  const Reading& latest() const { return latest_; }
+  void init(bool enabled, bool report = true) {
     enabled_ = enabled;
+    report_ = report;
     if (enabled_)
       for (auto& s : slots_) glGenQueries(1, &s.id);
   }
@@ -33,7 +44,9 @@ public:
         if (!ready) continue;
         GLuint64 ns = 0;
         glGetQueryObjectui64v(s.id, GL_QUERY_RESULT, &ns);
-        if (s.frame >= 10 && ms_[size_t(s.scene)].size() < 8192) ms_[size_t(s.scene)].push_back(double(ns) / 1e6);
+        if (s.frame > latest_.frame) latest_ = {s.frame, s.scene, double(ns) / 1e6};
+        if (report_ && s.frame >= 10 && ms_[size_t(s.scene)].size() < 8192)
+          ms_[size_t(s.scene)].push_back(double(ns) / 1e6);
         s.pending = false;
       }
   }

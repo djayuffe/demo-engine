@@ -70,3 +70,19 @@ Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face o
 ## GPU optimization and profiling
 
 The 1.1 renderer uses specialized optical kernels, cached immutable uniforms, active ray rows, exact-input GPU field reuse and converged bloom reuse. `--gpu-profile` reports non-blocking GPU timings; `--infinity-reference` retains the original workload for A/B checks. `--silent` uses the BPM clock without playing audio. [Measured performance, image comparisons and reproduction commands](GPU_PERFORMANCE.md).
+
+## Adaptive GPU budget (1.2)
+
+Normal playback now adjusts each scene's rendering resolution from completed GPU timer queries, targeting 16.67 ms of GPU work by default. It changes the pixel count, not the optical model, ray steps, bounce count or wavelength count. The ceiling remains 400,000 pixels (one third for glass); the lower bound is 25% of that scene's ceiling, or half its linear resolution. A scene's learned quality is retained separately from the other scenes.
+
+Eight readings establish the timing estimate. A smoothed measurement, a dead band around the target, and a 30-frame cooldown prevent repeated resize chatter. Busy queries are never waited on. Without `--gpu-profile`, the feedback path stores only the latest reading and prints no timing statistics.
+
+```sh
+./build/hold_infinity --infinity-fps 60
+./build/hold_infinity --infinity-fixed-budget
+./build/hold_infinity --infinity-pixels 600000 --infinity-adaptive
+```
+
+`--infinity-fps N` accepts 24–144 and sets a GPU-time target, not a hard frame-rate cap or guarantee. Explicit `--infinity-pixels N` pins the budget, making existing captures and benchmarks reproducible; put `--infinity-adaptive` after it to use that value as an adaptive ceiling. Reference mode and `--still` always bypass adaptation. Stationary accumulation therefore still reaches 400 samples without being reset by quality changes.
+
+On the development M1 Pro, a 160-frame printed-layer run reduced its pixel fraction to 0.8 and then 0.64, reporting a 17.44 ms mean GPU time across the run. This includes the higher-cost settling frames and is not an A/B speedup claim. Tests cover budget limits, recovery with headroom, stale/invalid query rejection and near-target stability. Actual GPU checks verify pinned budgets, stationary convergence, quiet ordinary playback and all 12 scenes.

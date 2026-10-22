@@ -1,3 +1,11 @@
+# Hold Infinity 1.2 adaptive GPU playback — 2026-10-22
+
+- Drive per-scene pixel budgets from non-blocking completed GPU queries, with bounded quality, smoothed timing, hysteresis and resize cooldown.
+- Keep query feedback allocation-free during ordinary playback; reserve timing histories and output for explicit profiling.
+- Preserve explicit pixel budgets, original-workload comparisons and stationary 400-sample accumulation.
+- Add GPU target controls and regression coverage for slow/fast GPUs, recovery, stale/invalid samples and target stability.
+- Validate all optical scenes, fixed-budget behavior and stationary convergence on the native renderer.
+
 # Hold Infinity 1.1 GPU optimization — 2026-10-21
 
 - Prepare GPU optical-state kernels and immutable geometry once; cache uniform locations and eliminate inactive parameter uploads.

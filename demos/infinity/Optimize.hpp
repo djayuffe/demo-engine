@@ -1,5 +1,7 @@
 #pragma once
 #include <stdexcept>
+#include <algorithm>
+#include <cmath>
 #include <string>
 
 namespace infinity_opt {
@@ -26,6 +28,34 @@ inline int stateForScene(int scene, int overrideState = -1) {
              ? 0
              : 5 | (scene == 6 ? 2 : 0) | (scene == 7 ? 64 : 0) | (scene == 8 ? 40 : 0) | (scene == 9 ? 16 : 0);
 }
+// Pixel-budget governor, independent per scene. Hysteresis and a cooldown
+// avoid repeated framebuffer reallocations; exact-budget runs bypass it.
+class SceneQuality {
+  float pixels_ = 1.f, ema_ = 0.f;
+  int last_ = -1, samples_ = 0, next_ = 0;
+
+public:
+  float fraction() const { return pixels_; }
+  bool observe(double milliseconds, int frame, double target) {
+    if (frame <= last_ || !std::isfinite(milliseconds) || milliseconds <= 0 || milliseconds > 2000 ||
+        !std::isfinite(target) || target <= 0)
+      return false;
+    last_ = frame;
+    ema_ = samples_ ? ema_ * .8f + float(milliseconds) * .2f : float(milliseconds);
+    ++samples_;
+    if (samples_ < 8 || frame < next_) return false;
+    float before = pixels_;
+    if (ema_ > target * 1.15)
+      pixels_ = std::max(.25f, pixels_ * .8f);
+    else if (ema_ < target * .7)
+      pixels_ = std::min(1.f, pixels_ * 1.1f);
+    if (before != pixels_) {
+      next_ = frame + 30;
+      return true;
+    }
+    return false;
+  }
+};
 struct RaySolveKey {
   float aspect = -1, curvature = -1;
   int rays = 0, wavelengths = 0;

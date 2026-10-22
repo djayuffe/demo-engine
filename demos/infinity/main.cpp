@@ -98,7 +98,9 @@ class Infinity final : public de::Demo {
   std::array<GLuint, 128> specialized_{};
   std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniforms_;
   InfinityGpuTimer timer_;
-  bool profile_ = false, reference_ = false;
+  bool profile_ = false, reference_ = false, adaptive_ = true;
+  double targetMs_ = 1000.0 / 60.0;
+  std::array<infinity_opt::SceneQuality, 12> quality_;
   infinity_opt::RaySolveKey solved_;
   size_t integrations_ = 0, uniformLookups_ = 0, submitFrames_ = 0, mipBuilds_ = 0;
 
@@ -296,7 +298,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "1.1";
+    c.version = "1.2";
     c.customRendering = true;
     c.logoShow = false;
     c.fxAmount = 0;
@@ -305,6 +307,24 @@ public:
     return c;
   }
   bool parseArg(const std::string& a, int& i, int argc, char** argv) override {
+    if (a == "--infinity-adaptive") {
+      adaptive_ = true;
+      return true;
+    }
+    if (a == "--infinity-fixed-budget") {
+      adaptive_ = false;
+      return true;
+    }
+    if (a == "--infinity-fps") {
+      if (i + 1 >= argc) throw std::runtime_error(a + " needs a value");
+      std::string value = argv[++i];
+      size_t end = 0;
+      double fps = std::stod(value, &end);
+      if (end != value.size() || !std::isfinite(fps) || fps < 24 || fps > 144)
+        throw std::runtime_error("infinity fps must be 24..144");
+      targetMs_ = 1000.0 / fps;
+      return true;
+    }
     if (a == "--gpu-profile") {
       profile_ = true;
       return true;
@@ -342,8 +362,10 @@ public:
         if (manual_ < 0) manual_ = 5;
       } else if (a == "--infinity-scene")
         manual_ = n;
-      else
+      else {
         pixels_ = n;
+        adaptive_ = false;
+      }
       return true;
     }
     return false;
@@ -354,6 +376,9 @@ public:
            "  --still             Fixed camera; accumulate up to 400 samples\n"
            "  --instrument-state N Seven-bit optical state (0..127; see demo README)\n"
            "  --grin-curvature F   Index gradient 0..1 (selects ray lab if auto)\n"
+           "  --infinity-fps N    Adaptive GPU target 24..144 FPS (default 60)\n"
+           "  --infinity-fixed-budget Disable automatic resolution adjustment\n"
+           "  --infinity-adaptive Re-enable adaptation after an explicit pixel budget\n"
            "  --gpu-profile       Report non-blocking GPU timings and submission counts\n"
            "  --infinity-reference Original GPU workload for A/B comparisons\n"
            "  Drag to orbit; Left/Right scenes; Space automatic show; Q quit.\n";
@@ -394,7 +419,7 @@ public:
       }
     }
     if (profile_) std::printf("GPU device: %s / %s\n", glGetString(GL_RENDERER), glGetString(GL_VERSION));
-    timer_.init(profile_);
+    timer_.init(profile_ || (adaptive_ && !still_ && !reference_), profile_);
     glutil::setupFullscreenVao(vao_, vbo_);
     return state_.resize(512, 182, GL_RGBA32F, false, error_) &&
            checkpoints_.resize(16, 182, GL_RGBA32F, false, error_);
@@ -442,7 +467,16 @@ public:
     glDisable(GL_CULL_FACE);
     glDisable(GL_BLEND);
     glBindVertexArray(vao_);
+    timer_.poll();
     int budget = cue_.scene >= 4 && cue_.scene < 10 ? pixels_ / 3 : pixels_;
+    if (adaptive_ && !still_ && !reference_) {
+      const auto& r = timer_.latest();
+      auto& q = quality_[size_t(cue_.scene)];
+      if (r.scene == cue_.scene && q.observe(r.milliseconds, r.frame, targetMs_) && profile_)
+        std::printf("GPU quality scene %02d: %.3f of pixel ceiling (target %.2f ms)\n", cue_.scene, q.fraction(),
+                    targetMs_);
+      budget = std::max(1, int(float(budget) * q.fraction()));
+    }
     double scale = std::min(1.0, std::sqrt(double(budget) / (double(f.width) * f.height)));
     int w = std::max(1, int(f.width * scale)), h = std::max(1, int(f.height * scale));
     bool resized = image_.w != w || image_.h != h;

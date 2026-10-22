@@ -1,6 +1,6 @@
 # Hold Infinity on Demo Engine
 
-The default demo now ports **Hold Infinity**, supplied as `hold_infinity_by_purpletwilight21858029.zip`: mirrored dodecahedral chambers, hyperbolic honeycombs, spectral GRIN glass and a GPU gradient-index ray lab. Its 12 optical scenes follow the soundtrack's beats, bars and frequency bands. The earlier effects are bypassed in this show.
+The default demo now ports **Hold Infinity**, supplied as `hold_infinity_by_purpletwilight21858029.zip`: mirrored dodecahedral chambers, hyperbolic honeycombs, spectral GRIN glass and a GPU gradient-index ray lab. Its 12 optical scenes follow the soundtrack's beats, bars and frequency bands. The earlier effects are bypassed in this show. Normal playback adapts each scene’s resolution to GPU load; fixed-budget captures and still accumulation remain available.
 
 ```sh
 make run
