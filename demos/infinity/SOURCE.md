@@ -11,3 +11,5 @@ The browser page, CSS, visibility observers and DOM controls remain reference ma
 Bundled soundtrack licensing and credits remain in the repository `NOTICE.md` and `demos/wireframe/assets/music/README.md`; the live ticker credits the active bundled track.
 
 The GPU optimization pass adds constant-specialized program variants in `Optimize.hpp`; it preserves the source integrator and all numerical limits. The generic uniform-driven source remains available with `--infinity-reference` for image/workload comparisons.
+
+The native 1.3 presentation adds `DimensionalRays.hpp`: four-coordinate embedding, plane rotations, camera projection, layered instancing and beat-driven light packets for the last two scenes. These artistic transformations are separate from the preserved source shaders and do not replace their RK4 solver.

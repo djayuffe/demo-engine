@@ -11,6 +11,8 @@ The optical integrators, mirror tracing, spectral sampling and instanced ray rib
 - Add an eight-slot non-blocking GPU timer ring. Only read available results; skip busy slots, never force a GPU finish. Ignore the first ten warmup frames, cap retained measurements at 8,192 per scene, and skip final unavailable queries at shutdown.
 - Add `--silent` for deterministic BPM-clock captures and comparisons without initializing audio playback.
 
+The measurements below precede the 1.3 dimensional light presentation. They do not measure the additional ray sheets or establish its performance. Reference mode now shares the dimensional presentation for current workload comparisons.
+
 ## Measured results
 
 Apple M1 Pro, OpenGL 4.1 Metal driver 91.7. Each reference/optimized pair uses 90 frames, two alternating-order repeats, 120,000-pixel budget (one third for glass), logical 640×360 window / 1280×720 framebuffer, fixed 0.0166667-second clock, silent 132 BPM and vsync off. Values are the mean of both runs' GPU-query averages; CPU submission, presentation/vsync, and startup compilation are outside the timer.

@@ -1,3 +1,10 @@
+# Hold Infinity 1.3 dimensional light — 2026-10-22
+
+- Rebuild the final two scenes as a four-dimensional light loom and prismatic hyperspace threads, with layered GPU instances and XW/YZ rotation.
+- Project ribbon tangents into screen space and scale width/glow by depth; retain narrow highlights and a quiet background.
+- Synchronize traveling light packets to musical beat position and preserve the original GPU RK4 integration.
+- Share the artistic presentation between reference and optimized modes for valid workload comparisons.
+
 # Hold Infinity contrast pass — 2026-10-22
 
 - Reduce chamber/glass bloom, star glare and beat-driven light amplification.

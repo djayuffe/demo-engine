@@ -26,8 +26,8 @@ Drag to orbit. Left/right select scenes; Space returns to the automatic show; Q 
 | 7 | Seven printed refractive-index layers |
 | 8 | Hero-wavelength spectral glass, water surround |
 | 9 | Camera inside the optical instrument |
-| 10 | Gradient-index ray lab, monochrome |
-| 11 | Gradient-index ray lab, seven wavelengths |
+| 10 | Four-dimensional light loom, three monochrome sheets |
+| 11 | Prismatic hyperspace threads, two seven-wavelength sheets |
 
 ## Music direction
 
@@ -91,3 +91,10 @@ On the development M1 Pro, a 160-frame printed-layer run reduced its pixel fract
 ## Contrast and glare
 
 The default grade now uses darker midtones and a hue-preserving highlight shoulder. Bloom, star glare and music-driven light boosts are restrained, and glass exposure is lowered before display mapping. The ray lab keeps a narrow luminous core with a quieter halo. These presentation changes preserve the optical calculations and music timing.
+
+
+## Dimensional light (1.3)
+
+The final two scenes lift the integrated ray paths into four coordinates, rotate them through XW and YZ planes, then project through a three-dimensional camera. Mouse orbit changes the view of the layered curves. Three monochrome sheets form the light loom; two seven-wavelength sheets form the prismatic threads. Screen-space tangents keep the ribbons aligned after projection, and depth controls their width and brightness.
+
+Traveling luminous packets follow musical beat position, with staggered phases across sheets and a restrained beat pulse. Narrow cores, attenuated distant sheets and a darker field preserve contrast. The underlying 512-step RK4 paths and spectral integration are unchanged: this is an artistic four-dimensional embedding, not an additional physical optical solver. Both optimized and reference modes share this presentation. The extra instanced sheets add rendering work; the adaptive pixel budget remains available.

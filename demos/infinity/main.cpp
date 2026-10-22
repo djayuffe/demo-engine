@@ -5,6 +5,7 @@
 #include "Dodecahedron.hpp"
 #include "Sync.hpp"
 #include "Optimize.hpp"
+#include "DimensionalRays.hpp"
 #include "GpuTimer.hpp"
 #include <unordered_map>
 #include <algorithm>
@@ -27,8 +28,8 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "SEVEN PRINTED INDEX LAYERS",
                                  "SPECTRAL GLASS / WATER",
                                  "INSIDE THE INSTRUMENT",
-                                 "GRADIENT INDEX / MONOCHROME",
-                                 "GRADIENT INDEX / SPECTRUM"};
+                                 "FOUR-DIMENSIONAL LIGHT LOOM",
+                                 "PRISMATIC HYPERSPACE THREADS"};
 constexpr const char* composite = R"GLSL(#version 410 core
 in vec2 vUv; out vec4 outColor; uniform sampler2D uImg; uniform float uFade;
 void main(){
@@ -290,12 +291,17 @@ class Infinity final : public de::Demo {
     common(rays_, aspect, k, count, nw);
     two(rays_, "uRes", float(w), float(h));
     one(rays_, "uTime", float(cue_.flow) * 4.f);
+    one(rays_, "uFlow", float(cue_.flow));
+    one(rays_, "uBeat", float(frame_.sync.beat));
+    one(rays_, "uPulse", cue_.beat);
+    const auto rayCamera = camera(yawOffset_ + 0.18f * std::sin(float(cue_.flow) * 0.08f), pitchOffset_ + 0.12f);
+    glUniformMatrix3fv(loc(rays_, "uCam"), 1, GL_FALSE, rayCamera.m);
     one(rays_, "uNMax", 1 / ((1 - k) + k * .045f / 1.045f));
     for (int layer = 0; layer < 2; ++layer) {
       one(rays_, "uWidth", layer ? 1.3f : 7.f);
       one(rays_, "uIntensity", (layer ? .72f : .08f) * (1 + .25f * cue_.treble));
       one(rays_, "uSharp", layer ? 1.6f : 2.2f);
-      glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 1024, count * nw);
+      glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 1024, count * nw * (white ? 2 : 3));
     }
     glDisable(GL_BLEND);
   }
@@ -305,7 +311,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "1.2";
+    c.version = "1.3";
     c.customRendering = true;
     c.logoShow = false;
     c.fxAmount = 0;
@@ -397,8 +403,12 @@ public:
     if (reference_) trace_ = program(FULLSCREEN_VS, TRACE_FS);
     show_ = program(FULLSCREEN_VS, SHOW_FS);
     integrate_ = program(FULLSCREEN_VS, INTEGRATE_FS);
-    field_ = program(FULLSCREEN_VS, FIELD_FS);
-    rays_ = program(RAY_VS, RAY_FS);
+    std::string fieldSource = FIELD_FS;
+    infinity_opt::replace(fieldSource, "outColor = vec4(col, 1.0);", "outColor = vec4(col*0.35, 1.0);");
+    field_ = program(FULLSCREEN_VS, fieldSource.c_str());
+    const auto rayVertex = infinity_dimension::vertex(RAY_VS);
+    const auto rayFragment = infinity_dimension::fragment(RAY_FS);
+    rays_ = program(rayVertex.c_str(), rayFragment.c_str());
     compose_ = program(FULLSCREEN_VS, composite);
     if (std::any_of(chamber_.begin(), chamber_.end(), [](GLuint p) { return !p; }) || !post_ ||
         (reference_ && !trace_) || !show_ || !integrate_ || !field_ || !rays_ || !compose_) {
