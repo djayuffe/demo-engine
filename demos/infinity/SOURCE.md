@@ -13,3 +13,5 @@ Bundled soundtrack licensing and credits remain in the repository `NOTICE.md` an
 The GPU optimization pass adds constant-specialized program variants in `Optimize.hpp`; it preserves the source integrator and all numerical limits. The generic uniform-driven source remains available with `--infinity-reference` for image/workload comparisons.
 
 The native 1.3 presentation adds `DimensionalRays.hpp`: four-coordinate embedding, plane rotations, camera projection, layered instancing and beat-driven light packets for the last two scenes. These artistic transformations are separate from the preserved source shaders and do not replace their RK4 solver.
+
+Native `RenderCorrections.hpp` normalizes decreasing smooth ramps before compilation to avoid undefined reversed GLSL smoothstep bounds. Dimensional projection corrections remain in the separate native presentation layer. Archived sources and generated import headers are preserved.

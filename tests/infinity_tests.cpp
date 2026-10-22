@@ -1,4 +1,5 @@
 #include "Sync.hpp"
+#include "RenderCorrections.hpp"
 #include "Optimize.hpp"
 #include "Shaders.hpp"
 #include "Dodecahedron.hpp"
@@ -10,6 +11,14 @@ void require(bool ok, const char* message) {
   if (!ok) throw std::runtime_error(message);
 }
 int main() {
+  const std::string shader =
+      "#version 410 core\nvoid main(){float a=smoothstep(1.0,0.0,0.5);float b=smoothstep(0.0,1.0,0.5);}";
+  const auto corrected = infinity_render::orderedRamps(shader);
+  require(corrected.rfind("#version 410 core\n", 0) == 0, "shader version displaced");
+  require(corrected.find("orderedRamp(1.0,0.0,0.5)") != std::string::npos &&
+              corrected.find("orderedRamp(0.0,1.0,0.5)") != std::string::npos,
+          "increasing or decreasing fade left undefined");
+  require(shader.find("orderedRamp") == std::string::npos, "source shader mutated");
   using namespace infinity_sync;
   require(sample(31.999, 0, false, 0, 0, 0).scene == 0, "scene changes before boundary");
   require(sample(32, 0, false, 0, 0, 0).scene == 1, "bar-boundary cut missing");

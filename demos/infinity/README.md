@@ -105,3 +105,10 @@ Traveling luminous packets follow musical beat position, with staggered phases a
 The final two light scenes clear to pure black, without the former index-field backdrop. A small display black threshold and deeper midtones increase separation; the hue-preserving shoulder retains up to 0.98 display intensity while compressing HDR light energy. This is tone-mapped HDR on the existing display output, not an HDR-monitor output mode. Narrow cores are brighter, with wider but lower-energy halos.
 
 Packets complete one circuit every four beats, with phase offsets between dimensional sheets and circular distance across the seam. A fast exponential envelope attacks on the exact beat and decays within the beat, keeping light accents aligned with the continuous music clock. Band energy adds restrained detail. Startup tempo follows the selected track, and `--track` still overrides the default.
+
+
+## Projection and light corrections (1.5)
+
+All native shader stages now use defined increasing or decreasing smooth ramps. The imported LED coverage, reflected underside light and distance-detail fades previously used reversed GLSL `smoothstep` bounds, whose results are undefined. Native preprocessing retains the intended decreasing fade as the complement of an increasing ramp; archived source files remain unchanged.
+
+Dimensional rays use the inverse camera basis for world-to-view projection and real homogeneous clip W for perspective-correct path, depth and packet interpolation. Centered neighboring samples follow bends more smoothly, with one-sided endpoint tangents. Derivative-filtered ribbon edges fade to zero at their boundaries rather than ending at a visible Gaussian cutoff. Transparent light sheets continue to add together at crossings; they do not behave as opaque surfaces. Existing physical reflection, refraction and RK4 calculations remain intact.

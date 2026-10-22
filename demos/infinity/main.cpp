@@ -6,6 +6,7 @@
 #include "Sync.hpp"
 #include "Optimize.hpp"
 #include "DimensionalRays.hpp"
+#include "RenderCorrections.hpp"
 #include "GpuTimer.hpp"
 #include <unordered_map>
 #include <algorithm>
@@ -141,7 +142,11 @@ class Infinity final : public de::Demo {
   void two(GLuint p, const char* n, float a, float b) { glUniform2f(loc(p, n), a, b); }
   void three(GLuint p, const char* n, float a, float b, float c) { glUniform3f(loc(p, n), a, b, c); }
   static void quad() { glDrawArrays(GL_TRIANGLES, 0, 3); }
-  GLuint program(const char* vs, const char* fs) { return glutil::linkProgram(vs, fs, error_); }
+  GLuint program(const char* vs, const char* fs) {
+    const auto vertex = infinity_render::orderedRamps(vs);
+    const auto fragment = infinity_render::orderedRamps(fs);
+    return glutil::linkProgram(vertex.c_str(), fragment.c_str(), error_);
+  }
   void view(GLuint p, const Camera& c, float distance, float fov, int w, int h) {
     glUniformMatrix3fv(loc(p, "uCam"), 1, GL_FALSE, c.m);
     three(p, "uRo", c.back[0] * distance, c.back[1] * distance, c.back[2] * distance);
@@ -308,7 +313,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "1.4";
+    c.version = "1.5";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;

@@ -1,3 +1,10 @@
+# Hold Infinity 1.5 projection and light corrections — 2026-10-22
+
+- Correct undefined reversed smoothstep fades throughout native LED, reflected-light and distance-detail shaders.
+- Use the inverse camera basis and homogeneous perspective interpolation for dimensional light ribbons.
+- Follow bends with centered tangents and soften hard ribbon boundaries with derivative-filtered edge coverage.
+- Preserve archived shaders, numerical optical solvers, black backgrounds and song-two startup.
+
 # Hold Infinity 1.4 black and HDR light — 2026-10-22
 
 - Clear the final light scenes to pure black and remove the unused field pass.
