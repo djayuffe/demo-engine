@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+from smoke_infinity import scene_count
 
 
 def main():
@@ -19,7 +20,8 @@ def main():
     a=ap.parse_args()
     if a.frames<30 or a.repeats<1:ap.error('At least 30 frames and one repeat required')
     scenes=[int(s) for s in a.scenes.split(',')]
-    if any(s<0 or s>11 for s in scenes):ap.error('Scenes must be 0..11')
+    count=scene_count(Path(a.binary).resolve())
+    if any(s<0 or s>=count for s in scenes):ap.error(f'Scenes must be 0..{count-1}')
     root=Path(a.out).resolve();root.mkdir(parents=True,exist_ok=True);binary=Path(a.binary).resolve()
     if not shutil.which("ffmpeg"):print("FFmpeg unavailable: GPU timings only; image checks skipped",flush=True)
     rows=[]

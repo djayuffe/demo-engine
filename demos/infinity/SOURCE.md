@@ -17,3 +17,9 @@ The native 1.3 presentation adds `DimensionalRays.hpp`: four-coordinate embeddin
 Native `RenderCorrections.hpp` normalizes decreasing smooth ramps before compilation to avoid undefined reversed GLSL smoothstep bounds. Dimensional projection corrections remain in the separate native presentation layer. Archived sources and generated import headers are preserved.
 
 The 2.3 `SequentialRays.hpp` geometry kernels extract the optical definitions, derivative and RK4 update from the imported integration shader at startup. They change scheduling and prefix reuse while retaining those source equations and their attribution. Generated `Shaders.hpp`, geometry constants and archived reference files are not rewritten by this audit.
+
+## QRI-inspired original geometry studies
+
+Scenes 12–15 in `WorldSheets.hpp` are original procedural GPU implementations inspired by the user-supplied text of Andrés Gómez-Emilsson (2016, December 12), *The Hyperbolic Geometry of DMT Experiences: Symmetries, Sheets, and Saddled Scenes*, Qualia Research Institute: https://www.qri.org/blog/hyperbolic-geometry-DMT .
+
+The visual themes used are harmonic symmetry/chrysanthemum forms, heptagonal disk tilings, folded world sheets and self-similar branching. The supplied essay is treated as artistic reference, including its distinction between subjective reports and proposed models; its phenomenological hypotheses are not asserted as established science by the demo. No article prose, images or embedded media are redistributed. These new effects are separate from PurpleTwilight’s imported shaders and keep that source’s attribution intact. No QRI affiliation or endorsement is implied.

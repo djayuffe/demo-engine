@@ -5,6 +5,7 @@
 #include "AntTraffic.hpp"
 #include "BouncingBall.hpp"
 #include "SequentialRays.hpp"
+#include "WorldSheets.hpp"
 #include "RenderCorrections.hpp"
 #include "Optimize.hpp"
 #include "Shaders.hpp"
@@ -184,7 +185,33 @@ int main() {
   using namespace infinity_sync;
   require(sample(31.999, 0, false, 0, 0, 0).scene == 0, "scene changes before boundary");
   require(sample(32, 0, false, 0, 0, 0).scene == 1, "bar-boundary cut missing");
-  require(sample(384, 0, false, 0, 0, 0).scene == 0, "show does not wrap");
+  require(sample(beatsPerScene * sceneCount, 0, false, 0, 0, 0).scene == 0, "show does not wrap");
+  for (int scene = 12; scene < sceneCount; ++scene)
+    require(sample(double(scene) * beatsPerScene + 1, 0, false, 0, 0, 0).scene == scene, "new scene not directed");
+  const auto heptagon = infinity_worlds::heptagon();
+  require(std::abs(heptagon[0] * heptagon[0] - heptagon[1] * heptagon[1] - 1) < 1e-5,
+          "Poincare mirrors not orthogonal to boundary");
+  {
+    const double center = heptagon[0], radius = heptagon[1], angle = 2 * 3.141592653589793 / 7;
+    const double a = center * std::cos(angle * .5), vertex = a - std::sqrt(a * a - 1);
+    const double x = vertex * std::cos(angle * .5), y = vertex * std::sin(angle * .5);
+    const double cosine =
+        ((x - center) * (x - center * std::cos(angle)) + y * (y - center * std::sin(angle))) / (radius * radius);
+    require(std::abs(std::acos(-cosine) - 2 * 3.141592653589793 / 3) < 1e-5,
+            "heptagon does not fit three polygons per vertex");
+    for (int i = 0; i < 40; ++i) {
+      const double px = .1 + double(i) * .01, py = .08;
+      const double dx = px - center, dy = py, scale = radius * radius / (dx * dx + dy * dy);
+      const double rx = center + dx * scale, ry = dy * scale;
+      require(rx * rx + ry * ry < 1, "Poincare reflection escapes unit disk");
+      const double backScale = radius * radius / ((rx - center) * (rx - center) + ry * ry);
+      require(std::abs(center + (rx - center) * backScale - px) < 1e-6 && std::abs(ry * backScale - py) < 1e-6,
+              "Poincare reflection is not involutive");
+    }
+  }
+  for (int mode = 0; mode < 4; ++mode)
+    require(infinity_worlds::specialized(mode).find("const int uMode = " + std::to_string(mode)) != std::string::npos,
+            "world-sheet specialization missing");
   require(sample(32, 0, false, 0, 0, 0).fade == 0, "scene cut is not dark");
   require(sample(33, 0, false, 0, 0, 0).fade == 1, "scene does not fade in");
   require(sample(100, 1, true, 1, 1, 1, 5).scene == 5, "manual selection ignored");

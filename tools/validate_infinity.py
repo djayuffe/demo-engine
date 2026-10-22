@@ -18,7 +18,7 @@ def main():
                     '--binary', str(binary), '--out', str(out / 'scenes')], check=True)
 
     def run(name, options, expected=None):
-        command = [str(binary), '--silent', '--no-ticker', '--bpm', '132', '--infinity-eye', '0', '0',
+        command = [str(binary), '--validate-output', '--silent', '--no-ticker', '--bpm', '132', '--infinity-eye', '0', '0',
                    '--infinity-pixels', '120000', '--window', '640x360',
                    '--frames', '4', '--fixed-step', '0.0166667'] + options
         result = subprocess.run(command, capture_output=True, text=True, timeout=180)
@@ -27,6 +27,7 @@ def main():
         if result.returncode or (expected and expected not in log):
             raise SystemExit(name + ' failed:\n' + log)
         print(name + ': passed', flush=True)
+        return log
 
     run('target-storage', ['--infinity-scene', '0', '--validate-targets'], 'GPU target validation:')
     for scene in (10, 11):
@@ -39,7 +40,8 @@ def main():
         run(f'optical-state-{state}', ['--instrument-state', str(state)])
     run('still-convergence', ['--infinity-scene', '5', '--still', '--frames', '205', '--gpu-profile'],
         'mipmaps=200')
-    run('automatic-cycle', ['--frames', '200', '--fixed-step', '1'], 'beat 385.00')
+    cycle=run('automatic-cycle', ['--frames', '260', '--fixed-step', '1'])
+    if cycle.count('infinity scene 00:')<2:raise SystemExit('Automatic show did not complete its expanded cycle')
     print('Extended Infinity GPU validation passed', flush=True)
 
 

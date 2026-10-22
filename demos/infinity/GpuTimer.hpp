@@ -1,5 +1,6 @@
 #pragma once
 #include "GLUtil.hpp"
+#include "Sync.hpp"
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -13,7 +14,7 @@ class InfinityGpuTimer {
     int scene = 0, frame = 0;
   };
   std::array<Slot, 8> slots_{};
-  std::array<std::vector<double>, 12> ms_;
+  std::array<std::vector<double>, infinity_sync::sceneCount> ms_;
   size_t cursor_ = 0;
   int active_ = -1;
   bool enabled_ = false, report_ = false;
@@ -57,7 +58,7 @@ public:
       }
   }
   void begin(int scene, int frame) {
-    if (!enabled_ || scene < 0 || scene >= 12 || active_ >= 0) return;
+    if (!enabled_ || scene < 0 || scene >= infinity_sync::sceneCount || active_ >= 0) return;
     auto& s = slots_[cursor_];
     active_ = -1;
     if (!s.pending) {

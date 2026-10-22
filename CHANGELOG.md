@@ -1,3 +1,10 @@
+# Hold Infinity 3.0 hyperbolic world-sheet studies — 2026-10-22
+
+- Add four original GPU effects inspired by the supplied QRI essay: harmonic chrysanthemum, heptagonal Poincaré gates, saddled world sheets and branching crystal garden.
+- Implement {7,3} disk reflections and Möbius navigation, analytic two-root saddle intersections, translucent depth sorting and tetrahedral fold fractals.
+- Integrate music accents, translated-camera parallax and restrained HDR lighting; expand scene timing, quality state and GPU statistics to sixteen scenes.
+- Discover scene ranges in GPU tools, validate finite HDR output and test tiling geometry and the expanded automatic cycle.
+
 # Hold Infinity 2.3 low-level audit — 2026-10-22
 
 - Reuse RK4 prefixes through sequential geometry emission for monochrome rays; retain raster spectral integration after workload-specific GPU measurements.

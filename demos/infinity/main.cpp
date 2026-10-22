@@ -15,6 +15,7 @@
 #include "BallShader.hpp"
 #include "GpuTimer.hpp"
 #include "SequentialRays.hpp"
+#include "WorldSheets.hpp"
 #include <unordered_map>
 #include <algorithm>
 #include <array>
@@ -38,7 +39,12 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "SPECTRAL GLASS / WATER",
                                  "INSIDE THE INSTRUMENT",
                                  "FOUR-DIMENSIONAL LIGHT LOOM",
-                                 "PRISMATIC HYPERSPACE THREADS"};
+                                 "PRISMATIC HYPERSPACE THREADS",
+                                 "HARMONIC CHRYSANTHEMUM",
+                                 "HEPTAGONAL POINCARE GATES",
+                                 "SADDLED WORLD SHEETS",
+                                 "BRANCHING CRYSTAL GARDEN"};
+static_assert(std::size(names) == infinity_sync::sceneCount);
 constexpr const char* composite = R"GLSL(#version 410 core
 in vec2 vUv; out vec4 outColor; uniform sampler2D uImg; uniform float uFade;
 void main(){
@@ -135,14 +141,17 @@ class Infinity final : public de::Demo {
   InfinityGpuTimer timer_;
   bool profile_ = false, reference_ = false, adaptive_ = true;
   double targetMs_ = 1000.0 / 60.0;
-  std::array<infinity_opt::SceneQuality, 12> quality_;
+  std::array<infinity_opt::SceneQuality, infinity_sync::sceneCount> quality_;
   infinity_opt::RaySolveKey solved_;
   size_t integrations_ = 0, uniformLookups_ = 0, submitFrames_ = 0, mipBuilds_ = 0;
 
   GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
   std::array<GLuint, 2> sequential_{};
+  std::array<GLuint, 4> worlds_{};
+  GLuint worldReference_ = 0;
   bool rasterIntegrator_ = false, forceSequential_ = false, validateRays_ = false, validatedRays_ = false,
-       validateTargets_ = false;
+       validateTargets_ = false, validateOutput_ = false;
+  std::array<bool, infinity_sync::sceneCount> outputChecked_{};
   Target image_, output_, state_, checkpoints_;
   de::FrameInfo frame_;
   infinity_sync::Cue cue_;
@@ -448,12 +457,32 @@ class Infinity final : public de::Demo {
     glDisable(GL_BLEND);
   }
 
+  void worldSheet(int scene, int w, int h) {
+    const int mode = scene - 12;
+    const auto p = reference_ ? worldReference_ : worlds_[size_t(mode)];
+    output_.bind();
+    glUseProgram(p);
+    two(p, "uRes", float(w), float(h));
+    one(p, "uBeat", float(std::fmod(std::max(0.0, frame_.sync.beat), 256.0)));
+    one(p, "uPulse", cue_.strike);
+    one(p, "uBass", cue_.bass);
+    three(p, "uEye", eye_.x, eye_.y, eye_.z);
+    const float phase = still_ ? 0.f : float(cue_.flow);
+    const float baseYaw = mode == 3 ? .6f : (mode == 2 ? .25f : 0.f);
+    const float basePitch = mode == 3 ? .3f : .13f;
+    const auto cam = camera(yawOffset_ + baseYaw + .25f * std::sin(phase * .1f),
+                            pitchOffset_ + basePitch + .12f * std::sin(phase * .07f));
+    glUniformMatrix3fv(loc(p, "uCam"), 1, GL_FALSE, cam.m);
+    if (reference_) integer(p, "uMode", mode);
+    quad();
+  }
+
 public:
   de::Config config() const override {
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "2.3";
+    c.version = "3.0";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
@@ -506,6 +535,10 @@ public:
       rasterIntegrator_ = false;
       return true;
     }
+    if (a == "--validate-output") {
+      validateOutput_ = true;
+      return true;
+    }
     if (a == "--validate-targets") {
       validateTargets_ = true;
       return true;
@@ -542,7 +575,7 @@ public:
       std::string value = argv[++i];
       size_t end = 0;
       int n = std::stoi(value, &end);
-      if (end != value.size() || (a == "--infinity-scene"     ? (n < 0 || n >= 12)
+      if (end != value.size() || (a == "--infinity-scene"     ? (n < 0 || n >= infinity_sync::sceneCount)
                                   : a == "--instrument-state" ? (n < 0 || n > 127)
                                                               : (n < 10000 || n > 4000000)))
         throw std::runtime_error("invalid " + a);
@@ -560,7 +593,7 @@ public:
     return false;
   }
   std::string usage() const override {
-    return "  --infinity-scene N  Hold one optical scene (0..11)\n"
+    return "  --infinity-scene N  Hold one optical scene (0..15)\n"
            "  --infinity-pixels N GPU budget (10000..4000000; default 400000)\n"
            "  --infinity-eye X Y  Fixed camera offset (-1..1); disables automatic dolly\n"
            "  --still             Fixed camera; accumulate up to 400 samples\n"
@@ -571,6 +604,7 @@ public:
            "  --infinity-adaptive Re-enable adaptation after an explicit pixel budget\n"
            "  --infinity-sequential-integrator Force sequential RK4 on all ray scenes\n"
            "  --infinity-raster-integrator Original raster RK4 for isolated GPU comparison\n"
+           "  --validate-output Check HDR target values for non-finite results\n"
            "  --validate-targets Test GPU target storage and failed-resize recovery\n"
            "  --validate-ray-state Compare every active float ray sample against raster RK4\n"
            "  --gpu-profile       Report non-blocking GPU timings and submission counts\n"
@@ -601,15 +635,32 @@ public:
       forceSequential_ = false;
       if (integrate_) error_.clear();
     }
+    if (reference_)
+      worldReference_ = program(FULLSCREEN_VS, infinity_worlds::fragment);
+    else
+      for (int mode = 0; mode < 4; ++mode) {
+        const auto source = infinity_worlds::specialized(mode);
+        worlds_[size_t(mode)] = program(FULLSCREEN_VS, source.c_str());
+      }
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
     compose_ = program(FULLSCREEN_VS, composite);
     if (std::any_of(chamber_.begin(), chamber_.end(), [](GLuint p) { return !p; }) || !post_ ||
-        (reference_ && !trace_) || !show_ || !integrate_ || !rays_ || !compose_ || (validateRays_ && !integrate_)) {
+        (reference_ && !trace_) || !show_ || !integrate_ || !rays_ || !compose_ || (validateRays_ && !integrate_) ||
+        (reference_ ? !worldReference_ : std::any_of(worlds_.begin(), worlds_.end(), [](GLuint p) { return !p; }))) {
       std::fprintf(stderr, "Infinity shader failure: %s\n", error_.c_str());
       return false;
     }
+    const auto polygon = infinity_worlds::heptagon();
+    if (reference_) {
+      glUseProgram(worldReference_);
+      two(worldReference_, "uPolygon", polygon[0], polygon[1]);
+    } else
+      for (auto p : worlds_) {
+        glUseProgram(p);
+        two(p, "uPolygon", polygon[0], polygon[1]);
+      }
     if (!reference_) {
       const auto assign = [&](GLuint p, const char* name, int unit) {
         if (p) {
@@ -715,8 +766,8 @@ public:
     }
     eye_ = infinity_parallax::eye(f.sync.beat, pointerX_, pointerY_, still_ || fixedEye_);
     int current = infinity_sync::sample(f.sync.beat, 0, false, 0, 0, 0, manual_).scene;
-    if (in.pressed(de::Key::Right)) manual_ = (current + 1) % 12;
-    if (in.pressed(de::Key::Left)) manual_ = (current + 11) % 12;
+    if (in.pressed(de::Key::Right)) manual_ = (current + 1) % infinity_sync::sceneCount;
+    if (in.pressed(de::Key::Left)) manual_ = (current + infinity_sync::sceneCount - 1) % infinity_sync::sceneCount;
     if (in.pressed(de::Key::Space)) manual_ = -1;
     cue_ = infinity_sync::sample(f.sync.beat, f.sync.pulse, f.music.active, f.music.bass, f.music.mid, f.music.treble,
                                  manual_);
@@ -725,7 +776,9 @@ public:
       announced_ = cue_.scene;
     }
     out.travelers = false;
-    out.ticker = std::string(names[cue_.scene]) + "  /  HOLD INFINITY BY PURPLETWILIGHT  /  " +
+    out.ticker = std::string(names[cue_.scene]) +
+                 (cue_.scene < 12 ? "  /  HOLD INFINITY BY PURPLETWILIGHT  /  "
+                                  : "  /  QRI ESSAY INSPIRED GEOMETRY STUDIES  /  ") +
                  (f.musicPath.empty()                              ? "BPM CLOCK"
                   : f.musicPath.find("cs127") != std::string::npos ? "STARS (4CH) BY CS127 / CC BY 4.0"
                   : f.musicPath.find("drozerix_-_digital_rendezvous") != std::string::npos
@@ -739,7 +792,7 @@ public:
     glDisable(GL_BLEND);
     glBindVertexArray(vao_);
     timer_.poll();
-    int budget = cue_.scene >= 4 && cue_.scene < 10 ? pixels_ / 3 : pixels_;
+    int budget = (cue_.scene >= 4 && cue_.scene < 10) ? pixels_ / 3 : pixels_;
     if (adaptive_ && !still_ && !reference_) {
       const auto& r = timer_.latest();
       auto& q = quality_[size_t(cue_.scene)];
@@ -762,8 +815,23 @@ public:
       chamber(cue_.scene, w, h, cam);
     else if (cue_.scene < 10)
       instrument(cue_.scene, w, h, cam, resized);
-    else
+    else if (cue_.scene < 12)
       grin(cue_.scene, w, h);
+    else
+      worldSheet(cue_.scene, w, h);
+    if (validateOutput_ && !outputChecked_[size_t(cue_.scene)]) {
+      std::vector<float> values(size_t(w * h * 4));
+      output_.bind();
+      glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, values.data());
+      for (float value : values)
+        if (!std::isfinite(value)) {
+          error = "Non-finite HDR output in scene " + std::to_string(cue_.scene);
+          timer_.end();
+          return false;
+        }
+      outputChecked_[size_t(cue_.scene)] = true;
+      std::printf("HDR output validation: scene %02d finite (%d pixels)\n", cue_.scene, w * h);
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, f.width, f.height);
     glDisable(GL_BLEND);
@@ -795,6 +863,15 @@ public:
         glDeleteProgram(p);
         p = 0;
       }
+    for (auto& p : worlds_)
+      if (p) {
+        glDeleteProgram(p);
+        p = 0;
+      }
+    if (worldReference_) {
+      glDeleteProgram(worldReference_);
+      worldReference_ = 0;
+    }
     for (auto& p : sequential_)
       if (p) {
         glDeleteProgram(p);
