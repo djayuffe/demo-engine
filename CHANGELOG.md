@@ -1,3 +1,10 @@
+# Hold Infinity 2.0 interacting ant traffic — 2026-10-22
+
+- Replace independent lane packets with a persistent sixteen-agent colony and beat-timed junction decisions.
+- Reserve destinations, avoid head-on swaps, rotate planning priority, prefer less-visited routes and turn or wait when blocked.
+- Render smoothly moving bodies and warm encounter flashes through a small GPU traffic texture attached to intrinsic surface coordinates.
+- Validate occupancy, target conflicts, movement, path changes, deterministic catch-up and raster stability over 500 decisions.
+
 # Hold Infinity 1.9 Matrix walkers and geometric validation — 2026-10-22
 
 - Add footprint-filtered, beat-accented ant-like walkers on intrinsic geodesic surface lanes.

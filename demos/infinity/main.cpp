@@ -10,6 +10,7 @@
 #include "Parallax.hpp"
 #include "OpticalMath.hpp"
 #include "MatrixLife.hpp"
+#include "AntTraffic.hpp"
 #include "GpuTimer.hpp"
 #include <unordered_map>
 #include <algorithm>
@@ -120,6 +121,9 @@ class Infinity final : public de::Demo {
   bool still_ = false, dragging_ = false, viewDirty_ = false;
   double mouseX_ = 0, mouseY_ = 0;
   float yawOffset_ = 0, pitchOffset_ = 0, grinCurvature_ = -1;
+  GLuint antTexture_ = 0;
+  infinity_ants::Traffic traffic_;
+  infinity_ants::Traffic::Image antImage_;
   int instrumentState_ = -1;
   float pointerX_ = 0, pointerY_ = 0;
   bool fixedEye_ = false;
@@ -184,6 +188,12 @@ class Infinity final : public de::Demo {
     auto p = chamber_[scene];
     if (reference_) faceUniforms(p, scene);
     view(p, cam, scene == 0 ? 6.4f : 0.f, scene == 0 ? 30.f : 78.f, w, h);
+    traffic_.raster(frame_.sync.beat, antImage_);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, antTexture_);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 64, 64, GL_RGBA, GL_FLOAT, antImage_.data());
+    integer(p, "uAntField", 2);
+    glActiveTexture(GL_TEXTURE0);
     one(p, "uTime", float(frame_.time));
     one(p, "uFlow", float(cue_.flow));
     one(p, "uEnergy", cue_.energy);
@@ -330,7 +340,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "1.9";
+    c.version = "2.0";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
@@ -469,6 +479,14 @@ public:
       }
     }
     if (profile_) std::printf("GPU device: %s / %s\n", glGetString(GL_RENDERER), glGetString(GL_VERSION));
+    glGenTextures(1, &antTexture_);
+    glBindTexture(GL_TEXTURE_2D, antTexture_);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 64, 64, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     timer_.init(profile_ || (adaptive_ && !still_ && !reference_), profile_);
     glutil::setupFullscreenVao(vao_, vbo_);
     return state_.resize(512, 182, GL_RGBA32F, false, error_) &&
@@ -476,6 +494,7 @@ public:
   }
   bool update(const de::FrameInfo& f, const de::Input& in, de::Frame& out) override {
     frame_ = f;
+    traffic_.advance(f.sync.beat);
     viewDirty_ = false;
     if (auto* window = glfwGetCurrentContext()) {
       double x = 0, y = 0;
@@ -570,6 +589,10 @@ public:
   }
   void shutdown() override {
     timer_.shutdown();
+    if (antTexture_) {
+      glDeleteTextures(1, &antTexture_);
+      antTexture_ = 0;
+    }
     if (profile_)
       std::printf("GPU workload: frames=%zu ray-solves=%zu uniform-lookups=%zu mipmaps=%zu mode=%s\n", submitFrames_,
                   integrations_, uniformLookups_, mipBuilds_, reference_ ? "reference" : "optimized");

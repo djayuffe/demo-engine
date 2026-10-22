@@ -2,6 +2,7 @@
 #include "Parallax.hpp"
 #include "OpticalMath.hpp"
 #include "MatrixLife.hpp"
+#include "AntTraffic.hpp"
 #include "RenderCorrections.hpp"
 #include "Optimize.hpp"
 #include "Shaders.hpp"
@@ -14,6 +15,47 @@ void require(bool ok, const char* message) {
   if (!ok) throw std::runtime_error(message);
 }
 int main() {
+  infinity_ants::Traffic colony, stepped;
+  for (int tick = 0; tick < 500; ++tick) {
+    colony.advance(double(tick) * .5);
+    bool source[64] = {}, target[64] = {};
+    for (const auto& ant : colony.ants) {
+      int a = ant.y * 8 + ant.x, b = ((ant.y + ant.dy + 8) % 8) * 8 + (ant.x + ant.dx + 8) % 8;
+      require(!source[a] && !target[b], "ants overlap or reserve the same junction");
+      source[a] = true;
+      target[b] = true;
+      require(std::abs(ant.dx) + std::abs(ant.dy) <= 1, "ant left the grid");
+    }
+    for (int i = 0; i < 16; ++i)
+      for (int j = i + 1; j < 16; ++j) {
+        const auto& a = colony.ants[i];
+        const auto& b = colony.ants[j];
+        for (float t : {.25f, .5f, .75f}) {
+          float x = std::abs(float(a.x - b.x) + float(a.dx - b.dx) * t);
+          float y = std::abs(float(a.y - b.y) + float(a.dy - b.dy) * t);
+          x = std::min(x, 8.f - x);
+          y = std::min(y, 8.f - y);
+          require(x * x + y * y >= .49f, "ants intersect between junctions");
+        }
+        require(!(((a.x + a.dx + 8) % 8 == b.x) && ((a.y + a.dy + 8) % 8 == b.y) && ((b.x + b.dx + 8) % 8 == a.x) &&
+                  ((b.y + b.dy + 8) % 8 == a.y)),
+                "head-on ant swap");
+      }
+  }
+  stepped.advance(249.5);
+  for (int i = 0; i < 16; ++i)
+    require(colony.ants[i].x == stepped.ants[i].x && colony.ants[i].y == stepped.ants[i].y &&
+                colony.ants[i].dx == stepped.ants[i].dx && colony.ants[i].dy == stepped.ants[i].dy,
+            "ant decisions depend on frame cadence");
+  require(colony.turns > 0 && colony.conflicts > 0, "ants never react or change path");
+  infinity_ants::Traffic::Image antImage;
+  colony.raster(249.75, antImage);
+  float total = 0;
+  for (float pixel : antImage) {
+    require(std::isfinite(pixel) && pixel >= 0, "invalid traffic texture");
+    total += pixel;
+  }
+  require(total > 0, "traffic disappeared");
   const std::string shader =
       "#version 410 core\nvoid main(){float a=smoothstep(1.0,0.0,0.5);float b=smoothstep(0.0,1.0,0.5);}";
   const auto corrected = infinity_render::orderedRamps(shader);

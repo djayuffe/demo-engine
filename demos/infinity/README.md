@@ -144,3 +144,12 @@ Native chamber surface detail now includes deterministic ant-like packets along 
 Chamber and glass highlights now use a shared hue-preserving exponential shoulder before the existing display grade, retaining coloured highlights instead of separately saturating RGB channels. Float optical targets and restrained bloom remain in use. Texture maximum mip levels are explicitly bounded to their allocated chains.
 
 The camera and Lorentz mirror-plane construction now live in tested shared math helpers. Geometry checks verify every edge endpoint, edge uniqueness/equal length, three-edge vertex valence, convex face bounds and five vertices per face. Mirror checks validate spacelike unit normals, hyperboloid norm preservation and reflection involution. Sampled camera bases remain orthonormal, and plane rotations preserve length even for large clock values; their angles are reduced in double precision before trigonometry. These checks validate the transformations and mesh invariants, alongside native rendering checks; they are not a proof of every stochastic optical path.
+
+
+## Interacting ant traffic (2.0)
+
+Matrix walkers now come from a persistent sixteen-agent colony on an 8×8 wrapping junction grid. Every half beat they complete a step and reserve a new destination. Occupied nodes and reserved targets block conflicting moves, preventing duplicate arrivals and head-on swaps. Rotating planning priority avoids assigning permanent priority to the same ant. Route scoring favors less-visited cells, discourages immediate reversal and uses deterministic tie breaking; visit memory decays every 32 decisions. A blocked neighborhood produces a warm contact flash while the ant turns or waits.
+
+The simulation runs on the CPU at half-beat boundaries; a small 64×64 float texture carries smoothly interpolated bodies and contact energy to the GPU. This replaces the independent lane formulas with actual shared traffic state. The texture is repeated in intrinsic surface coordinates with room-dependent offsets, so the colony pattern bends and reflects with the Matrix grid. Rooms share the colony pattern; they are not separate simulated worlds. Fine detail still fades at distance.
+
+Tests cover 500 decision steps, unique positions/target reservations, no head-on swaps, valid grid movement, deterministic catch-up under different frame cadences, path changes and finite raster output. Invalid clocks are ignored. Backward seeks or jumps over 4,096 decisions reset the colony instead of performing unbounded catch-up.
