@@ -86,3 +86,8 @@ Eight readings establish the timing estimate. A smoothed measurement, a dead ban
 `--infinity-fps N` accepts 24–144 and sets a GPU-time target, not a hard frame-rate cap or guarantee. Explicit `--infinity-pixels N` pins the budget, making existing captures and benchmarks reproducible; put `--infinity-adaptive` after it to use that value as an adaptive ceiling. Reference mode and `--still` always bypass adaptation. Stationary accumulation therefore still reaches 400 samples without being reset by quality changes.
 
 On the development M1 Pro, a 160-frame printed-layer run reduced its pixel fraction to 0.8 and then 0.64, reporting a 17.44 ms mean GPU time across the run. This includes the higher-cost settling frames and is not an A/B speedup claim. Tests cover budget limits, recovery with headroom, stale/invalid query rejection and near-target stability. Actual GPU checks verify pinned budgets, stationary convergence, quiet ordinary playback and all 12 scenes.
+
+
+## Contrast and glare
+
+The default grade now uses darker midtones and a hue-preserving highlight shoulder. Bloom, star glare and music-driven light boosts are restrained, and glass exposure is lowered before display mapping. The ray lab keeps a narrow luminous core with a quieter halo. These presentation changes preserve the optical calculations and music timing.

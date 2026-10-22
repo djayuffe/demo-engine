@@ -31,7 +31,14 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "GRADIENT INDEX / SPECTRUM"};
 constexpr const char* composite = R"GLSL(#version 410 core
 in vec2 vUv; out vec4 outColor; uniform sampler2D uImg; uniform float uFade;
-void main(){outColor=vec4(texture(uImg,vUv).rgb*uFade,1.0);}
+void main(){
+  vec3 c=pow(max(texture(uImg,vUv).rgb,vec3(0.0)),vec3(1.12));
+  // Hue-preserving shoulder: keep white-hot cores below display white.
+  float peak=max(c.r,max(c.g,c.b));
+  float mapped=peak<=0.65?peak:0.65+0.25*(1.0-exp(-(peak-0.65)/0.25));
+  c*=mapped/max(peak,1e-6);
+  outColor=vec4(c*uFade,1.0);
+}
 )GLSL";
 struct Target {
   GLuint texture = 0, fbo = 0;
@@ -170,7 +177,7 @@ class Infinity final : public de::Demo {
     one(p, "uEnergy", cue_.energy);
     one(p, "uMirror", .86f);
     one(p, "uFog", .05f);
-    one(p, "uGlow", 2.1f + .7f * cue_.bass);
+    one(p, "uGlow", 1.35f + .25f * cue_.bass);
     one(p, "uFX", scene == 0 ? 1.6f : .8f);
     float pulses[24];
     infinity_sync::pulses(frame_.sync.beat, cue_.bass, pulses);
@@ -186,9 +193,9 @@ class Infinity final : public de::Demo {
     glUseProgram(post_);
     integer(post_, "uImg", 0);
     two(post_, "uRes", float(w), float(h));
-    one(post_, "uBloom", .5f + .25f * cue_.mid);
-    one(post_, "uStar", scene == 0 ? .12f : .04f);
-    one(post_, "uBeat", cue_.beat);
+    one(post_, "uBloom", .16f + .08f * cue_.mid);
+    one(post_, "uStar", scene == 0 ? .035f : .01f);
+    one(post_, "uBeat", .55f * cue_.beat);
     quad();
   }
   void instrument(int scene, int w, int h, const Camera& cam, bool resized) {
@@ -230,9 +237,9 @@ class Infinity final : public de::Demo {
     output_.bind();
     glUseProgram(show_);
     integer(show_, "uAcc", 0);
-    one(show_, "uExposure", float(samples_));
+    one(show_, "uExposure", 1.25f * float(samples_));
     two(show_, "uScale", 1, 1);
-    one(show_, "uBloom", .45f + .3f * cue_.bass);
+    one(show_, "uBloom", .14f + .08f * cue_.bass);
     quad();
   }
   void common(GLuint p, float aspect, float k, int rays, int nw) {
@@ -286,7 +293,7 @@ class Infinity final : public de::Demo {
     one(rays_, "uNMax", 1 / ((1 - k) + k * .045f / 1.045f));
     for (int layer = 0; layer < 2; ++layer) {
       one(rays_, "uWidth", layer ? 1.3f : 7.f);
-      one(rays_, "uIntensity", (layer ? .85f : .16f) * (1 + .5f * cue_.treble));
+      one(rays_, "uIntensity", (layer ? .72f : .08f) * (1 + .25f * cue_.treble));
       one(rays_, "uSharp", layer ? 1.6f : 2.2f);
       glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 1024, count * nw);
     }

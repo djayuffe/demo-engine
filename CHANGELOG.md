@@ -1,3 +1,10 @@
+# Hold Infinity contrast pass — 2026-10-22
+
+- Reduce chamber/glass bloom, star glare and beat-driven light amplification.
+- Darken midtones and apply a hue-preserving highlight shoulder so bright edges retain detail instead of approaching display white.
+- Reduce the ray-lab halo while keeping its narrow luminous core readable.
+- Refresh the twelve-scene native capture sheet; all GPU scenes and both test suites pass.
+
 # Hold Infinity 1.2 adaptive GPU playback — 2026-10-22
 
 - Drive per-scene pixel budgets from non-blocking completed GPU queries, with bounded quality, smoothed timing, hysteresis and resize cooldown.
