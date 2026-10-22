@@ -16,6 +16,9 @@
 #include "GpuTimer.hpp"
 #include "SequentialRays.hpp"
 #include "WorldSheets.hpp"
+#include "../atlas/AtlasShaders.hpp"
+#include "Slice.hpp"
+#include "HyperAtlas.hpp"
 #include <unordered_map>
 #include <algorithm>
 #include <array>
@@ -43,7 +46,17 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "HARMONIC CHRYSANTHEMUM",
                                  "HEPTAGONAL POINCARE GATES",
                                  "SADDLED WORLD SHEETS",
-                                 "BRANCHING CRYSTAL GARDEN"};
+                                 "BRANCHING CRYSTAL GARDEN",
+                                 "ATLAS / TRUE FOUR-DIMENSIONAL SECTION",
+                                 "ATLAS / SIX-PLANE HYPERCUBE",
+                                 "ATLAS / HIERARCHICAL RADIAL BLOOM",
+                                 "ATLAS / RECURSIVE COORDINATE FOLDS",
+                                 "ATLAS / HYPERBOLIC SPHERE CONSTELLATION",
+                                 "ATLAS / MULTI-CHART IRIS PORTAL",
+                                 "ATLAS / EUCLIDEAN ORNAMENT",
+                                 "ATLAS / CAUSAL EVENT VOLUME",
+                                 "ATLAS / FILIGREE FACE EMERGENCE",
+                                 "ATLAS / THREE HYPERBOLIC VIEWPOINTS"};
 static_assert(std::size(names) == infinity_sync::sceneCount);
 constexpr const char* composite = R"GLSL(#version 410 core
 in vec2 vUv; out vec4 outColor; uniform sampler2D uImg; uniform float uFade;
@@ -123,8 +136,8 @@ struct Target {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glViewport(0, 0, w, h);
   }
-  void sample() const {
-    glActiveTexture(GL_TEXTURE0);
+  void sample(int unit = 0) const {
+    glActiveTexture(GL_TEXTURE0 + unit);
     glBindTexture(GL_TEXTURE_2D, texture);
   }
   void generate() const {
@@ -149,6 +162,15 @@ class Infinity final : public de::Demo {
   std::array<GLuint, 2> sequential_{};
   std::array<GLuint, 4> worlds_{};
   GLuint worldReference_ = 0;
+  std::array<GLuint, dmt::gpu::modes> atlasPrograms_{};
+  GLuint atlasReference_ = 0, atlasTemporal_ = 0;
+  std::array<Target, 2> atlasHistory_;
+  int atlasHistoryIndex_ = 0;
+  bool atlasHistoryValid_ = false;
+  dmt::atlas::Atlas atlasGeometry_;
+  bool atlasReduced_ = false, atlasPaused_ = false, atlasPauseKey_ = false;
+  float atlasExposure_ = 1.f, atlasFlash_ = 1.f;
+  double atlasClock_ = 0, atlasLastBeat_ = -1;
   bool rasterIntegrator_ = false, forceSequential_ = false, validateRays_ = false, validatedRays_ = false,
        validateTargets_ = false, validateOutput_ = false;
   std::array<bool, infinity_sync::sceneCount> outputChecked_{};
@@ -166,7 +188,7 @@ class Infinity final : public de::Demo {
   int instrumentState_ = -1;
   float pointerX_ = 0, pointerY_ = 0;
   bool fixedEye_ = false;
-  infinity_parallax::Eye eye_;
+  infinity_parallax::Eye eye_, atlasEye_;
   void origin(GLuint p, const Camera& c, float x, float y, float z) {
     three(p, "uRo", x + c.m[0] * eye_.x + c.m[3] * eye_.y + c.m[6] * eye_.z,
           y + c.m[1] * eye_.x + c.m[4] * eye_.y + c.m[7] * eye_.z,
@@ -457,6 +479,74 @@ class Infinity final : public de::Demo {
     glDisable(GL_BLEND);
   }
 
+  void atlas(int scene, int w, int h) {
+    const int mode = scene - 16;
+    const auto p = reference_ ? atlasReference_ : atlasPrograms_[size_t(mode)];
+    output_.bind();
+    glUseProgram(p);
+    two(p, "uRes", float(w), float(h));
+    const double time = still_ ? 0.0 : atlasClock_;
+    one(p, "uTime", float(time));
+    one(p, "uPulse", atlasPaused_ || atlasReduced_ ? 0.f : cue_.strike * atlasFlash_);
+    one(p, "uBass", cue_.bass);
+    one(p, "uExposure", atlasExposure_);
+    integer(p, "uUseBvh", reference_ ? 0 : 1);
+    three(p, "uEye", atlasEye_.x, atlasEye_.y, atlasEye_.z);
+    const auto cam = camera(yawOffset_, pitchOffset_);
+    glUniformMatrix3fv(loc(p, "uCam"), 1, GL_FALSE, cam.m);
+    if (reference_) integer(p, "uMode", mode);
+    if (mode == 0) {
+      const auto slice = dmt::slice::section({.31, .48, .25, .77}, .16 * std::sin(time * .2), time * .12, false);
+      float planes[32];
+      for (size_t i = 0; i < 8; ++i)
+        for (size_t j = 0; j < 4; ++j) planes[i * 4 + j] = float(slice.planes[i][j]);
+      glUniform4fv(loc(p, "uPlanes"), 8, planes);
+      integer(p, "uEmpty", slice.empty ? 1 : 0);
+    }
+    if (mode == 1) {
+      float rotation[16];
+      for (int column = 0; column < 4; ++column) {
+        dmt::V4 v{};
+        v[column] = 1;
+        v = dmt::slice::rotated(v, time * .12);
+        for (int row = 0; row < 4; ++row) rotation[column * 4 + row] = float(v[row]);
+      }
+      glUniformMatrix4fv(loc(p, "uRotation"), 1, GL_FALSE, rotation);
+    }
+    quad();
+  }
+  void atlasConstants(GLuint p) {
+    glUseProgram(p);
+    float bounds[112 * 4]{}, meta[56 * 4]{}, levels[9 * 4]{}, events[24 * 4]{};
+    for (size_t i = 0; i < atlasGeometry_.nodes.size(); ++i) {
+      const auto& node = atlasGeometry_.nodes[i];
+      for (int j = 0; j < 3; ++j) bounds[i * 4 + size_t(j)] = float(node.bound.center[size_t(j + 1)]);
+      // Round outward for float GPU bounds built from double CPU geometry.
+      bounds[i * 4 + 3] = float(node.bound.radius + 1e-4);
+      meta[i * 2] = float(node.escape);
+      meta[i * 2 + 1] = float(node.leaf + 1);
+    }
+    glUniform4fv(loc(p, "uBounds"), 112, bounds);
+    glUniform4fv(loc(p, "uMeta"), 56, meta);
+    uint64_t seed = 0xD47A51;
+    for (int i = 0; i < 9; ++i) {
+      seed = dmt::childSeed(seed, uint32_t(i));
+      levels[i * 4] = float(6 + 2 * (i % 5));
+      levels[i * 4 + 1] = float(double(seed % 100000) / 100000.0 * 2 * dmt::pi);
+      levels[i * 4 + 2] = float(std::pow(1.8, i));
+      levels[i * 4 + 3] = float(std::pow(.64, i));
+    }
+    glUniform4fv(loc(p, "uLevels"), 9, levels);
+    for (int i = 0; i < 24; ++i) {
+      double a = i * 2.399963229728653;
+      events[i * 4] = float(1.4 * std::cos(a));
+      events[i * 4 + 1] = float(1.1 * std::sin(a));
+      events[i * 4 + 2] = float(-1.2 + 2.4 * i / 23.0);
+      events[i * 4 + 3] = float(i) * .8f;
+    }
+    glUniform4fv(loc(p, "uEvents"), 24, events);
+  }
+
   void worldSheet(int scene, int w, int h) {
     const int mode = scene - 12;
     const auto p = reference_ ? worldReference_ : worlds_[size_t(mode)];
@@ -482,7 +572,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "3.0";
+    c.version = "4.0";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
@@ -555,6 +645,27 @@ public:
       reference_ = true;
       return true;
     }
+    if (a == "--atlas-reduced-motion") {
+      atlasReduced_ = true;
+      return true;
+    }
+    if (a == "--atlas-paused") {
+      atlasPaused_ = true;
+      return true;
+    }
+    if (a == "--atlas-exposure" || a == "--atlas-flash-gain") {
+      if (i + 1 >= argc) throw std::runtime_error(a + " needs a value");
+      std::string text = argv[++i];
+      size_t end = 0;
+      float value = std::stof(text, &end);
+      if (end != text.size() || !std::isfinite(value) || value < 0 || value > (a == "--atlas-exposure" ? 2.f : 1.f))
+        throw std::runtime_error("invalid " + a);
+      if (a == "--atlas-exposure")
+        atlasExposure_ = value;
+      else
+        atlasFlash_ = value;
+      return true;
+    }
     if (a == "--still") {
       still_ = true;
       return true;
@@ -593,7 +704,11 @@ public:
     return false;
   }
   std::string usage() const override {
-    return "  --infinity-scene N  Hold one optical scene (0..15)\n"
+    return "  --infinity-scene N  Hold one optical scene (0..25)\n"
+           "  --atlas-reduced-motion Slow new Atlas effects; suppress beat flashes\n"
+           "  --atlas-paused     Freeze Atlas animation; P toggles pause\n"
+           "  --atlas-exposure F Atlas exposure cap 0..2 (default 1)\n"
+           "  --atlas-flash-gain F Atlas beat light gain 0..1 (default 1)\n"
            "  --infinity-pixels N GPU budget (10000..4000000; default 400000)\n"
            "  --infinity-eye X Y  Fixed camera offset (-1..1); disables automatic dolly\n"
            "  --still             Fixed camera; accumulate up to 400 samples\n"
@@ -642,6 +757,16 @@ public:
         const auto source = infinity_worlds::specialized(mode);
         worlds_[size_t(mode)] = program(FULLSCREEN_VS, source.c_str());
       }
+    if (reference_) {
+      atlasReference_ = program(FULLSCREEN_VS, dmt::gpu::fragment);
+      if (atlasReference_) atlasConstants(atlasReference_);
+    } else
+      for (int mode = 0; mode < dmt::gpu::modes; ++mode) {
+        const auto source = dmt::gpu::specialized(mode);
+        atlasPrograms_[size_t(mode)] = program(FULLSCREEN_VS, source.c_str());
+        if (atlasPrograms_[size_t(mode)]) atlasConstants(atlasPrograms_[size_t(mode)]);
+      }
+    atlasTemporal_ = program(FULLSCREEN_VS, dmt::gpu::temporal);
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
@@ -650,6 +775,12 @@ public:
         (reference_ && !trace_) || !show_ || !integrate_ || !rays_ || !compose_ || (validateRays_ && !integrate_) ||
         (reference_ ? !worldReference_ : std::any_of(worlds_.begin(), worlds_.end(), [](GLuint p) { return !p; }))) {
       std::fprintf(stderr, "Infinity shader failure: %s\n", error_.c_str());
+      return false;
+    }
+    if (!atlasTemporal_ ||
+        (reference_ ? !atlasReference_
+                    : std::any_of(atlasPrograms_.begin(), atlasPrograms_.end(), [](GLuint p) { return !p; }))) {
+      std::fprintf(stderr, "Atlas shader failure: %s\n", error_.c_str());
       return false;
     }
     const auto polygon = infinity_worlds::heptagon();
@@ -738,10 +869,20 @@ public:
   }
   bool update(const de::FrameInfo& f, const de::Input& in, de::Frame& out) override {
     frame_ = f;
+    if (atlasLastBeat_ >= 0 && !atlasPaused_ && f.sync.beat >= atlasLastBeat_)
+      atlasClock_ += (f.sync.beat - atlasLastBeat_) * (atlasReduced_ ? .12 : .55);
+    atlasLastBeat_ = f.sync.beat;
+    if (atlasClock_ > 65536) atlasClock_ = std::fmod(atlasClock_, 65536.0);
     traffic_.advance(f.sync.beat);
     ballWorld_.advance(f.sync.beat);
     viewDirty_ = false;
     if (auto* window = glfwGetCurrentContext()) {
+      const bool pauseKey = glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS;
+      if (pauseKey && !atlasPauseKey_) {
+        atlasPaused_ = !atlasPaused_;
+        if (atlasPaused_ && cue_.scene >= 16) manual_ = cue_.scene;
+      }
+      atlasPauseKey_ = pauseKey;
       double x = 0, y = 0;
       glfwGetCursorPos(window, &x, &y);
       const bool held = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
@@ -765,6 +906,8 @@ public:
       dragging_ = held;
     }
     eye_ = infinity_parallax::eye(f.sync.beat, pointerX_, pointerY_, still_ || fixedEye_);
+    if (!atlasPaused_)
+      atlasEye_ = atlasReduced_ ? infinity_parallax::eye(f.sync.beat, pointerX_, pointerY_, true) : eye_;
     int current = infinity_sync::sample(f.sync.beat, 0, false, 0, 0, 0, manual_).scene;
     if (in.pressed(de::Key::Right)) manual_ = (current + 1) % infinity_sync::sceneCount;
     if (in.pressed(de::Key::Left)) manual_ = (current + infinity_sync::sceneCount - 1) % infinity_sync::sceneCount;
@@ -777,8 +920,9 @@ public:
     }
     out.travelers = false;
     out.ticker = std::string(names[cue_.scene]) +
-                 (cue_.scene < 12 ? "  /  HOLD INFINITY BY PURPLETWILIGHT  /  "
-                                  : "  /  QRI ESSAY INSPIRED GEOMETRY STUDIES  /  ") +
+                 (cue_.scene < 12   ? "  /  HOLD INFINITY BY PURPLETWILIGHT  /  "
+                  : cue_.scene < 16 ? "  /  QRI ESSAY INSPIRED GEOMETRY STUDIES  /  "
+                                    : "  /  DMT ATLAS / GEOMETRY STUDIES  /  ") +
                  (f.musicPath.empty()                              ? "BPM CLOCK"
                   : f.musicPath.find("cs127") != std::string::npos ? "STARS (4CH) BY CS127 / CC BY 4.0"
                   : f.musicPath.find("drozerix_-_digital_rendezvous") != std::string::npos
@@ -817,8 +961,10 @@ public:
       instrument(cue_.scene, w, h, cam, resized);
     else if (cue_.scene < 12)
       grin(cue_.scene, w, h);
-    else
+    else if (cue_.scene < 16)
       worldSheet(cue_.scene, w, h);
+    else
+      atlas(cue_.scene, w, h);
     if (validateOutput_ && !outputChecked_[size_t(cue_.scene)]) {
       std::vector<float> values(size_t(w * h * 4));
       output_.bind();
@@ -832,11 +978,46 @@ public:
       outputChecked_[size_t(cue_.scene)] = true;
       std::printf("HDR output validation: scene %02d finite (%d pixels)\n", cue_.scene, w * h);
     }
+    const Target* presented = &output_;
+    if (cue_.scene >= 16) {
+      bool reset = !atlasHistoryValid_ || previous_ != cue_.scene || viewDirty_ || atlasPaused_ || still_;
+      for (auto& history : atlasHistory_) {
+        reset = reset || history.w != w || history.h != h;
+        if (!history.resize(w, h, GL_RGBA16F, false, error)) {
+          timer_.end();
+          return false;
+        }
+      }
+      auto& destination = atlasHistory_[size_t(atlasHistoryIndex_)];
+      auto& history = atlasHistory_[size_t(1 - atlasHistoryIndex_)];
+      destination.bind();
+      glUseProgram(atlasTemporal_);
+      output_.sample(0);
+      history.sample(1);
+      integer(atlasTemporal_, "uCurrent", 0);
+      integer(atlasTemporal_, "uHistory", 1);
+      two(atlasTemporal_, "uTexel", 1.f / float(w), 1.f / float(h));
+      one(atlasTemporal_, "uWeight", reset ? 0.f : float(std::exp(-std::max(0.0, double(f.dt)) * 16.0)));
+      quad();
+      if (validateOutput_) {
+        std::vector<float> values(size_t(w * h * 4));
+        glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, values.data());
+        if (std::any_of(values.begin(), values.end(), [](float x) { return !std::isfinite(x); })) {
+          error = "Non-finite Atlas temporal output";
+          timer_.end();
+          return false;
+        }
+      }
+      presented = &destination;
+      atlasHistoryIndex_ = 1 - atlasHistoryIndex_;
+      atlasHistoryValid_ = true;
+    } else
+      atlasHistoryValid_ = false;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, f.width, f.height);
     glDisable(GL_BLEND);
     glUseProgram(compose_);
-    output_.sample();
+    presented->sample();
     sampler(compose_, "uImg", 0);
     one(compose_, "uFade", cue_.fade);
     quad();
@@ -863,6 +1044,20 @@ public:
         glDeleteProgram(p);
         p = 0;
       }
+    for (auto& p : atlasPrograms_)
+      if (p) {
+        glDeleteProgram(p);
+        p = 0;
+      }
+    if (atlasReference_) {
+      glDeleteProgram(atlasReference_);
+      atlasReference_ = 0;
+    }
+    if (atlasTemporal_) {
+      glDeleteProgram(atlasTemporal_);
+      atlasTemporal_ = 0;
+    }
+    for (auto& history : atlasHistory_) history.release();
     for (auto& p : worlds_)
       if (p) {
         glDeleteProgram(p);

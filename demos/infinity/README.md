@@ -1,6 +1,6 @@
 # Hold Infinity — native music-directed optical demo
 
-`make run` now launches this demo. It renders the supplied optical code and four original geometry studies directly through OpenGL 4.1, without the old wireframe recipes, travellers or logo cards. `make run-wireframe` opens the previous show.
+`make run` now launches this demo. It renders the supplied optical code and four original geometry studies and ten Atlas scenes directly through OpenGL 4.1, without the old wireframe recipes, travellers or logo cards. `make run-wireframe` opens the previous show.
 
 ```sh
 make
@@ -32,6 +32,16 @@ Drag to orbit. Left/right select scenes; Space returns to the automatic show; Q 
 | 13 | Heptagonal Poincaré gates, regular {7,3} disk tiling |
 | 14 | Saddled world sheets, five translucent intersecting patches |
 | 15 | Branching crystal garden, seven-level tetrahedral folds |
+| 16 | True 4D tesseract section |
+| 17 | Six-plane perspective hypercube |
+| 18 | Stable hierarchical radial bloom |
+| 19 | Recursive coordinate folds |
+| 20 | Analytic H³ sphere constellation |
+| 21 | Euclidean/H³ iris portal |
+| 22 | Euclidean ornament |
+| 23 | Causal event volume and procedural glyphs |
+| 24 | Filigree face emergence |
+| 25 | Three independent H³ viewpoints |
 
 ## Music direction
 
@@ -66,7 +76,7 @@ ctest --test-dir build --output-on-failure
 python3 tools/smoke_infinity.py
 ```
 
-Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 16 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A 200-frame accelerated clock run covers a full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
+Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 26 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
 
 [Source attribution, original archive hash and port boundaries](SOURCE.md).
 
@@ -212,3 +222,7 @@ All four share translated camera parallax, mouse orbit, restrained HDR grading a
 ```
 
 Headless checks verify disk-circle orthogonality, three-polygon vertex angles, disk containment/reflection involution and scene specialization/director coverage. Native tests compare each new specialized shader with its generic reference. `--validate-output` optionally reads the HDR target once per scene and rejects non-finite values; ordinary playback does not read the HDR target back. [Inspiration and attribution](SOURCE.md).
+
+## DMT Atlas integration
+
+Scenes 16–25 port the supplied v0.3 Atlas archive and extend its concrete rendering roadmap. See the [feature matrix, controls, geometry conventions, validation and research boundaries](../atlas/README.md). P pauses Atlas animation; `--atlas-reduced-motion`, `--atlas-exposure` and `--atlas-flash-gain` control the new effects. Original source bytes and hashes are preserved separately from the production derivatives.

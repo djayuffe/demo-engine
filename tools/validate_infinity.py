@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import subprocess
 import sys
+from smoke_infinity import scene_count
 
 
 def main():
@@ -40,7 +41,7 @@ def main():
         run(f'optical-state-{state}', ['--instrument-state', str(state)])
     run('still-convergence', ['--infinity-scene', '5', '--still', '--frames', '205', '--gpu-profile'],
         'mipmaps=200')
-    cycle=run('automatic-cycle', ['--frames', '260', '--fixed-step', '1'])
+    cycle=run('automatic-cycle', ['--frames', str(int(scene_count(binary)*32/2.2)+20), '--fixed-step', '1'])
     if cycle.count('infinity scene 00:')<2:raise SystemExit('Automatic show did not complete its expanded cycle')
     print('Extended Infinity GPU validation passed', flush=True)
 

@@ -31,3 +31,5 @@ The bundled tracker module and the generated `wireframe_pulse.wav` are committed
 Third-party code vendored in `thirdparty/`: `stb_image.h` and `stb_image_write.h` (Sean Barrett, public domain / MIT).
 
 Imported Hold Infinity optical renderer sources are credited separately in `demos/infinity/SOURCE.md`; original files and source hashes are preserved under that directory. They are not relicensed by the engine's MIT license.
+
+The user-supplied DMT Atlas v0.3 reference sources and their derivatives are recorded in `demos/atlas/SOURCE.md`. Original files and SHA-256 hashes are preserved. The archive provides no separate license; inclusion does not relicense it under the engine MIT license.

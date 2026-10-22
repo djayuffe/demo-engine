@@ -1,0 +1,17 @@
+{
+  "archive": "dmt_atlas_v03_gap_closure.zip",
+  "sha256": "e9d83ee4e361c9abea4cf593bdea0cbb01b9fc33015b27550cb0e644bf0fbfe8",
+  "files": {
+    "src/advanced_render.cpp": "fe0b7ba979d8958af422a0a091fddd7559761ae32b148a40a268d83f343d4994",
+    "src/atlas.cpp": "62c1469124bdf9d7f754ff0a6c0d0f3d1d551e2785efeabc9dd372423416b175",
+    "tests/advanced_test.cpp": "f8783ae1566820957d8684a38382648a829c6516f63191c5e464eef6960f1c45",
+    "tests/test.cpp": "0df92ffb86cb8239d7cdf0e5d08ad62c73a76a6b83b8836cedc04972e2ddef39",
+    "atlas_preview.ppm": "298677e045da4253a12a45740415be99109fe3a7151e3b0d8a93af4146220906",
+    "include/advanced.hpp": "36cedbdd9416bf21a7d4e54dab075e62d0a7198b361cf359f811a3fa42dd3927",
+    "include/geometry.hpp": "4e556b6c32aab364fc1be2ffb3e2f7e648f090e0f6ea76a609becffa2a930638",
+    "docs/IMPLEMENTATION_STATUS.md": "0dcb2779a68a3888314500f621bb322d9fa109e894e45e407caaa9a130d97496",
+    "docs/V03_GAP_CLOSURE.md": "5df0dc0b592bba57330a80b52899362064e6a413cb5929cd8ac48c5bcb8eac95",
+    "CMakeLists.txt": "8516e84e06453fd6a94814bcf73fa79207d0f78d27c534996437133958258477",
+    "README.md": "5ca70c41762ffa16be77699e6ffe237647d7a35220286129540af60d9cac8edf"
+  }
+}

@@ -1,6 +1,6 @@
 # Hold Infinity on Demo Engine
 
-The default demo now ports **Hold Infinity**, supplied as `hold_infinity_by_purpletwilight21858029.zip`: mirrored dodecahedral chambers, hyperbolic honeycombs, spectral GRIN glass and a GPU gradient-index ray lab. Its 12 optical scenes follow the soundtrack's beats, bars and frequency bands. The earlier effects are bypassed in this show. Normal playback adapts each scene’s resolution to GPU load; fixed-budget captures and still accumulation remain available.
+The default demo now ports **Hold Infinity**, supplied as `hold_infinity_by_purpletwilight21858029.zip`: mirrored dodecahedral chambers, hyperbolic honeycombs, spectral GRIN glass and a GPU gradient-index ray lab. Its 26 optical and Atlas scenes follow the soundtrack's beats, bars and frequency bands. The earlier effects are bypassed in this show. Normal playback adapts each scene’s resolution to GPU load; fixed-budget captures and still accumulation remain available.
 
 ```sh
 make run
@@ -9,7 +9,11 @@ make run
 
 [Controls, scene list, optical parameters and tests](demos/infinity/README.md) · [GPU optimization measurements](demos/infinity/GPU_PERFORMANCE.md) · [Source attribution](demos/infinity/SOURCE.md). `make run-wireframe` launches the previous demo.
 
-![The twelve native optical scenes](docs/infinity-contact.jpg)
+The integrated [DMT Atlas](demos/atlas/README.md) adds exact 4D sections, six-plane hypercubes, seeded radial and folded fields, an accelerated H³ sphere renderer, iris portals, event glyphs, face emergence and three simultaneous viewpoints.
+
+![The first sixteen native optical scenes](docs/infinity-contact.jpg)
+
+![Ten native Atlas effects](docs/atlas-contact.jpg)
 
 ---
 
@@ -43,7 +47,7 @@ Every demo needs the same plumbing: a window, a float framebuffer, bloom and ton
 brew install cmake glfw sdl2 libopenmpt   # macOS; SDL2 + libopenmpt are optional (music)
 ./build_mac.sh --run                       # or: one command that installs deps, builds, tests and runs
 make run-hello                            # the minimal demo
-make run                                  # the full wireframe demo
+make run                                  # the native optical and Atlas demo
 ```
 
 ## What the engine provides

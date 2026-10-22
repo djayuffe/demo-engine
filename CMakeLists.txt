@@ -257,3 +257,6 @@ if(IW_BUILD_TESTS)
  iw_warnings(geometry_tests)
  add_test(NAME geometry_tests COMMAND geometry_tests)
 endif()
+
+# User-supplied Atlas reference tools and production geometry kernel.
+add_subdirectory(demos/atlas)
