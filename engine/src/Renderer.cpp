@@ -41,6 +41,9 @@ bool Renderer::createGl(const std::string& dir) {
   edgeCount_ = 0;
   vboCapacity_ = 0;
   eboCapacity_ = 0;
+  uploadedEdges_.clear();
+  uploadedVertices_.clear();
+  uploadStats_ = {};
   hdrW_ = hdrH_ = 0;
   logoCapturePending_ = false;
   hasLogos_ = false;
@@ -66,14 +69,16 @@ bool Renderer::createGl(const std::string& dir) {
     program_ = linkProgram(vs, fsPlain, error_);
   }
   if (!program_) return false;
-  uViewport_ = glGetUniformLocation(program_, "uViewport");
-  uWidthPx_ = glGetUniformLocation(program_, "uWidthPx");
-  uMVP_ = glGetUniformLocation(program_, "uMVP");
-  uTime_ = glGetUniformLocation(program_, "uTime");
-  uColor_ = glGetUniformLocation(program_, "uColor");
-  uGain_ = glGetUniformLocation(program_, "uGain");
-  uStyle_ = glGetUniformLocation(program_, "uStyle");
-  uMusicLevel_ = glGetUniformLocation(program_, "uMusicLevel");
+  if (wideWires_) {
+    const auto patch = readText(dir + "/wire_patch.vert");
+    const auto control = readText(dir + "/wire.tesc"), evaluation = readText(dir + "/wire.tese");
+    if (!patch.empty() && !control.empty() && !evaluation.empty()) {
+      tessProgram_ = linkProgram(patch, control, evaluation, {}, fs, gerr);
+      if (!tessProgram_) std::fprintf(stderr, "Wire tessellation unavailable: %s\n", gerr.c_str());
+    }
+  }
+  activeWireProgram_ = 0;
+  bindWireProgram();
   glGenVertexArrays(1, &vao_);
   glGenBuffers(1, &vbo_);
   glGenBuffers(1, &ebo_);
@@ -96,6 +101,40 @@ bool Renderer::createGl(const std::string& dir) {
   glDepthFunc(GL_LEQUAL);
   return true;
 }
+// Undeformed meshes retain the cheaper vertex/geometry path. Deforming meshes
+// use adaptive GL 4.1 quad-ribbon tessellation when its optional shaders link.
+void Renderer::bindWireProgram() {
+  const unsigned selected = tessProgram_ && gpuWave_[0] != 0.f && !gpuEffect_.effect ? tessProgram_ : program_;
+  glUseProgram(selected);
+  if (activeWireProgram_ == selected) return;
+  activeWireProgram_ = selected;
+  uViewport_ = glGetUniformLocation(selected, "uViewport");
+  uWidthPx_ = glGetUniformLocation(selected, "uWidthPx");
+  uMVP_ = glGetUniformLocation(selected, "uMVP");
+  uTime_ = glGetUniformLocation(selected, "uTime");
+  uGpuWave_ = glGetUniformLocation(selected, "uGpuWave");
+  uGpuEffect_ = glGetUniformLocation(selected, "uGpuEffect");
+  uGpuCenter_ = glGetUniformLocation(selected, "uGpuCenter");
+  uGpuSeed_ = glGetUniformLocation(selected, "uGpuSeed");
+  uColor_ = glGetUniformLocation(selected, "uColor");
+  uGain_ = glGetUniformLocation(selected, "uGain");
+  uStyle_ = glGetUniformLocation(selected, "uStyle");
+  uMusicLevel_ = glGetUniformLocation(selected, "uMusicLevel");
+}
+void Renderer::submitGpuEffect() {
+  const auto& c = gpuEffect_.context;
+  glUniform4f(uGpuEffect_, float(gpuEffect_.effect), c.amount, c.time, c.bass);
+  glUniform3f(uGpuCenter_, gpuEffect_.center.x, gpuEffect_.center.y, gpuEffect_.center.z);
+  glUniform1ui(uGpuSeed_, c.seed);
+}
+void Renderer::drawWireMesh() {
+  if (tessProgram_ && activeWireProgram_ == tessProgram_) {
+    glPatchParameteri(GL_PATCH_VERTICES, 2);
+    glDrawElements(GL_PATCHES, edgeCount_, GL_UNSIGNED_INT, nullptr);
+  } else {
+    glDrawElementsInstanced(GL_LINES, edgeCount_, GL_UNSIGNED_INT, nullptr, std::max(1, gpuEffect_.instances));
+  }
+}
 bool Renderer::init(GLFWwindow*, const std::string& dir) {
   // Reset all GL object ids so createGl generates fresh ones. On a first init
   // they're already 0; on a reinit after shutdown() they may be stale.
@@ -110,6 +149,8 @@ bool Renderer::reinit(const std::string& dir) {
   // handles now, but deleting them is the correct cleanup before re-creating).
   // We do NOT touch the logo image data (logos_) — only their GL textures.
   fx_.shutdown();
+  if (tessProgram_) glDeleteProgram(tessProgram_);
+  tessProgram_ = activeWireProgram_ = 0;
   bloom_.shutdown();
   lookFx_.shutdown();
   art_.shutdown();
@@ -151,6 +192,7 @@ bool Renderer::initTravelers(const std::string& dir) {
   travelerProgram_ = linkProgram(vs, fs, error_);
   if (!travelerProgram_) return false;
   uTrMVP_ = glGetUniformLocation(travelerProgram_, "uMVP");
+  uTravelerBeat_ = glGetUniformLocation(travelerProgram_, "uBeat");
   uTrTime_ = glGetUniformLocation(travelerProgram_, "uTime");
   uTrColor_ = glGetUniformLocation(travelerProgram_, "uColor");
   uTrSpeed_ = glGetUniformLocation(travelerProgram_, "uSpeed");
@@ -212,6 +254,7 @@ bool Renderer::initScroller(const std::string& dir) {
   uScFont_ = glGetUniformLocation(scrollerProgram_, "uFont");
   uScCodes_ = glGetUniformLocation(scrollerProgram_, "uCodes");
   uScCount_ = glGetUniformLocation(scrollerProgram_, "uCount");
+  uScPanel_ = glGetUniformLocation(scrollerProgram_, "uPanel");
   uScOpacity_ = glGetUniformLocation(scrollerProgram_, "uOpacity");
   setupFullscreenVao(scrollerVao_, scrollerVbo_);
   glGenTextures(1, &scrollerFontTex_);
@@ -238,6 +281,7 @@ bool Renderer::initPost(const std::string& dir) {
   postProgram_ = linkProgram(vs, fs, error_);
   if (!postProgram_) return false;
   uPostScene_ = glGetUniformLocation(postProgram_, "uScene");
+  uPostBeatDrive_ = glGetUniformLocation(postProgram_, "uBeatDrive");
   uPostTime_ = glGetUniformLocation(postProgram_, "uTime");
   uPostResolution_ = glGetUniformLocation(postProgram_, "uResolution");
   uPostMusic_ = glGetUniformLocation(postProgram_, "uMusicLevel");
@@ -299,6 +343,12 @@ bool Renderer::resizeHdr(int width, int height) {
   return true;
 }
 bool Renderer::upload(const Mesh3& m) {
+  const size_t vertexBytes = m.v.size() * sizeof(V3), edgeBytes = m.e.size() * sizeof(Edge);
+  if (!m.v.empty() && !m.e.empty() && uploadedVertices_.size() == m.v.size() &&
+      uploadedEdges_.size() == m.e.size() &&
+      std::memcmp(uploadedVertices_.data(), m.v.data(), vertexBytes) == 0 &&
+      std::memcmp(uploadedEdges_.data(), m.e.data(), edgeBytes) == 0)
+    return true; // Already validated and resident. Shader-only animation needs no GL upload work.
   // renderable() is the O(edges) check the GPU needs; the duplicate-edge check (geo::validate) is for
   // tests and generators, and was the most expensive part of every upload.
   std::string why;
@@ -314,15 +364,29 @@ bool Renderer::upload(const Mesh3& m) {
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);
   size_t vb = m.v.size() * sizeof(V3);
   if (vb > vboCapacity_) vboCapacity_ = std::max(vb, vboCapacity_ * 2 + 4096);
-  glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vboCapacity_, nullptr, GL_DYNAMIC_DRAW);
-  if (vb) glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)vb, m.v.data());
+  if (uploadedVertices_.size() != m.v.size() ||
+      (vb && std::memcmp(uploadedVertices_.data(), m.v.data(), vb) != 0)) {
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vboCapacity_, nullptr, GL_DYNAMIC_DRAW);
+    if (vb) glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)vb, m.v.data());
+    uploadedVertices_ = m.v;
+    ++uploadStats_.vertices;
+    uploadStats_.bytes += vb;
+  }
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(V3), nullptr);
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
   size_t eb = m.e.size() * sizeof(Edge);
-  if (eb > eboCapacity_) eboCapacity_ = std::max(eb, eboCapacity_ * 2 + 4096);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)eboCapacity_, nullptr, GL_DYNAMIC_DRAW);
-  if (eb) glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, (GLsizeiptr)eb, m.e.data()); // Edge{a,b} is already an index pair
+  // Most animated meshes change positions, but retain their connectivity.
+  // Compare exact indices so topology changes with the same count still upload.
+  if (uploadedEdges_.size() != m.e.size() ||
+      (eb && std::memcmp(uploadedEdges_.data(), m.e.data(), eb) != 0)) {
+    if (eb > eboCapacity_) eboCapacity_ = std::max(eb, eboCapacity_ * 2 + 4096);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)eboCapacity_, nullptr, GL_DYNAMIC_DRAW);
+    if (eb) glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, (GLsizeiptr)eb, m.e.data());
+    uploadedEdges_ = m.e;
+    ++uploadStats_.indices;
+    uploadStats_.bytes += eb;
+  }
   return true;
 }
 // The camera shared by the wireframe and the travelers, so both live in the same 3D space.
@@ -368,19 +432,21 @@ bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex
       glDisable(GL_DEPTH_TEST);
     else
       glEnable(GL_DEPTH_TEST); // golden clouds accumulate, no occlusion
-    glUseProgram(program_);
+    bindWireProgram();
     if (uStyle_ >= 0) glUniform1i(uStyle_, wireStyle_);
     glUniformMatrix4fv(uMVP_, 1, GL_FALSE, M);
     if (uTime_ >= 0) glUniform1f(uTime_, t);
+    glUniform4fv(uGpuWave_, 1, gpuWave_);
+    submitGpuEffect();
     if (uMusicLevel_ >= 0) glUniform1f(uMusicLevel_, ml);
     glUniform3f(uColor_, 1.2f + .75f * ml, 1.55f + .35f * ml, 2.1f + 1.1f * ml);
     const float wpx = setWireWidth(lineWidth, ml);
-    if (uGain_ >= 0) glUniform1f(uGain_, wiregain::forWidth(edgeCount_, wpx, wideWires_) * (1.f - .22f * logoVis_));
+    if (uGain_ >= 0) glUniform1f(uGain_, wiregain::forWidth(edgeCount_ * std::max(1, gpuEffect_.instances), wpx, wideWires_) * (1.f + .22f * beat_.pulse) * (1.f - .22f * logoVis_));
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
     glBlendEquation(GL_FUNC_ADD);
     glBindVertexArray(vao_);
-    glDrawElements(GL_LINES, edgeCount_, GL_UNSIGNED_INT, nullptr);
+    drawWireMesh();
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     logoCapturePending_ = true;
@@ -397,19 +463,21 @@ bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex
     glDisable(GL_DEPTH_TEST);
   else
     glEnable(GL_DEPTH_TEST);
-  glUseProgram(program_);
+  bindWireProgram();
   if (uStyle_ >= 0) glUniform1i(uStyle_, wireStyle_);
   glUniformMatrix4fv(uMVP_, 1, GL_FALSE, M);
   if (uTime_ >= 0) glUniform1f(uTime_, t);
+  glUniform4fv(uGpuWave_, 1, gpuWave_);
+  submitGpuEffect();
   if (uMusicLevel_ >= 0) glUniform1f(uMusicLevel_, ml);
   glUniform3f(uColor_, 1.2f + .75f * ml, 1.55f + .35f * ml, 2.1f + 1.1f * ml);
   const float wpx = setWireWidth(lineWidth, ml);
-  if (uGain_ >= 0) glUniform1f(uGain_, wiregain::forWidth(edgeCount_, wpx, wideWires_));
+  if (uGain_ >= 0) glUniform1f(uGain_, wiregain::forWidth(edgeCount_ * std::max(1, gpuEffect_.instances), wpx, wideWires_) * (1.f + .22f * beat_.pulse));
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ONE);
   glBlendEquation(GL_FUNC_ADD);
   glBindVertexArray(vao_);
-  glDrawElements(GL_LINES, edgeCount_, GL_UNSIGNED_INT, nullptr);
+  drawWireMesh();
   glDisable(GL_BLEND);
   glDisable(GL_DEPTH_TEST);
   logoCapturePending_ = true;
@@ -533,6 +601,7 @@ bool Renderer::drawTravelers(float time, int width, int height, float aspect, fl
   glUseProgram(travelerProgram_);
   if (uTrMVP_ >= 0) glUniformMatrix4fv(uTrMVP_, 1, GL_FALSE, M);
   if (uTrTime_ >= 0) glUniform1f(uTrTime_, time);
+  glUniform1f(uTravelerBeat_, beat_.pulse);
   if (uTrSpeed_ >= 0) glUniform1f(uTrSpeed_, 0.85f);
   if (uTrColor_ >= 0) glUniform3f(uTrColor_, 1.0f, 0.9f, 1.2f);
   glLineWidth(1.4f + std::clamp(musicLevel, 0.f, 1.f) * 1.0f);
@@ -559,8 +628,14 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   logoCapturePending_ = false;
   // Temporal refraction / memory layer: returns the HDR scene itself, untouched and free, when both are off.
   const float aspectHdr = float(hdrW_) / float(std::max(1, hdrH_));
-  unsigned postSceneTex = fx_.apply(hdrTex_, time, aspectHdr, temporalAmt_, memoryAmt_);
-  if (lookOk_ && postEnabled_) postSceneTex = lookFx_.apply(postSceneTex, time, aspectHdr, look_);
+  unsigned postSceneTex = fx_.apply(hdrTex_, time, aspectHdr, std::clamp(temporalAmt_ * (.65f + .35f * beat_.pulse), 0.f, 1.f),
+                                    std::clamp(memoryAmt_ * (.65f + .35f * beat_.pulse), 0.f, 1.f));
+  if (lookOk_ && postEnabled_) {
+    auto amount = [&](float a) { return std::clamp(a * (.65f + .35f * beat_.pulse), 0.f, 1.f); };
+    LookFx::Amounts look{amount(look_.gravity), amount(look_.failure), amount(look_.colorless),
+                         amount(look_.specular), amount(look_.negReflection)};
+    postSceneTex = lookFx_.apply(postSceneTex, time, aspectHdr, look);
+  }
   const unsigned bloomTex = (bloomOk_ && postEnabled_) ? bloom_.apply(postSceneTex) : 0;
   // Art pass: the procedural background, at half resolution. Its weight in post.frag is
   // (1 - hasLogo), so it is skipped outright while a logo card fully covers the screen (and with
@@ -570,6 +645,7 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   if (artOn) {
     ArtPass::Params ap;
     ap.time = time;
+    ap.beat = beat_.pulse;
     ap.music = musicLevel;
     ap.bpm = bpm;
     ap.logoVisibility = logoVis_;
@@ -599,6 +675,7 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   glBindTexture(GL_TEXTURE_2D, postSceneTex);
   if (uPostScene_ >= 0) glUniform1i(uPostScene_, 0);
   if (uPostTime_ >= 0) glUniform1f(uPostTime_, time);
+  glUniform4f(uPostBeatDrive_, beat_.pulse, beat_.flash, beat_.bass, beat_.phase);
   // The post pass runs on the HDR buffer (hdrW_ x hdrH_), not the screen. Pass
   // the HDR size so the shader's pixel-size (bloom taps) and aspect (p) are
   // measured in the buffer the scene actually lives in — at --quality<1 the
@@ -660,12 +737,48 @@ bool Renderer::screenshot(const std::string& path, int width, int height) {
   return true;
 }
 bool Renderer::drawScroller(float time, float beatPhase, int width, int height, const char* text, float musicLevel) {
+  return drawText(time, beatPhase, width, height, text, musicLevel, false, .95f);
+}
+bool Renderer::drawOverlay(int width, int height, const std::string& text, float opacity) {
+  if (width <= 0 || height <= 0) return false;
+  const int scale = std::clamp(std::min(width / 450, height / 280), 1, 2);
+  size_t longest = 0, lineStart = 0;
+  do {
+    const auto end = text.find('\n', lineStart);
+    longest = std::max(longest, (end == std::string::npos ? text.size() : end) - lineStart);
+    if (end == std::string::npos) break;
+    lineStart = end + 1;
+  } while (lineStart < text.size());
+  const int columns = std::min(std::clamp((width - 48) / (6 * scale), 16, 76),
+                               int(std::clamp(longest, size_t(16), size_t(76))));
+  const int rows = std::clamp((height - 48) / (11 * scale), 1, 2048 / columns);
+  std::string packed;
+  size_t at = 0;
+  while (at < text.size() && int(packed.size()) < rows * columns) {
+    const size_t end = text.find('\n', at);
+    const size_t length = (end == std::string::npos ? text.size() : end) - at;
+    // Wrap long credits at spaces, so narrow windows retain the whole message.
+    size_t take = std::min(length, size_t(columns));
+    if (length > size_t(columns)) {
+      const auto space = text.rfind(' ', at + take);
+      if (space != std::string::npos && space > at) take = space - at;
+    }
+    packed.append(text, at, take);
+    packed.append(size_t(columns) - take, ' ');
+    at += take;
+    if (at < text.size() && (text[at] == '\n' || text[at] == ' ')) ++at;
+  }
+  return drawText(float(scale), float(columns), width, height, packed.c_str(),
+                  float(packed.size() / size_t(columns)), true, opacity);
+}
+bool Renderer::drawText(float time, float beatPhase, int width, int height, const char* text,
+                        float musicLevel, bool panel, float opacity) {
   if (!scrollerProgram_ || !text || !text[0]) return false;
   // Measure text in font pixels (scale=6, spacing=1).
   float scale = 6.0f; // must match scroller.frag
   // Only the first kMaxChars characters are uploaded below, so measure (and wrap) that same prefix;
   // measuring the whole string made the marquee scroll through blank space after the drawn part.
-  const int kMaxChars = 512;
+  const int kMaxChars = 2048;
   size_t textLen = 0;
   while (text[textLen] && textLen < (size_t)kMaxChars) ++textLen;
   const std::string shown(text, textLen);
@@ -679,11 +792,11 @@ bool Renderer::drawScroller(float time, float beatPhase, int width, int height, 
   std::vector<uint8_t> codes((size_t)n);
   for (int i = 0; i < n; ++i) codes[i] = (uint8_t)text[i];
   // The code strip is a small 1xN GL_R8 texture (one byte per character).
-  // Allocate the storage ONCE at a fixed cap (512 chars — far more than
+  // Allocate the storage ONCE at a fixed cap (2048 chars — far more than
   // any marquee string) and update it per frame with glTexSubImage2D. The old
   // code did a full glTexImage2D every frame, which re-allocated GPU memory
   // each frame (a needless hitch). glTexSubImage2D updates in place.
-  const GLsizei kMaxCodes = 512;
+  const GLsizei kMaxCodes = 2048;
   if (n > kMaxCodes) n = kMaxCodes;
   if (!scrollerCodesTex_) glGenTextures(1, &scrollerCodesTex_);
   glBindTexture(GL_TEXTURE_2D, scrollerCodesTex_);
@@ -708,7 +821,9 @@ bool Renderer::drawScroller(float time, float beatPhase, int width, int height, 
   if (uScOffset_ >= 0) glUniform1f(uScOffset_, offset);
   if (uScTextWidth_ >= 0) glUniform1f(uScTextWidth_, textWidth);
   if (uScCount_ >= 0) glUniform1i(uScCount_, n);
-  if (uScOpacity_ >= 0) glUniform1f(uScOpacity_, 0.95f);
+  if (uScOpacity_ >= 0) glUniform1f(uScOpacity_, std::clamp(opacity, 0.f, 1.f));
+  if (uScPanel_ >= 0) glUniform4f(uScPanel_, panel ? time : 0.f, beatPhase, musicLevel,
+                                 std::clamp(beat_.pulse, 0.f, 1.f));
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, scrollerFontTex_);
   if (uScFont_ >= 0) glUniform1i(uScFont_, 1);
@@ -757,6 +872,8 @@ void Renderer::shutdown() {
   if (travelerVbo_) glDeleteBuffers(1, &travelerVbo_);
   if (travelerEbo_) glDeleteBuffers(1, &travelerEbo_);
   if (program_) glDeleteProgram(program_);
+  if (tessProgram_) glDeleteProgram(tessProgram_);
+  tessProgram_ = activeWireProgram_ = 0;
   if (ebo_) glDeleteBuffers(1, &ebo_);
   if (vbo_) glDeleteBuffers(1, &vbo_);
   if (vao_) glDeleteVertexArrays(1, &vao_);

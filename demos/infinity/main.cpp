@@ -1,5 +1,6 @@
 // Native OpenGL port of the user-supplied Hold Infinity optical renderers.
 #include "Engine.hpp"
+#include "MusicCatalog.hpp"
 #include "GLUtil.hpp"
 #include "Shaders.hpp"
 #include "Dodecahedron.hpp"
@@ -11,6 +12,7 @@
 #include "OpticalMath.hpp"
 #include "MatrixLife.hpp"
 #include "AntTraffic.hpp"
+#include "AntShader.hpp"
 #include "BouncingBall.hpp"
 #include "BallShader.hpp"
 #include "GpuTimer.hpp"
@@ -60,6 +62,7 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "ATLAS / FILIGREE FACE EMERGENCE",
                                  "ATLAS / THREE HYPERBOLIC VIEWPOINTS"};
 static_assert(std::size(names) == infinity_sync::sceneCount);
+
 struct Target {
   Target() = default;
   Target(const Target&) = delete;
@@ -175,7 +178,9 @@ class Infinity final : public de::Demo {
   bool still_ = false, dragging_ = false, viewDirty_ = false;
   double mouseX_ = 0, mouseY_ = 0;
   float yawOffset_ = 0, pitchOffset_ = 0, grinCurvature_ = -1;
-  GLuint antTexture_ = 0;
+  GLuint antTexture_ = 0, antFbo_ = 0, antProgram_ = 0;
+  bool validateAnts_ = false, cpuAnts_ = false;
+  size_t antUploads_ = 0, antSplats_ = 0;
   infinity_ants::Traffic traffic_;
   infinity_ball::World ballWorld_;
   infinity_ants::Traffic::Image antImage_;
@@ -239,6 +244,51 @@ class Infinity final : public de::Demo {
     one(p, "uSinD", scene == 1 ? 1.f : .894427191f);
     one(p, "uT", kleinT);
   }
+  void renderTraffic() {
+    if (reference_ || cpuAnts_) {
+      traffic_.raster(frame_.sync.beat, antImage_);
+      glActiveTexture(GL_TEXTURE2);
+      glBindTexture(GL_TEXTURE_2D, antTexture_);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 64, 64, GL_RGBA, GL_FLOAT, antImage_.data());
+      ++antUploads_;
+      return;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, antFbo_);
+    glViewport(0, 0, 64, 64);
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(antProgram_);
+    float ants[64], flashes[16];
+    for (int i = 0; i < infinity_ants::Traffic::count; ++i) {
+      const auto& a = traffic_.ants[size_t(i)];
+      ants[i * 4] = float(a.x); ants[i * 4 + 1] = float(a.y);
+      ants[i * 4 + 2] = float(a.dx); ants[i * 4 + 3] = float(a.dy);
+      flashes[i] = a.flash;
+    }
+    double phase = std::isfinite(frame_.sync.beat)
+                       ? std::fmod(std::clamp(frame_.sync.beat, 0.0, 1e9), .5) * 2.0 : 0;
+    glUniform4fv(loc(antProgram_, "uAnts"), 16, ants);
+    glUniform4fv(loc(antProgram_, "uFlash"), 4, flashes);
+    one(antProgram_, "uPhase", float(phase * phase * (3 - 2 * phase)));
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, infinity_ants::Traffic::count * 9);
+    glDisable(GL_BLEND);
+    ++antSplats_;
+    if (validateAnts_) {
+      traffic_.raster(frame_.sync.beat, antImage_);
+      infinity_ants::Traffic::Image actual;
+      glReadPixels(0, 0, 64, 64, GL_RGBA, GL_FLOAT, actual.data());
+      float maximum = 0;
+      for (size_t i = 0; i < actual.size(); ++i) {
+        if (!std::isfinite(actual[i])) throw std::runtime_error("Non-finite GPU traffic");
+        maximum = std::max(maximum, std::abs(actual[i] - antImage_[i]));
+      }
+      if (maximum > .003f) throw std::runtime_error("GPU traffic mismatch: " + std::to_string(maximum));
+      if (antSplats_ == 1) std::printf("GPU traffic validation: CPU raster agreement passed\n");
+    }
+  }
   void chamber(int scene, int w, int h, const Camera& cam) {
     image_.bind();
     glDisable(GL_BLEND);
@@ -246,10 +296,11 @@ class Infinity final : public de::Demo {
     auto p = chamber_[scene];
     if (reference_) faceUniforms(p, scene);
     view(p, cam, scene == 0 ? 6.4f : 0.f, scene == 0 ? 30.f : 78.f, w, h);
-    traffic_.raster(frame_.sync.beat, antImage_);
+    renderTraffic();
+    image_.bind();
+    glUseProgram(p);
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, antTexture_);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 64, 64, GL_RGBA, GL_FLOAT, antImage_.data());
     sampler(p, "uAntField", 2);
     glActiveTexture(GL_TEXTURE0);
     const auto flatBall = ballWorld_.sample(scene == 1 ? ballWorld_.cube : ballWorld_.flat, frame_.sync.beat);
@@ -259,7 +310,7 @@ class Infinity final : public de::Demo {
     glUniform4f(loc(p, "uBallH"), float(hyperBall.p[0]), float(hyperBall.p[1]), float(hyperBall.p[2]),
                 float(hyperBall.p[3]));
     one(p, "uBallImpact", float(scene == 1 || scene == 2 ? flatBall.flash : hyperBall.flash));
-    one(p, "uTime", float(frame_.time));
+    one(p, "uTime", float(frame_.effectTime));
     one(p, "uFlow", float(cue_.flow));
     one(p, "uEnergy", cue_.energy);
     one(p, "uMirror", .86f);
@@ -267,7 +318,7 @@ class Infinity final : public de::Demo {
     one(p, "uGlow", 1.25f + .30f * cue_.bass + .32f * cue_.strike);
     one(p, "uFX", scene == 0 ? 1.6f : .8f);
     float pulses[24];
-    infinity_sync::pulses(frame_.sync.beat, cue_.bass, pulses);
+    infinity_sync::pulses(frame_.beat.position, cue_.bass, pulses);
     glUniform4fv(loc(p, "uPulse"), 6, pulses);
     const float cameraFlow = still_ ? 0.f : float(cue_.flow);
     if (scene == 1 || scene == 2)
@@ -447,7 +498,7 @@ class Infinity final : public de::Demo {
     sampler(rays_, "uState", 0);
     common(rays_, aspect, k, count, nw);
     two(rays_, "uRes", float(w), float(h));
-    one(rays_, "uBeat", float(std::fmod(std::max(0.0, frame_.sync.beat), 16.0)));
+    one(rays_, "uBeat", float(std::fmod(std::max(0.0, frame_.beat.position), 16.0)));
     one(rays_, "uPulse", cue_.strike);
     one(rays_, "uBass", cue_.bass);
     three(rays_, "uEye", eye_.x, eye_.y, eye_.z);
@@ -550,7 +601,7 @@ class Infinity final : public de::Demo {
     output_.bind();
     glUseProgram(p);
     two(p, "uRes", float(w), float(h));
-    one(p, "uBeat", float(std::fmod(std::max(0.0, frame_.sync.beat), 256.0)));
+    one(p, "uBeat", float(std::fmod(std::max(0.0, frame_.beat.position), 256.0)));
     one(p, "uPulse", cue_.strike);
     one(p, "uBass", cue_.bass);
     three(p, "uEye", eye_.x, eye_.y, eye_.z);
@@ -574,8 +625,7 @@ public:
     c.defaultTrack = 1;
     c.logoShow = false;
     c.fxAmount = 0;
-    c.musicFiles = {"demos/wireframe/assets/music/cs127_-_stars_4ch.mod",
-                    "demos/wireframe/assets/music/drozerix_-_digital_rendezvous.xm"};
+    c.musicFiles = musiccat::playlist();
     return c;
   }
   bool parseArg(const std::string& a, int& i, int argc, char** argv) override {
@@ -648,6 +698,8 @@ public:
       validateRays_ = true;
       return true;
     }
+    if (a == "--validate-ants") { validateAnts_ = true; return true; }
+    if (a == "--cpu-ants") { cpuAnts_ = true; return true; }
     if (a == "--gpu-profile") {
       profile_ = true;
       return true;
@@ -736,12 +788,15 @@ public:
            "  --infinity-adaptive Re-enable adaptation after an explicit pixel budget\n"
            "  --infinity-sequential-integrator Force sequential RK4 on all ray scenes\n"
            "  --infinity-raster-integrator Original raster RK4 for isolated GPU comparison\n"
+           "  --validate-ants Compare GPU traffic texture against CPU raster every frame\n"
+           "  --cpu-ants Use CPU traffic raster for isolated comparisons\n"
            "  --validate-output Check HDR target values for non-finite results\n"
            "  --validate-targets Test GPU target storage and failed-resize recovery\n"
            "  --validate-ray-state Compare every active float ray sample against raster RK4\n"
            "  --gpu-profile       Report non-blocking GPU timings and submission counts\n"
            "  --infinity-reference Original GPU workload for A/B comparisons\n"
-           "  Drag to orbit; Left/Right scenes; Space automatic show; Q quit.\n";
+           "Keys: Drag to orbit; Left/Right scenes; Space automatic show;\n"
+           "      P Atlas pause; Q quit.\n";
   }
   bool init(const de::RunInfo&) override {
     const char* sources[] = {CHAMBER_OBJECT, CHAMBER_CUBE, CHAMBER_FLAT, CHAMBER_HYPER};
@@ -857,6 +912,18 @@ public:
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glGenFramebuffers(1, &antFbo_);
+    glBindFramebuffer(GL_FRAMEBUFFER, antFbo_);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, antTexture_, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      error_ = "Traffic framebuffer incomplete";
+      return false;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (!reference_ && !cpuAnts_) {
+      antProgram_ = program(infinity_ants::vertex, infinity_ants::fragment);
+      if (!antProgram_) return false;
+    }
     timer_.init(profile_ || (adaptive_ && !still_ && !reference_), profile_);
     glutil::setupFullscreenVao(vao_, vbo_);
     if (validateTargets_) {
@@ -936,6 +1003,12 @@ public:
     cue_.bass = bands[0];
     cue_.mid = bands[1];
     cue_.treble = bands[2];
+    cue_.beat = f.beat.pulse;
+    cue_.strike = f.beat.pulse * f.beat.accent;
+    cue_.flutter = std::exp(-f.beat.phase * 12.f) * std::min(1.f, f.beat.pulse);
+    cue_.flow = f.effectTime;
+    if (!f.music.active) cue_.bass = f.beat.pulse;
+    cue_.energy = std::clamp(.15f + .55f * cue_.bass + .25f * cue_.mid + .2f * cue_.beat, 0.f, 1.5f);
     if (cue_.scene != announced_) {
       std::fprintf(stdout, "infinity scene %02d: %s / beat %.2f\n", cue_.scene, names[cue_.scene], f.sync.beat);
       announced_ = cue_.scene;
@@ -945,11 +1018,7 @@ public:
                  (cue_.scene < 12   ? "  /  HOLD INFINITY BY PURPLETWILIGHT  /  "
                   : cue_.scene < 16 ? "  /  QRI ESSAY INSPIRED GEOMETRY STUDIES  /  "
                                     : "  /  DMT ATLAS / GEOMETRY STUDIES  /  ") +
-                 (f.musicPath.empty()                              ? "BPM CLOCK"
-                  : f.musicPath.find("cs127") != std::string::npos ? "STARS (4CH) BY CS127 / CC BY 4.0"
-                  : f.musicPath.find("drozerix_-_digital_rendezvous") != std::string::npos
-                      ? "DIGITAL RENDEZVOUS BY DROZERIX / PUBLIC DOMAIN"
-                      : f.musicPath);
+                 (f.musicPath.empty() ? "BPM CLOCK" : musiccat::credit(f.musicPath));
     return !in.pressed(de::Key::Q);
   }
   bool draw(const de::FrameInfo& f, std::string& error) override {
@@ -1062,6 +1131,9 @@ public:
     one(compose_, "uGlow",
         opticalBloom_ ? (cue_.scene < 12 ? .07f : .14f) * (frozen ? 1.f : (.94f + .12f * breath)) : 0.f);
     one(compose_, "uFade", cue_.fade);
+    const bool quiet = still_ || (cue_.scene >= 16 && (atlasPaused_ || atlasReduced_));
+    two(compose_, "uDrive", quiet ? 0.f : f.beat.pulse, quiet ? 0.f : f.beat.flash);
+    one(compose_, "uUpscale", (w < f.width || h < f.height) ? 1.f : 0.f);
     quad();
     timer_.end();
     previous_ = cue_.scene;
@@ -1074,6 +1146,10 @@ public:
   }
   void shutdown() override {
     timer_.shutdown();
+    if (antProgram_) glDeleteProgram(antProgram_);
+    if (antFbo_) glDeleteFramebuffers(1, &antFbo_);
+    antProgram_ = antFbo_ = 0;
+    if (profile_) std::printf("GPU traffic: splats=%zu cpu-texture-uploads=%zu\n", antSplats_, antUploads_);
     if (antTexture_) {
       glDeleteTextures(1, &antTexture_);
       antTexture_ = 0;

@@ -1,6 +1,8 @@
 #pragma once
 #include "BackgroundStyle.hpp"
 #include "Geometry.hpp"
+#include "Effects.hpp"
+#include "BeatResponse.hpp"
 #include "SpecialFx.hpp"
 #include "Bloom.hpp"
 #include "ArtPass.hpp"
@@ -12,12 +14,16 @@
 struct GLFWwindow;
 class Renderer {
 public:
+  struct UploadStats { size_t vertices=0, indices=0, bytes=0; };
+  const UploadStats& uploadStats() const { return uploadStats_; }
   bool init(GLFWwindow* w, const std::string& shaderDir = "shaders");
   bool upload(const Mesh3& m);
   bool draw(float time, int width, int height, float aspect, int sceneIndex = 0, float scale = 1.f,
             float lineWidth = 1.f, float musicLevel = 0.f);
   // Fullscreen beat-synced text marquee (scene name + provenance).
   bool drawScroller(float time, float beatPhase, int width, int height, const char* text, float musicLevel = 0.f);
+  // Static, responsive control/status card, rendered with the resident GPU font.
+  bool drawOverlay(int width, int height, const std::string& text, float opacity = 1.f);
   // Logo background: load the UBER_*_1920x1080.jpg cards from a directory.
   bool loadLogos(const std::string& dir);
   // Runtime switches: the logo cards and the procedural background can each be turned off, leaving the
@@ -78,6 +84,9 @@ public:
   // Wire look: 0 = the default electric palette, 1 = golden glimmer (no depth test, so orbit clouds
   // accumulate light additively; gold twinkle in wire.frag; gold cross glints in post.frag).
   void setWireStyle(int s) { wireStyle_ = std::clamp(s, 0, 1); }
+  void setBeatDrive(const rhythm::Drive& beat) { beat_ = beat; }
+  void setGpuWave(const float wave[4]) { std::copy(wave, wave + 4, gpuWave_); }
+  void setGpuEffect(const GpuDeformation& effect) { gpuEffect_ = effect; }
   // Model-space transform applied to the wireframe and travelers before the camera: a row-major 3x3
   // (identity by default). The noncommutative-camera effect drives it with products of shears.
   void setModelTransform(const float m3[9]) { std::copy(m3, m3 + 9, modelShear_); }
@@ -93,6 +102,15 @@ public:
   const std::string& error() const { return error_; }
 
 private:
+  bool drawText(float time, float phase, int width, int height, const char* text, float music,
+                bool panel, float opacity);
+  int uScPanel_ = -1;
+  UploadStats uploadStats_;
+  rhythm::Drive beat_;
+  int uPostBeatDrive_=-1, uTravelerBeat_=-1;
+  void bindWireProgram();
+  void drawWireMesh();
+  unsigned tessProgram_ = 0, activeWireProgram_ = 0;
   float setWireWidth(float lineWidth, float music) const;   // returns the effective width in pixels
   void cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const;
   bool createGl(const std::string& shaderDir);
@@ -107,6 +125,13 @@ private:
            travelerEbo_ = 0;
   int edgeCount_ = 0, hdrW_ = 0, hdrH_ = 0;
   size_t vboCapacity_ = 0, eboCapacity_ = 0;
+  std::vector<Edge> uploadedEdges_;
+  std::vector<V3> uploadedVertices_;
+  GpuDeformation gpuEffect_;
+  int uGpuEffect_=-1, uGpuCenter_=-1, uGpuSeed_=-1;
+  void submitGpuEffect();
+  float gpuWave_[4] = {0, 3, 1, 0};
+  int uGpuWave_ = -1;
   int uMVP_ = -1, uTime_ = -1, uColor_ = -1, uGain_ = -1, uMusicLevel_ = -1, uPostScene_ = -1, uPostTime_ = -1,
       uPostResolution_ = -1, uPostMusic_ = -1, uPostBpm_ = -1, uPostBypass_ = -1, uPostHasLogo_ = -1,
       uPostLogoVis_ = -1, uPostFx_ = -1;

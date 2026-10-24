@@ -16,6 +16,7 @@
 #include "Director.hpp"
 #include "WireGain.hpp"
 #include "ShowOptions.hpp"
+#include "MusicOptions.hpp"
 #include "LogoShow.hpp"
 #include "Describe.hpp"
 #include "Transition.hpp"
@@ -25,6 +26,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <limits>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -45,6 +47,85 @@ static void mesh(const Mesh3& m, const char* n, bool requireEdges = true) {
   if (requireEdges) req(!m.e.empty(), n);
 }
 int main() {
+  {
+    rhythm::Settings settings;
+    const auto hit = rhythm::sample(8, 120, true, 1, settings);
+    const auto between = rhythm::sample(8.5, 120, true, 1, settings);
+    req(hit.pulse == 1 && hit.flash > .6f, "beat attacks align with integer beats");
+    req(between.pulse < .02f && between.flash < .001f, "sustained audio cannot hold beat flashes open");
+    req(rhythm::sample(9, 120, false, 0, settings).flash < hit.flash, "downbeat flash accent");
+    settings.division = 2;
+    req(rhythm::sample(8.5, 120, false, 0, settings).pulse == 1, "eighth note pulse alignment");
+    settings.division = 4;
+    req(rhythm::sample(8.25, 120, false, 0, settings).pulse == 1, "sixteenth note pulse alignment");
+    settings.offset = .125;
+    req(rhythm::sample(8.0, 120, false, 0, settings).phase == 0, "beat offset uses seconds at current tempo");
+    settings.pulse = settings.flash = 0;
+    req(rhythm::sample(8, 120, false, 0, settings).pulse == 0 &&
+        rhythm::sample(8, 120, false, 0, settings).flash == 0, "pulse and flash disable");
+    const auto invalid = rhythm::sample(std::numeric_limits<double>::infinity(), 0, true,
+                                        std::numeric_limits<float>::quiet_NaN(), settings);
+    req(std::isfinite(invalid.pulse) && std::isfinite(invalid.flash), "invalid rhythm input remains finite");
+    req(musicopt::preset("all").size() == 8 && musicopt::preset("unknown").empty(), "named music presets");
+    req(musicopt::supported("Track.MP3") && musicopt::supported("song.flac") &&
+        !musicopt::supported("cover.png"), "music folder file filtering");
+    std::vector<std::filesystem::path> a{"a","b","c","d"}, b = a;
+    musicopt::shuffle(a, 1234); musicopt::shuffle(b, 1234);
+    req(a == b, "playlist shuffle is deterministic");
+    std::sort(a.begin(), a.end());
+    req(a == std::vector<std::filesystem::path>({"a","b","c","d"}), "shuffle preserves every track");
+  }
+
+  {
+    auto parse = [](std::vector<std::string> values, musicopt::Options& options) {
+      std::vector<char*> argv;
+      for (auto& value : values) argv.push_back(value.data());
+      std::string error;
+      for (int i=0;i<int(argv.size());++i) {
+        const auto result=musicopt::parse(i,int(argv.size()),argv.data(),options,error);
+        if (result!=showopt::Result::Ok) return result;
+      }
+      return showopt::Result::Ok;
+    };
+    musicopt::Options options;
+    req(parse({"--music-preset","all","--music","custom.wav","--music-dir","music","--shuffle-seed","42",
+               "--volume",".5","--music-paused","--list-music"},options)==showopt::Result::Ok,
+        "music options parse");
+    req(options.files.size()==9 && options.directories.size()==1 && options.shuffle && options.seed==42 &&
+        options.volume==.5f && options.paused && options.list && options.explicitSelection,"music options retain values");
+    for (const auto& invalid : std::vector<std::vector<std::string>>{{"--volume","nan"},{"--volume","3"},
+          {"--shuffle-seed","-1"},{"--shuffle-seed","4294967296"},{"--music-preset","missing"},{"--music-dir"}}) {
+      musicopt::Options bad;
+      req(parse(invalid,bad)==showopt::Result::Error,"invalid music option rejected");
+    }
+  }
+  // GPU planning must retain CPU prefixes, clamp stage counts and bound displaced geometry.
+  for (int id = 0; id < effectCount(); ++id) {
+    EffectRecipe recipe;
+    recipe.stageCount = 100; // public recipe counts are clamped to six
+    for (auto& stage : recipe.stages) stage.effect = 13;
+    recipe.stages[5].effect = id;
+    EffectContext context;
+    context.time = 1.234f; context.amount = -.7f; context.bass = .8f;
+    auto candidate = geo::torus(12, 8), reference = candidate;
+    for (auto& p : candidate.v) p.x += 1.2f;
+    reference = candidate;
+    GpuDeformation deferred;
+    req(applyRecipe(reference, recipe, context), "CPU recipe planning reference");
+    req(applyRecipeGpu(candidate, recipe, context, deferred), "GPU recipe planning");
+    if (gpuDeformationSupported(id)) {
+      req(deferred.effect == id, "supported final stage deferred");
+      req(geo::stats(reference).radius <= deferred.radius + 1e-4f, "GPU bound contains CPU vertices");
+      req(applyEffect(candidate, deferred.effect, deferred.context), "evaluate deferred CPU stage");
+    } else req(deferred.effect == 0, "unsupported stage remains on CPU");
+    req(candidate.v.size() == reference.v.size(), "GPU planning retains topology");
+    for (size_t i = 0; i < candidate.v.size(); ++i) {
+      const auto a = candidate.v[i], b = reference.v[i];
+      req(std::abs(a.x-b.x)+std::abs(a.y-b.y)+std::abs(a.z-b.z)<1e-5f,
+          "GPU prefix and stage order match CPU recipe");
+    }
+  }
+
   auto t = geo::tesseract();
   req(t.v.size() == 16 && t.e.size() == 32 && t.faces.size() == 24, "tesseract V/E/F");
   auto c16 = geo::cell16();
@@ -181,11 +262,17 @@ int main() {
     req(o.bgStyle == 6 && !o.autoStyle && o.parallax == 2.5 && o.parallaxGiven && o.bgParallax == 0.0, "style and gains stored");
     req(o.fixedPointer && o.fixedX == .5f && o.fixedY == -1.f && o.startTrack == 2 && o.fixedStep == .04, "pointer, track, clock stored");
     req(o.hideList == "sun,grid" && o.noGloss && o.noDepth && o.noLogo && o.noBackground && !o.adaptive, "switches stored");
+    showopt::ShowOptions rhythmOptions;
+    req(run({"--pulse-amount","1.5","--flash-amount",".3","--beat-division","4","--beat-decay","12","--beat-offset","-.12","--beat-source","audio"},
+            rhythmOptions,err)==showopt::Result::Ok && rhythmOptions.rhythm.division==4 && rhythmOptions.rhythm.source==rhythm::Source::Audio &&
+        rhythmOptions.rhythm.pulse==1.5f && rhythmOptions.rhythm.offset==-.12,"rhythm controls parse");
     showopt::ShowOptions p;
     req(run({"--parallax", "9"}, p, err) == showopt::Result::Ok && p.parallax == 3.0, "gain clamps to 3");
     const std::vector<std::vector<std::string>> bad = {{"--parallax", "abc"}, {"--parallax", "2.5x"}, {"--parallax"}, {"--track", "0"},
                                                       {"--track", "1.5"}, {"--pointer", "1"}, {"--pointer", "1,y"}, {"--fixed-step", "0"},
-                                                      {"--fixed-step", "nan"}, {"--background-style", "disco"}};
+                                                      {"--fixed-step", "nan"}, {"--background-style", "disco"}, {"--track","1e100"},
+                                                      {"--beat-division","3"},{"--pulse-amount","nan"},{"--flash-amount","3"},
+                                                      {"--beat-decay","0"},{"--beat-offset","2.1"},{"--beat-source","random"}};
     bool allRejected = true;
     for (const auto& b : bad) {
       showopt::ShowOptions q;
@@ -861,7 +948,7 @@ int main() {
       std::ifstream f(shadersDir / "post.frag");
       std::string all((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
       req(all.find("uBpm") != std::string::npos, "post.frag declares uBpm");
-      req(all.find("uBpm/60.0") != std::string::npos, "post.frag beat synced to bpm/60 Hz");
+      req(all.find("float beat=uBeatDrive.x;") != std::string::npos, "post.frag uses shared phase-aligned beat envelope");
       // the old hard-coded 3.2 Hz (192 BPM only) must be gone from the beat line
       req(all.find("sin(uTime*3.2)") == std::string::npos, "post.frag no hard-coded 3.2 Hz beat");
       // --no-post bypass path must exist (ACES tone-map + early return)

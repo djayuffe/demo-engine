@@ -33,3 +33,14 @@ Third-party code vendored in `thirdparty/`: `stb_image.h` and `stb_image_write.h
 Imported Hold Infinity optical renderer sources are credited separately in `demos/infinity/SOURCE.md`; original files and source hashes are preserved under that directory. They are not relicensed by the engine's MIT license.
 
 The user-supplied DMT Atlas v0.3 reference sources and their derivatives are recorded in `demos/atlas/SOURCE.md`. Original files and SHA-256 hashes are preserved. The archive provides no separate license; inclusion does not relicense it under the engine MIT license.
+
+
+## Additional CC0 music (2026-10-24)
+
+The bundled Melodic EDM (Fupi), Black Diamond (Joth), Moil (Ruskerdax), and Synthwave
+15k (The Cynic Project / cynicmusic) are distributed unmodified under their source
+pages' CC0 designation. Their rights are separate from the engine source code.
+See [music credits](demos/wireframe/assets/music/README.md) and
+[the pinned source manifest](demos/wireframe/assets/music/additional_music.json)
+for source/download URLs, licensing links, author credits and SHA-256 checksums.
+The Cynic Project: https://cynicmusic.com/ and https://pixelsphere.org/.

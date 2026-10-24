@@ -3,13 +3,16 @@
 // parsed strictly: a number must be a whole, finite number ("2.5x" or "abc" is an error, not 0).
 // Pure and unit-tested; Engine.cpp keeps the window/audio/renderer options.
 #include "BackgroundStyle.hpp"
+#include "BeatResponse.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <string>
+#include <limits>
 
 namespace showopt {
 struct ShowOptions {
+  rhythm::Settings rhythm;
   int bgStyle = 0;              // --background-style (0..kCount-1)
   bool autoStyle = false;       // --background-style auto
   bool noBackground = false, noLogo = false, noDepth = false, noGloss = false;
@@ -20,6 +23,7 @@ struct ShowOptions {
   double parallax = 1.6;        // effects plane (wires, depth motes)
   double bgParallax = 1.6;      // background, independent of the effects
   double fixedStep = 0.0;       // --fixed-step S (0 = real time)
+  bool trackGiven = false;
   int startTrack = 0;           // --track N (stored 0-based)
   std::string hideList;         // --hide a,b,c
 };
@@ -46,6 +50,36 @@ inline Result parse(int& i, int argc, char** argv, ShowOptions& o, std::string& 
     return true;
   };
   double v = 0;
+  if (a == "--beat-source") {
+    if (!needs("clock, audio or hybrid")) return Result::Error;
+    const std::string source=argv[i];
+    if(source=="clock")o.rhythm.source=rhythm::Source::Clock;
+    else if(source=="audio")o.rhythm.source=rhythm::Source::Audio;
+    else if(source=="hybrid")o.rhythm.source=rhythm::Source::Hybrid;
+    else {err="--beat-source: clock|audio|hybrid";return Result::Error;}
+    return Result::Ok;
+  }
+  if (a == "--no-flash") { o.rhythm.flash = 0; return Result::Ok; }
+  if (a == "--no-pulse") { o.rhythm.pulse = 0; return Result::Ok; }
+  if (a == "--pulse-amount" || a == "--flash-amount" || a == "--beat-decay" ||
+      a == "--beat-offset" || a == "--beat-division") {
+    if (!needs("rhythm value")) return Result::Error;
+    if (!number(argv[i], v)) { err = a + ": expected a finite number"; return Result::Error; }
+    if (a == "--beat-division") {
+      if (v != 1 && v != 2 && v != 4) { err = a + ": use 1, 2 or 4"; return Result::Error; }
+      o.rhythm.division = int(v);
+    } else if (a == "--beat-offset") {
+      if (v < -2 || v > 2) { err = a + ": seconds in -2..2"; return Result::Error; }
+      o.rhythm.offset = v;
+    } else if (a == "--beat-decay") {
+      if (v < 2 || v > 30) { err = a + ": decay in 2..30"; return Result::Error; }
+      o.rhythm.decay = float(v);
+    } else {
+      if (v < 0 || v > 2) { err = a + ": strength in 0..2"; return Result::Error; }
+      (a == "--pulse-amount" ? o.rhythm.pulse : o.rhythm.flash) = float(v);
+    }
+    return Result::Ok;
+  }
   if (a == "--no-background") { o.noBackground = true; return Result::Ok; }
   if (a == "--no-logo") { o.noLogo = true; return Result::Ok; }
   if (a == "--no-depth") { o.noDepth = true; return Result::Ok; }
@@ -66,8 +100,9 @@ inline Result parse(int& i, int argc, char** argv, ShowOptions& o, std::string& 
   }
   if (a == "--track") {
     if (!needs("track number")) return Result::Error;
-    if (!number(argv[i], v) || v < 1 || v != std::floor(v)) { err = "--track: a track number 1, 2, 3 ..."; return Result::Error; }
+    if (!number(argv[i], v) || v < 1 || v > std::numeric_limits<int>::max() || v != std::floor(v)) { err = "--track: a track number 1, 2, 3 ..."; return Result::Error; }
     o.startTrack = int(v) - 1;
+    o.trackGiven = true;
     return Result::Ok;
   }
   if (a == "--pointer") {

@@ -31,6 +31,15 @@ Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.6.0.
 
 Docs: [ARCHITECTURE.md](ARCHITECTURE.md) | [docs/WRITING_A_DEMO.md](docs/WRITING_A_DEMO.md) | [CHANGELOG.md](CHANGELOG.md)
 
+Eight bundled tracks now span tracker/chiptune, melodic EDM, drum and bass, dark jazz and ambient synth.
+
+Beat and music controls: [shared pulse/flash timing, playlists, presets and codecs](docs/MUSIC_AND_BEATS.md).
+
+```sh
+./build/hold_infinity --music-preset new --shuffle-seed 42 --beat-source hybrid
+./build/impossible_wireframe --music-dir ~/Music/Demos --bpm 128 --beat-division 2
+```
+
 ## Background styles
 
 `--background-style auto|classic|synthwave|nebula|mandala|blackhole|hyperspace|fractal` picks the procedural background (key **V** cycles it live, **B** turns it off, **L** the logo cards). `auto` hands the choice to a director that listens to the music: it cuts on bar lines, reacts to drops and breakdowns with an early cut and a shockwave, and picks worlds that suit the energy (calm: nebula/black hole; peak: hyperspace/synthwave), sometimes with a sparser composition. `--fixed-step 0.0333` gives a deterministic clock for reproducible captures. `classic` is the slowly cross-fading generative blend; the others are single scenes: a striped-sun synthwave horizon with a neon grid, a parallax self-shadowed nebula with shooting stars, and a folded orbit-trap crystal mandala, and a relativistic black hole: ray-marched Schwarzschild lensing of a galaxy sky, a Doppler-beamed turbulent accretion disk, photon ring and polar jets, and a hyperspace warp tunnel with depth-shell star streaks you steer with the mouse, and a ray-marched fly-through of an infinite, twisting Menger-sponge cathedral lit by travelling light orbs. A styled background keeps its own palette (the post hue-drift grade is held back) and the final output is dithered to avoid banding.
@@ -49,6 +58,8 @@ brew install cmake glfw sdl2 libopenmpt   # macOS; SDL2 + libopenmpt are optiona
 make run-hello                            # the minimal demo
 make run                                  # the native optical and Atlas demo
 ```
+
+GPU geometry: [adaptive tessellation, 23 offloaded effects, instanced copies, HDR and validation](docs/GPU_RENDERING.md).
 
 ## What the engine provides
 | Feature | What you get | Where |
@@ -71,17 +82,18 @@ make run                                  # the native optical and Atlas demo
 A complete demo:
 ```cpp
 #include "Engine.hpp"
-#include <cmath>
 
 struct MyDemo : de::Demo {
+  const std::shared_ptr<const Mesh3> base = std::make_shared<const Mesh3>(geo::torus(96, 32, 1.f, .35f));
   de::Config config() const override {
     de::Config c; c.title = "My Demo"; c.version = "1.0"; c.binaryName = "ripple_demo";
     c.fxAmount = 0.4f;                                         // dial the post look down so the torus stays readable
     return c;
   }
   bool update(const de::FrameInfo& f, const de::Input& in, de::Frame& out) override {
-    out.mesh = geo::torus(48, 16, 1.f, .35f);                 // any wire mesh you like
-    for (auto& p : out.mesh.v) p.y += .2f * std::sin(p.x * 3.f + float(f.time));
+    out.retainedMesh = base;
+    out.revision = 1;                                      // upload the static mesh once
+    out.gpuWave[0] = .2f;                                  // vertex shader animates the ripple
     out.scale = 1.f + .1f * f.sync.pulse;                      // pulse on the beat
     out.ticker = "MY DEMO  -  a torus that ripples";
     return !in.pressed(de::Key::Q);                            // Q ends the demo
@@ -182,3 +194,12 @@ If OpenGL/GLFW are absent, CMake still builds `iw_geometry` and `geometry_tests`
 - Mesh colours and per-edge attributes.
 - Multiple meshes and instancing per frame.
 - A scripting layer for scene lists.
+
+### On-screen controls
+
+Press **H** for a responsive controls card, including the current demo’s scene controls.
+**I** shows playback, track credits, tempo source, beat settings and display resolution.
+**J** cycles hybrid → audio → clock beat response. Playback, volume and beat switches
+show brief confirmation cards; a startup hint fades away after seven seconds.
+Use `--hud` or `--help-overlay` to open a card at launch, and `--no-hints` to hide
+the startup hint. Automated frame captures stay clear unless a card is explicitly requested.

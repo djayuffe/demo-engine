@@ -21,6 +21,20 @@ struct EffectRecipe {
   EffectStage stages[6]{};
 };
 
+// A supported final vertex-only stage can execute after the CPU recipe prefix.
+// radius is a conservative origin-centred bound; no GPU readback is needed for fitting.
+struct GpuDeformation {
+  int effect=0;
+  EffectContext context;
+  V3 center;
+  float radius=0;
+  float baseRadius=0;
+  int instances=1;
+};
+bool gpuDeformationSupported(int effect);
+bool applyRecipeGpu(Mesh3& mesh, const EffectRecipe& recipe, const EffectContext& context,
+                    GpuDeformation& deferred, const Mesh3* secondary=nullptr);
+
 int effectCount();
 std::string_view effectName(int id);
 bool applyEffect(Mesh3& m, int id, const EffectContext& ctx, const Mesh3* secondary=nullptr);
