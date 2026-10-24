@@ -129,7 +129,7 @@ python3 tools/benchmark_gpu_offload.py --frames 180 --repeats 2
 The GPU smoke check requires an accessible desktop/GL context. It checks that Hello
 and Ripple upload their static meshes once, runs generic demos through post and
 bypass paths, validates all 23 GPU effects against CPU vertices, checks traffic
-raster agreement, renders all 27 Infinity scenes with finite HDR output, and runs
+raster agreement, renders all 28 Infinity scenes with finite HDR output, and runs
 framebuffer resize/recovery checks. Shader degradation and driver-reported software
 fallbacks fail the check. GPU numerical cases cover stage prefixes, negative and
 zero amounts, transformed time, seed overflow, translated geometry, camera bounds,

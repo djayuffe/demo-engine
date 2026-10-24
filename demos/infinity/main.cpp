@@ -22,6 +22,7 @@
 #include "OpticalPost.hpp"
 #include "../atlas/AtlasShaders.hpp"
 #include "../aviation/AviationShader.hpp"
+#include "../cosmic/CosmicShaders.hpp"
 #include "Slice.hpp"
 #include "HyperAtlas.hpp"
 #include <unordered_map>
@@ -60,9 +61,10 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "ATLAS / MULTI-CHART IRIS PORTAL",
                                  "ATLAS / EUCLIDEAN ORNAMENT",
                                  "ATLAS / CAUSAL EVENT VOLUME",
-                                 "ATLAS / FILIGREE FACE EMERGENCE",
+                                 "FOUR-DIMENSIONAL MOBIUS UNIVERSE",
                                  "ATLAS / THREE HYPERBOLIC VIEWPOINTS",
-                                 "SPECTRAL PARAMETRIC POINT FIELD"};
+                                 "SPECTRAL PARAMETRIC POINT FIELD",
+                                 "MAJORANA QUANTUM TWIST LATTICE"};
 static_assert(std::size(names) == infinity_sync::sceneCount);
 
 struct Target {
@@ -160,6 +162,8 @@ class Infinity final : public de::Demo {
   GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
   GLuint aviation_ = 0, aviationTemporal_ = 0;
   int aviationLayers_ = 2;
+  GLuint mobiusSurface_ = 0, mobiusPoints_ = 0, quantum_ = 0;
+  int quantumLayers_ = 2;
   std::array<GLuint, 2> sequential_{};
   std::array<GLuint, 4> worlds_{};
   GLuint worldReference_ = 0;
@@ -567,7 +571,7 @@ class Infinity final : public de::Demo {
     }
     quad();
   }
-  static bool atlasScene(int scene) { return scene >= 16 && scene < 26; }
+  static bool atlasScene(int scene) { return (scene >= 16 && scene < 24) || scene == 25; }
   void aviation(int w, int h) {
     output_.bind();
     glClearColor(0, 0, 0, 1);
@@ -594,6 +598,53 @@ class Infinity final : public de::Demo {
     // Only the parametric field is echoed; companion/ring/star points are evaluated once.
     glDrawArraysInstanced(GL_POINTS, 0, aviation_gpu::fieldPoints, aviationLayers_);
     glDrawArrays(GL_POINTS, aviation_gpu::fieldPoints, aviation_gpu::pointCount - aviation_gpu::fieldPoints);
+    glDisable(GL_BLEND);
+    glDisable(GL_PROGRAM_POINT_SIZE);
+  }
+  void cosmicUniforms(GLuint program, int w, int h, const Camera& cam, float distance) {
+    glUseProgram(program);
+    two(program, "uRes", float(w), float(h));
+    one(program, "uTime", still_ ? 0.f : float(cue_.flow));
+    one(program, "uPulse", still_ ? 0.f : cue_.strike);
+    one(program, "uBass", cue_.bass);
+    one(program, "uMid", cue_.mid);
+    one(program, "uTreble", cue_.treble);
+    glUniformMatrix3fv(loc(program, "uCam"), 1, GL_FALSE, cam.m);
+    three(program, "uEye", cam.back[0] * distance + cam.m[0] * eye_.x + cam.m[3] * eye_.y,
+          cam.back[1] * distance + cam.m[1] * eye_.x + cam.m[4] * eye_.y,
+          cam.back[2] * distance + cam.m[2] * eye_.x + cam.m[5] * eye_.y);
+  }
+  void mobius(int w, int h) {
+    output_.bind();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    const float phase = still_ ? 0.f : float(cue_.flow);
+    const auto cam = camera(yawOffset_ + .30f + .08f * std::sin(phase * .06f),
+                            pitchOffset_ + .12f + .055f * std::sin(phase * .043f));
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    cosmicUniforms(mobiusSurface_, w, h, cam, 4.6f);
+    glDrawArrays(GL_TRIANGLES, 0, cosmic_gpu::mobiusSurfaceVertices);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    cosmicUniforms(mobiusPoints_, w, h, cam, 4.6f);
+    glDrawArrays(GL_POINTS, 0, cosmic_gpu::mobiusPointCount);
+    glDisable(GL_PROGRAM_POINT_SIZE);
+    glDisable(GL_BLEND);
+  }
+  void quantum(int w, int h) {
+    output_.bind();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    const float phase = still_ ? 0.f : float(cue_.flow);
+    const auto cam = camera(yawOffset_ + .58f + .075f * std::sin(phase * .07f),
+                            pitchOffset_ + .15f + .05f * std::sin(phase * .037f));
+    cosmicUniforms(quantum_, w, h, cam, 4.8f);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArraysInstanced(GL_POINTS, 0, cosmic_gpu::quantumFieldPoints, quantumLayers_);
+    glDrawArrays(GL_POINTS, cosmic_gpu::quantumFieldPoints,
+                 cosmic_gpu::quantumPointCount - cosmic_gpu::quantumFieldPoints);
     glDisable(GL_BLEND);
     glDisable(GL_PROGRAM_POINT_SIZE);
   }
@@ -805,7 +856,7 @@ public:
     return false;
   }
   std::string usage() const override {
-    return "  --infinity-scene N  Hold one optical scene (0..26)\n"
+    return "  --infinity-scene N  Hold one optical scene (0..27)\n"
            "  --no-optical-bloom Disable shared GPU highlight pyramid for A/B timing\n"
            "  --atlas-reduced-motion Slow new Atlas effects; suppress beat flashes\n"
            "  --atlas-paused     Freeze Atlas animation; P toggles pause\n"
@@ -875,8 +926,12 @@ public:
     atlasTemporal_ = program(FULLSCREEN_VS, dmt::gpu::temporal);
     aviation_ = glutil::linkProgram(aviation_gpu::vertex, aviation_gpu::fragment, error_);
     aviationTemporal_ = program(FULLSCREEN_VS, aviation_gpu::temporal);
+    mobiusSurface_ = glutil::linkProgram(cosmic_gpu::mobiusSurfaceVertex, cosmic_gpu::mobiusSurfaceFragment, error_);
+    mobiusPoints_ = glutil::linkProgram(cosmic_gpu::mobiusPointVertex, cosmic_gpu::pointFragment, error_);
+    quantum_ = glutil::linkProgram(cosmic_gpu::quantumVertex, cosmic_gpu::pointFragment, error_);
     const char* glVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));
     aviationLayers_ = glVersion && std::string(glVersion).find("Metal") != std::string::npos ? 4 : 2;
+    quantumLayers_ = glVersion && std::string(glVersion).find("Metal") != std::string::npos ? 4 : 2;
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
@@ -889,7 +944,7 @@ public:
       std::fprintf(stderr, "Infinity shader failure: %s\n", error_.c_str());
       return false;
     }
-    if (!atlasTemporal_ || !aviation_ || !aviationTemporal_ ||
+    if (!atlasTemporal_ || !aviation_ || !aviationTemporal_ || !mobiusSurface_ || !mobiusPoints_ || !quantum_ ||
         (reference_ ? !atlasReference_
                     : std::any_of(atlasPrograms_.begin(), atlasPrograms_.end(), [](GLuint p) { return !p; }))) {
       std::fprintf(stderr, "Atlas/point-field shader failure: %s\n", error_.c_str());
@@ -947,6 +1002,12 @@ public:
                                 (aviation_gpu::pointCount - aviation_gpu::fieldPoints);
       std::printf("GPU point field: layers=%d vertices=%d geometry-uploads=0 temporal=gpu\n",
                   aviationLayers_, pointVertices);
+      const int quantumVertices = cosmic_gpu::quantumFieldPoints * quantumLayers_ +
+                                  (cosmic_gpu::quantumPointCount - cosmic_gpu::quantumFieldPoints);
+      std::printf("GPU Mobius universe: surface=%d particles=%d geometry-uploads=0\n",
+                  cosmic_gpu::mobiusSurfaceVertices, cosmic_gpu::mobiusPointCount);
+      std::printf("GPU quantum lattice: layers=%d vertices=%d geometry-uploads=0\n",
+                  quantumLayers_, quantumVertices);
     }
     glGenTextures(1, &antTexture_);
     glBindTexture(GL_TEXTURE_2D, antTexture_);
@@ -1061,7 +1122,9 @@ public:
     out.ticker = std::string(names[cue_.scene]) +
                  (cue_.scene < 12    ? "  /  HOLD INFINITY BY PURPLETWILIGHT  /  "
                   : cue_.scene < 16  ? "  /  QRI ESSAY INSPIRED GEOMETRY STUDIES  /  "
-                  : cue_.scene < 26  ? "  /  DMT ATLAS / GEOMETRY STUDIES  /  "
+                  : cue_.scene < 24  ? "  /  DMT ATLAS / GEOMETRY STUDIES  /  "
+                  : cue_.scene == 24 ? "  /  PURPLETWILIGHT MOBIUS SPACETIME STUDY  /  "
+                  : cue_.scene == 25 ? "  /  DMT ATLAS / GEOMETRY STUDIES  /  "
                                      : "  /  PURPLETWILIGHT PARAMETRIC 3D STUDY  /  ") +
                  (f.musicPath.empty() ? "BPM CLOCK" : musiccat::credit(f.musicPath));
     return !in.pressed(de::Key::Q);
@@ -1099,10 +1162,14 @@ public:
       grin(cue_.scene, w, h);
     else if (cue_.scene < 16)
       worldSheet(cue_.scene, w, h);
-    else if (cue_.scene < 26)
+    else if (atlasScene(cue_.scene))
       atlas(cue_.scene, w, h);
-    else
+    else if (cue_.scene == 24)
+      mobius(w, h);
+    else if (cue_.scene == 26)
       aviation(w, h);
+    else
+      quantum(w, h);
     if (validateOutput_ && !outputChecked_[size_t(cue_.scene)]) {
       std::vector<float> values(size_t(w * h * 4));
       output_.bind();
@@ -1234,6 +1301,18 @@ public:
     if (aviationTemporal_) {
       glDeleteProgram(aviationTemporal_);
       aviationTemporal_ = 0;
+    }
+    if (mobiusSurface_) {
+      glDeleteProgram(mobiusSurface_);
+      mobiusSurface_ = 0;
+    }
+    if (mobiusPoints_) {
+      glDeleteProgram(mobiusPoints_);
+      mobiusPoints_ = 0;
+    }
+    if (quantum_) {
+      glDeleteProgram(quantum_);
+      quantum_ = 0;
     }
     for (auto& history : temporalHistory_) history.release();
     for (auto& p : worlds_)

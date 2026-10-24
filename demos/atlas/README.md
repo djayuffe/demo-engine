@@ -1,6 +1,6 @@
 # DMT Atlas — native Demo Engine integration
 
-The user-supplied `dmt_atlas_v03_gap_closure.zip` is integrated into the live OpenGL 4.1 show. All executable archive features remain available as CPU reference tools; their rendering algorithms also have live GPU counterparts. The ten Atlas studies occupy scenes 16–25 of the 27-scene show. These are procedural geometry studies, without claims about reproducing subjective perception.
+The user-supplied `dmt_atlas_v03_gap_closure.zip` is integrated into the live OpenGL 4.1 show. Its executable archive features remain available as CPU reference tools. Nine nonfigurative Atlas studies occupy scenes 16–23 and 25 of the 28-scene show; the former face-emergence slot at 24 was removed from live playback. These are procedural geometry studies, without claims about reproducing subjective perception.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -12,7 +12,7 @@ cmake --build build -j
 
 Left/right select scenes; Space resumes the 32-beat automatic director. Drag to orbit; pointer movement supplies camera parallax. P pauses Atlas animation and holds the current Atlas scene; P resumes animation, and Space resumes automatic scene selection. Music continues during a visual pause. Playback still starts with Digital Rendezvous, the second playlist song.
 
-`--atlas-reduced-motion` slows Atlas motion to 12% and suppresses its beat flashes and automatic camera dolly. `--atlas-flash-gain 0..1` scales the modest beat accents. `--atlas-exposure 0..2` caps linear Atlas exposure before the existing hue-preserving display shoulder. `--atlas-paused` starts with frozen Atlas animation. These controls apply to scenes 16–25; they do not change the earlier optical scenes. Interactive camera movement remains available.
+`--atlas-reduced-motion` slows Atlas motion to 12% and suppresses its beat flashes and automatic camera dolly. `--atlas-flash-gain 0..1` scales the modest beat accents. `--atlas-exposure 0..2` caps linear Atlas exposure before the existing hue-preserving display shoulder. `--atlas-paused` starts with frozen Atlas animation. These controls apply to scenes 16–23 and 25; they do not change the other scenes. Interactive camera movement remains available.
 
 ## Live scenes and archive coverage
 

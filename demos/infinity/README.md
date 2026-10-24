@@ -77,7 +77,7 @@ ctest --test-dir build --output-on-failure
 python3 tools/smoke_infinity.py
 ```
 
-Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 27 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
+Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 28 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
 
 [Source attribution, original archive hash and port boundaries](SOURCE.md).
 
@@ -226,11 +226,28 @@ Headless checks verify disk-circle orthogonality, three-polygon vertex angles, d
 
 ## DMT Atlas integration
 
-Scenes 16–25 port the supplied v0.3 Atlas archive and extend its concrete rendering roadmap. See the [feature matrix, controls, geometry conventions, validation and research boundaries](../atlas/README.md). P pauses Atlas animation; `--atlas-reduced-motion`, `--atlas-exposure` and `--atlas-flash-gain` control the new effects. Original source bytes and hashes are preserved separately from the production derivatives.
+Scenes 16–23 and 25 port the supplied v0.3 Atlas archive and extend its concrete rendering roadmap. The figurative face-emergence scene was removed from live playback. See the [feature matrix, controls, geometry conventions, validation and research boundaries](../atlas/README.md). P pauses Atlas animation; `--atlas-reduced-motion`, `--atlas-exposure` and `--atlas-flash-gain` control the Atlas effects. Original source bytes and hashes are preserved separately from the production derivatives.
+
+## Möbius universe and quantum lattice
+
+Scene 24 replaces the retired face effect with the supplied four-dimensional Möbius
+universe. A 256 × 64 procedural grid emits 98,304 triangle vertices for the double-loop
+strip, including its fourth-coordinate height, analytic normals, animated micro-displacement
+and metallic Fresnel flow. A second procedural draw adds 40,960 singularity, horizon, star,
+debris and surface-flow particles. The full scene uses GPU temporal persistence and bloom;
+an M1 Pro measured 4.639 ms average and 6.446 ms p95 at the 400,000-pixel budget.
+
+Scene 27 ports the supplied advanced quantum-fractal point equation as a volumetric field,
+then adds paired twist braids, eight alternating orbital nodes and a temperature-varied star
+shell. Metal-backed OpenGL uses four delayed instances for 409,600 vertex invocations each
+frame. Bass changes volume, mid energy winds the braids, treble activates the star shell and
+beat attacks travel through the node pairs. An M1 Pro measured 4.913 ms average and 7.039 ms
+p95 at the same budget. Both scenes generate all geometry from `gl_VertexID`, with zero
+streaming geometry uploads. [Port boundaries and source hashes](../cosmic/SOURCE.md).
 
 ## Rendering refinement (4.1)
 
-All 27 scenes share a half-resolution RGBA16F highlight pyramid: soft-knee extraction, weighted downsampling, GPU mip generation and explicit-LOD composition. Bloom adds a restrained halo without raising black input. `--no-optical-bloom` disables this pass for A/B measurements. GPU timing includes the new passes, so the existing adaptive pixel governor accounts for their cost.
+All 28 scenes share a half-resolution RGBA16F highlight pyramid: soft-knee extraction, weighted downsampling, GPU mip generation and explicit-LOD composition. Bloom adds a restrained halo without raising black input. `--no-optical-bloom` disables this pass for A/B measurements. GPU timing includes the new passes, so the existing adaptive pixel governor accounts for their cost.
 
 Audio bands use frame-independent exponential attack/release smoothing. Beat attacks retain their phase-locked clock; smooth envelopes supply the sustained motion. Atlas motion now handles backward seeks, pause/resume and a consistent 12% reduced-motion rate. Sphere radii and 4D section extents breathe geometrically, with conservative hierarchy padding for the maximum radius.
 
