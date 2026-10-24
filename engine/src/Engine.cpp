@@ -113,6 +113,8 @@ int run(Demo& demo, int argc, char** argv) {
   bool qualityGiven = false;
   int winW = 0, winH = 0;
   bool fullscreen = false;
+  int tessellationLimit = -1;
+  bool gpuInfo = false;
   std::string screenshotPath;
   int maxFrames = 0;
   bool vsync = true, showStats = false;
@@ -156,6 +158,9 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --no-depth      Start with the depth-mote layer off (toggle with D)\n"
                  "  --no-logo       Start with the logo cards off (toggle with L)\n"
                  "  --quality F     Render the HDR target at F of screen resolution (0.25-1.0)\n"
+                 "  --tessellation N Adaptive wire segments 1..64; 0 disables (default: driver-aware)\n"
+                 "  --no-tessellation Disable tessellated wire ribbons\n"
+                 "  --gpu-info      Print detailed OpenGL/Metal capabilities\n"
                  "  --logos DIR     Directory of *_1920x1080.jpg logo cards\n"
                  "  --window WxH    Initial window size (320x200 .. 3840x2160, default 1440x900)\n"
                  "  --fullscreen    Full-screen on the primary monitor (overrides --window)\n"
@@ -211,7 +216,19 @@ int run(Demo& demo, int argc, char** argv) {
       }
       quality = std::clamp(v, 0.25, 1.0);
       qualityGiven = true;
-    } else if (arg == "--logos" && i + 1 < argc)
+    } else if (arg == "--tessellation" && i + 1 < argc) {
+      char* end = nullptr;
+      const long value = std::strtol(argv[++i], &end, 10);
+      if (!end || *end || value < 0 || value > 64) {
+        std::fprintf(stderr, "--tessellation: expected an integer in 0..64\n");
+        return 2;
+      }
+      tessellationLimit = int(value);
+    } else if (arg == "--no-tessellation")
+      tessellationLimit = 0;
+    else if (arg == "--gpu-info")
+      gpuInfo = true;
+    else if (arg == "--logos" && i + 1 < argc)
       logoOverride = argv[++i];
     else if (arg == "--window" && i + 1 < argc) {
       std::string werr;
@@ -362,12 +379,15 @@ int run(Demo& demo, int argc, char** argv) {
     glfwTerminate();
   };
   Renderer r;
+  r.setTessellationLimit(tessellationLimit);
   if (!r.init(w, shaderDir)) {
     std::fprintf(stderr, "Renderer init failed: %s\n", r.error().c_str());
     cleanup(nullptr);
     return 3;
   }
+  std::fprintf(stdout, "GPU: %s\n", r.gpuDescription(gpuInfo).c_str());
   r.setRenderScale(float(quality));
+  r.setGpuTiming(showStats);
   // Default: cap the HDR target to a pixel budget (Retina/4K); an explicit --quality means "exactly this".
   r.setMaxHdrPixels(qualityGiven ? 0.0 : rscale::kDefaultBudget);
   r.setPostEnabled(!noPost);
@@ -765,7 +785,12 @@ int run(Demo& demo, int argc, char** argv) {
     const auto& uploads = r.uploadStats();
     std::printf("CPU work: frames=%zu avg=%.6f ms max=%.6f ms gpu-effect-frames=%zu gpu-effect-vertices=%zu\n",
                 cpuFrames, cpuTotalMs / double(cpuFrames), cpuPeakMs, gpuEffectFrames, gpuEffectVertices);
-    std::printf("Mesh uploads: vertices=%zu indices=%zu bytes=%zu\n", uploads.vertices, uploads.indices, uploads.bytes);
+    std::printf("Mesh uploads: vertices=%zu indices=%zu bytes=%zu; text=%zu updates/%zu bytes\n",
+                uploads.vertices, uploads.indices, uploads.bytes, uploads.textUpdates, uploads.textBytes);
+    const auto& gpu = r.gpuTiming();
+    if (gpu.samples)
+      std::printf("GPU work: samples=%zu avg=%.3f ms max=%.3f ms\n",
+                  gpu.samples, gpu.averageMs(), gpu.peakMs);
     std::printf("Beat integration: source=%s onset-frames=%zu peak=%.3f bpm=%.2f\n",
                 so.fixedStep>0?"clock (fixed-step)":rhythm::name(so.rhythm.source),onsetFrames,onsetPeak,bpm);
   }

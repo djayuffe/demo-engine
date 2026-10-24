@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#include <cctype>
 #include <sstream>
 #include <vector>
 // stb_image_write is third-party and trips -Wall -Wextra (missing field
@@ -31,6 +32,18 @@ namespace {
 using glutil::linkProgram;
 using glutil::readText;
 using glutil::setupFullscreenVao;
+std::string glString(GLenum name) {
+  const auto* value = glGetString(name);
+  return value ? reinterpret_cast<const char*>(value) : "unavailable";
+}
+bool containsInsensitive(std::string text, const std::string& needle) {
+  std::transform(text.begin(), text.end(), text.begin(),
+                 [](unsigned char c) { return char(std::tolower(c)); });
+  std::string match = needle;
+  std::transform(match.begin(), match.end(), match.begin(),
+                 [](unsigned char c) { return char(std::tolower(c)); });
+  return text.find(match) != std::string::npos;
+}
 } // namespace
 // Create all GL objects (programs, VAOs, buffers, textures, HDR FBO). Called by
 // init() and reinit() (after a context loss). Must run with a current context.
@@ -44,10 +57,31 @@ bool Renderer::createGl(const std::string& dir) {
   uploadedEdges_.clear();
   uploadedVertices_.clear();
   uploadStats_ = {};
+  gpuTiming_ = {};
+  timerCursor_ = timerWarmup_ = 0;
+  gpuTimerActive_ = false;
   hdrW_ = hdrH_ = 0;
   logoCapturePending_ = false;
   hasLogos_ = false;
   bgLastTime_ = -1.0;
+  scrollerCodesCache_.clear();
+  gpuInfo_.vendor = glString(GL_VENDOR);
+  gpuInfo_.renderer = glString(GL_RENDERER);
+  gpuInfo_.version = glString(GL_VERSION);
+  gpuInfo_.shadingLanguage = glString(GL_SHADING_LANGUAGE_VERSION);
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &gpuInfo_.maxTextureSize);
+  glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &gpuInfo_.maxRenderbufferSize);
+  GLint viewport[2]{};
+  glGetIntegerv(GL_MAX_VIEWPORT_DIMS, viewport);
+  gpuInfo_.maxViewportWidth = viewport[0];
+  gpuInfo_.maxViewportHeight = viewport[1];
+  glGetIntegerv(GL_MAX_TESS_GEN_LEVEL, &gpuInfo_.maxTessellationLevel);
+  glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &gpuInfo_.maxTextureUnits);
+  gpuInfo_.metalBacked = containsInsensitive(gpuInfo_.version, "metal") ||
+                         containsInsensitive(gpuInfo_.renderer, "metal");
+  const int preferred = gpuInfo_.metalBacked ? 32 : 16;
+  tessellationLimit_ = requestedTessellationLimit_ < 0 ? preferred : requestedTessellationLimit_;
+  tessellationLimit_ = std::clamp(tessellationLimit_, 0, gpuInfo_.maxTessellationLevel);
   std::string vs = readText(dir + "/wire.vert"), fs = readText(dir + "/wire.frag");
   if (vs.empty() || fs.empty()) {
     error_ = "cannot read shaders from " + dir;
@@ -69,7 +103,7 @@ bool Renderer::createGl(const std::string& dir) {
     program_ = linkProgram(vs, fsPlain, error_);
   }
   if (!program_) return false;
-  if (wideWires_) {
+  if (wideWires_ && tessellationLimit_ > 0) {
     const auto patch = readText(dir + "/wire_patch.vert");
     const auto control = readText(dir + "/wire.tesc"), evaluation = readText(dir + "/wire.tese");
     if (!patch.empty() && !control.empty() && !evaluation.empty()) {
@@ -83,6 +117,16 @@ bool Renderer::createGl(const std::string& dir) {
   glGenBuffers(1, &vbo_);
   glGenBuffers(1, &ebo_);
   if (!initPost(dir)) return false;
+  // Every active sampler gets a complete texture even when an optional pass is disabled. Apple's
+  // Metal-backed GL driver otherwise logs an unloadable-texture warning before dynamic branches run.
+  glGenTextures(1, &blackTex_);
+  glBindTexture(GL_TEXTURE_2D, blackTex_);
+  const float black[4]{};
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 1, 1, 0, GL_RGBA, GL_FLOAT, black);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   if (!art_.init(dir, error_)) return false;
   // Non-fatal extras: scroller, logo background, traveling objects. A missing
   // shader degrades (no marquee / no background / no travelers) rather than
@@ -101,10 +145,13 @@ bool Renderer::createGl(const std::string& dir) {
   glDepthFunc(GL_LEQUAL);
   return true;
 }
-// Undeformed meshes retain the cheaper vertex/geometry path. Deforming meshes
-// use adaptive GL 4.1 quad-ribbon tessellation when its optional shaders link.
+// Apple maps OpenGL to Metal, where geometry shaders are disproportionately expensive. On that
+// backend the quad-tessellation ribbon also handles undeformed edges with one segment. Other drivers
+// retain the geometry path for undeformed meshes. Wave deformation always uses adaptive tessellation.
 void Renderer::bindWireProgram() {
-  const unsigned selected = tessProgram_ && gpuWave_[0] != 0.f && !gpuEffect_.effect ? tessProgram_ : program_;
+  const bool ribbon = tessProgram_ && !gpuEffect_.effect &&
+                      (gpuWave_[0] != 0.f || gpuInfo_.metalBacked);
+  const unsigned selected = ribbon ? tessProgram_ : program_;
   glUseProgram(selected);
   if (activeWireProgram_ == selected) return;
   activeWireProgram_ = selected;
@@ -120,6 +167,23 @@ void Renderer::bindWireProgram() {
   uGain_ = glGetUniformLocation(selected, "uGain");
   uStyle_ = glGetUniformLocation(selected, "uStyle");
   uMusicLevel_ = glGetUniformLocation(selected, "uMusicLevel");
+  uTessMax_ = glGetUniformLocation(selected, "uTessMax");
+  if (uTessMax_ >= 0) glUniform1f(uTessMax_, float(tessellationLimit_));
+}
+
+std::string Renderer::gpuDescription(bool detailed) const {
+  std::ostringstream out;
+  out << gpuInfo_.vendor << " / " << gpuInfo_.renderer << " / " << gpuInfo_.version
+      << "; tessellation " << (tessProgram_ ? std::to_string(tessellationLimit_) : "off")
+      << (gpuInfo_.metalBacked ? " (Metal-backed OpenGL)" : "")
+      << (gpuInfo_.metalBacked && tessProgram_ ? "; geometry-shader bypass" : "");
+  if (detailed)
+    out << "; GLSL " << gpuInfo_.shadingLanguage << "; max texture " << gpuInfo_.maxTextureSize
+        << "; max renderbuffer " << gpuInfo_.maxRenderbufferSize << "; max viewport "
+        << gpuInfo_.maxViewportWidth << 'x' << gpuInfo_.maxViewportHeight
+        << "; texture units " << gpuInfo_.maxTextureUnits
+        << "; hardware tessellation " << gpuInfo_.maxTessellationLevel;
+  return out.str();
 }
 void Renderer::submitGpuEffect() {
   const auto& c = gpuEffect_.context;
@@ -135,6 +199,40 @@ void Renderer::drawWireMesh() {
     glDrawElementsInstanced(GL_LINES, edgeCount_, GL_UNSIGNED_INT, nullptr, std::max(1, gpuEffect_.instances));
   }
 }
+void Renderer::beginGpuTimer() {
+  if (!gpuTimingEnabled_) return;
+  for (auto& slot : timer_) {
+    if (!slot.id) glGenQueries(1, &slot.id);
+    if (!slot.pending) continue;
+    GLint ready = 0;
+    glGetQueryObjectiv(slot.id, GL_QUERY_RESULT_AVAILABLE, &ready);
+    if (!ready) continue;
+    GLuint64 nanoseconds = 0;
+    glGetQueryObjectui64v(slot.id, GL_QUERY_RESULT, &nanoseconds);
+    slot.pending = false;
+    const double ms = double(nanoseconds) / 1e6;
+    if (timerWarmup_ < 8) ++timerWarmup_;
+    else {
+      ++gpuTiming_.samples;
+      gpuTiming_.totalMs += ms;
+      gpuTiming_.peakMs = std::max(gpuTiming_.peakMs, ms);
+    }
+  }
+  for (int attempt = 0; attempt < 8; ++attempt) {
+    auto& slot = timer_[timerCursor_];
+    timerCursor_ = (timerCursor_ + 1) % 8;
+    if (slot.pending) continue;
+    glBeginQuery(GL_TIME_ELAPSED, slot.id);
+    slot.pending = true;
+    gpuTimerActive_ = true;
+    return;
+  }
+}
+void Renderer::endGpuTimer() {
+  if (!gpuTimerActive_) return;
+  glEndQuery(GL_TIME_ELAPSED);
+  gpuTimerActive_ = false;
+}
 bool Renderer::init(GLFWwindow*, const std::string& dir) {
   // Reset all GL object ids so createGl generates fresh ones. On a first init
   // they're already 0; on a reinit after shutdown() they may be stale.
@@ -148,6 +246,11 @@ bool Renderer::reinit(const std::string& dir) {
   // Delete only the GL objects that survived the context loss (they're invalid
   // handles now, but deleting them is the correct cleanup before re-creating).
   // We do NOT touch the logo image data (logos_) — only their GL textures.
+  // Query names belong to the lost context too. Do not try to end or delete an
+  // in-flight query through the replacement context; createGl() will lazily
+  // allocate fresh names when timing is next enabled.
+  gpuTimerActive_ = false;
+  for (auto& slot : timer_) slot = {};
   fx_.shutdown();
   if (tessProgram_) glDeleteProgram(tessProgram_);
   tessProgram_ = activeWireProgram_ = 0;
@@ -156,8 +259,9 @@ bool Renderer::reinit(const std::string& dir) {
   art_.shutdown();
   if (hdrFbo_) glDeleteFramebuffers(1, &hdrFbo_);
   if (hdrTex_) glDeleteTextures(1, &hdrTex_);
+  if (blackTex_) glDeleteTextures(1, &blackTex_);
   if (depthRbo_) glDeleteRenderbuffers(1, &depthRbo_);
-  hdrFbo_ = hdrTex_ = depthRbo_ = 0;
+  hdrFbo_ = hdrTex_ = depthRbo_ = blackTex_ = 0;
   hdrW_ = hdrH_ = 0;
   for (auto& L : logos_)
     if (L.tex) glDeleteTextures(1, &L.tex), L.tex = 0;
@@ -313,6 +417,13 @@ bool Renderer::resizeHdr(int width, int height) {
   const double sc = rscale::effective(width, height, renderScale_, maxHdrPixels_);
   width = std::max(1, (int)std::lround(width * sc));
   height = std::max(1, (int)std::lround(height * sc));
+  const int limitW = std::max(1, std::min({gpuInfo_.maxTextureSize, gpuInfo_.maxRenderbufferSize,
+                                          gpuInfo_.maxViewportWidth}));
+  const int limitH = std::max(1, std::min({gpuInfo_.maxTextureSize, gpuInfo_.maxRenderbufferSize,
+                                          gpuInfo_.maxViewportHeight}));
+  const double fit = std::min({1.0, double(limitW) / width, double(limitH) / height});
+  width = std::max(1, int(std::floor(width * fit)));
+  height = std::max(1, int(std::floor(height * fit)));
   if (width == hdrW_ && height == hdrH_ && hdrFbo_) return true;
   hdrW_ = width;
   hdrH_ = height;
@@ -411,6 +522,7 @@ void Renderer::cameraMvp(float t, float aspect, float scale, float musicLevel, f
 bool Renderer::draw(float t, int width, int height, float aspect, int sceneIndex, float scale, float lineWidth,
                     float musicLevel) {
   if (!resizeHdr(width, height)) return false;
+  beginGpuTimer();
   float ml = std::clamp(musicLevel, 0.f, 1.f);
   float M[16];
   cameraMvp(t, aspect, scale, ml, M);
@@ -695,14 +807,15 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   if (uPostGloss_ >= 0) glUniform1f(uPostGloss_, showGloss_ ? 1.f : 0.f);
   if (uPostCut_ >= 0) glUniform2f(uPostCut_, cutIn_, cutOut_);
   glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_2D, art_.texture());
+  glBindTexture(GL_TEXTURE_2D, art_.texture() ? art_.texture() : blackTex_);
   if (uPostArt_ >= 0) glUniform1i(uPostArt_, 1);
   glActiveTexture(GL_TEXTURE2);
-  glBindTexture(GL_TEXTURE_2D, bloomTex);
+  glBindTexture(GL_TEXTURE_2D, bloomTex ? bloomTex : blackTex_);
   if (uPostBloom_ >= 0) glUniform1i(uPostBloom_, 2);
   if (uPostArtOn_ >= 0) glUniform1f(uPostArtOn_, artOn ? 1.f : 0.f);
   glBindVertexArray(postVao_);
   glDrawArrays(GL_TRIANGLES, 0, 3);
+  endGpuTimer();
   glActiveTexture(GL_TEXTURE0);
   return true;
 }
@@ -809,10 +922,16 @@ bool Renderer::drawText(float time, float beatPhase, int width, int height, cons
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    scrollerCodesCache_.clear();
   }
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, n, 1, GL_RED, GL_UNSIGNED_BYTE, codes.data());
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+  if (codes != scrollerCodesCache_) {
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, n, 1, GL_RED, GL_UNSIGNED_BYTE, codes.data());
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    scrollerCodesCache_ = codes;
+    ++uploadStats_.textUpdates;
+    uploadStats_.textBytes += codes.size();
+  }
   glUseProgram(scrollerProgram_);
   if (uScTime_ >= 0) glUniform1f(uScTime_, time);
   if (uScPhase_ >= 0) glUniform1f(uScPhase_, beatPhase);
@@ -845,6 +964,11 @@ bool Renderer::drawText(float time, float beatPhase, int width, int height, cons
   return true;
 }
 void Renderer::shutdown() {
+  if (gpuTimerActive_) endGpuTimer();
+  for (auto& slot : timer_) {
+    if (slot.id) glDeleteQueries(1, &slot.id);
+    slot = {};
+  }
   fx_.shutdown();
   bloom_.shutdown();
   lookFx_.shutdown();
@@ -855,8 +979,10 @@ void Renderer::shutdown() {
   if (scrollerFontTex_) glDeleteTextures(1, &scrollerFontTex_);
   if (scrollerCodesTex_) glDeleteTextures(1, &scrollerCodesTex_);
   scrollerCodesTex_ = 0, scrollerCodesTexW_ = 0;
+  scrollerCodesCache_.clear();
   if (hdrFbo_) glDeleteFramebuffers(1, &hdrFbo_);
   if (hdrTex_) glDeleteTextures(1, &hdrTex_);
+  if (blackTex_) glDeleteTextures(1, &blackTex_);
   if (depthRbo_) glDeleteRenderbuffers(1, &depthRbo_);
   if (postProgram_) glDeleteProgram(postProgram_);
   if (postVao_) glDeleteVertexArrays(1, &postVao_);
@@ -879,5 +1005,5 @@ void Renderer::shutdown() {
   if (vao_) glDeleteVertexArrays(1, &vao_);
   program_ = postProgram_ = scrollerProgram_ = bgProgram_ = travelerProgram_ = vao_ = postVao_ = postVbo_ =
       scrollerVao_ = scrollerVbo_ = bgVao_ = bgVbo_ = travelerVao_ = vbo_ = ebo_ = travelerVbo_ = travelerEbo_ =
-          scrollerFontTex_ = hdrFbo_ = hdrTex_ = depthRbo_ = 0;
+          scrollerFontTex_ = hdrFbo_ = hdrTex_ = depthRbo_ = blackTex_ = 0;
 }

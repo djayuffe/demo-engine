@@ -4,6 +4,13 @@
 - Combined highlight bloom with cubic reconstruction and shared beat exposure; stationary output dither smooths optical gradients while preserving black and paused frames.
 - Added responsive on-screen H controls, I playback/tempo status, J beat-source cycling, startup hints and transient playback feedback. Demo-specific shortcuts appear in the controls card.
 
+# Metal/OpenGL capability and realtime audit — 2026-10-24
+
+- Query live OpenGL 4.1 limits, clamp HDR targets safely and expose `--gpu-info`, `--tessellation N` and `--no-tessellation`.
+- Route compatible static wires through quad tessellation on Metal-backed OpenGL, bypassing geometry expansion; an isolated M1 Pro test reduced average GPU time from 1.953 ms to 1.650 ms.
+- Add non-blocking generic GPU timings, complete fallback sampler textures and unchanged GPU-font upload caching.
+- Move fixed filter math out of the SDL callback, use independent relaxed telemetry atomics, and add CMake switches for audio and optional codecs.
+
 # Diverse music pack and audio attacks — 2026-10-24
 
 - Fetch four unmodified CC0 tracks: Fupi's Melodic EDM, Joth's Black Diamond, Ruskerdax's Moil and The Cynic Project's Synthwave 15k. Record source/licence URLs and pinned SHA-256 hashes, plus a reproducible fetch/verify script.

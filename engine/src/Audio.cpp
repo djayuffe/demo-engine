@@ -112,6 +112,9 @@ bool AudioPlayer::open(const std::vector<std::filesystem::path>& playlist) {
     return false;
   }
   rate_ = got.freq;
+  // These coefficients depend only on device rate. Keep exp() out of the realtime callback.
+  bassAlpha_ = 1.f - std::exp(-6.2831853f * 350.f / float(rate_));
+  midAlpha_ = 1.f - std::exp(-6.2831853f * 3000.f / float(rate_));
   // WAVs are converted now that the device rate is known.
   std::vector<bool> bad(tracks_.size(), false);
   for (auto& w : wavs) {
@@ -165,13 +168,13 @@ bool AudioPlayer::open(const std::vector<std::filesystem::path>& playlist) {
       track.tempoSource=tempo.bpm>0?"estimated":"fallback";
     }
   }
-  const int requested = std::max(0, start_.exchange(-1));
-  const int64_t initial = int64_t(requested) + skip_.exchange(0);
+  const int requested = std::max(0, start_.exchange(-1, std::memory_order_relaxed));
+  const int64_t initial = int64_t(requested) + skip_.exchange(0, std::memory_order_relaxed);
   const int64_t count = int64_t(tracks_.size());
   const int selected = int((initial % count + count) % count);
-  current_.store(selected);
-  nativeBpm_.store(tracks_[size_t(selected)].bpm);
-  tempoConfidence_.store(tracks_[size_t(selected)].confidence);
+  current_.store(selected, std::memory_order_relaxed);
+  nativeBpm_.store(tracks_[size_t(selected)].bpm, std::memory_order_relaxed);
+  tempoConfidence_.store(tracks_[size_t(selected)].confidence, std::memory_order_relaxed);
   SDL_PauseAudioDevice(device_, 0);
   return true;
 #else
@@ -188,13 +191,17 @@ void AudioPlayer::close() {
     device_ = 0;
   }
   for (auto& t : tracks_) if (t.mod) openmpt_module_destroy(t.mod);
-  current_.store(0);
+  current_.store(0, std::memory_order_relaxed);
   playedFrames_ = 0;
-  seconds_.store(0.0);
-  nativeBpm_.store(0.0);
-  level_.store(0.0f);
-  onset_.store(0);tempoConfidence_.store(0);onsetDetector_.reset();
-  bass_.store(0.0f); mid_.store(0.0f); treble_.store(0.0f);
+  seconds_.store(0.0, std::memory_order_relaxed);
+  nativeBpm_.store(0.0, std::memory_order_relaxed);
+  level_.store(0.0f, std::memory_order_relaxed);
+  onset_.store(0, std::memory_order_relaxed);
+  tempoConfidence_.store(0, std::memory_order_relaxed);
+  onsetDetector_.reset();
+  bass_.store(0.0f, std::memory_order_relaxed);
+  mid_.store(0.0f, std::memory_order_relaxed);
+  treble_.store(0.0f, std::memory_order_relaxed);
   for (int channel = 0; channel < 2; ++channel) lpB_[channel] = lpM_[channel] = 0;
 #endif
   tracks_.clear();
@@ -204,20 +211,21 @@ MusicState AudioPlayer::state() const {
   MusicState s{};
 #if defined(IW_HAS_AUDIO)
   s.active = device_ != 0 && !tracks_.empty();
-  s.paused = paused_.load();
-  s.nativeBpm = nativeBpm_.load();
-  s.onset=onset_.load();s.tempoConfidence=tempoConfidence_.load();
-  s.seconds = seconds_.load();
-  s.level = level_.load();
-  s.bass = bass_.load();
-  s.mid = mid_.load();
-  s.treble = treble_.load();
-  s.track = s.active ? current_.load() : -1;
-  s.order = order_.load();
-  s.pattern = pattern_.load();
-  s.row = row_.load();
-  s.tempo = tempo_.load();
-  s.speed = speed_.load();
+  s.paused = paused_.load(std::memory_order_relaxed);
+  s.nativeBpm = nativeBpm_.load(std::memory_order_relaxed);
+  s.onset=onset_.load(std::memory_order_relaxed);
+  s.tempoConfidence=tempoConfidence_.load(std::memory_order_relaxed);
+  s.seconds = seconds_.load(std::memory_order_relaxed);
+  s.level = level_.load(std::memory_order_relaxed);
+  s.bass = bass_.load(std::memory_order_relaxed);
+  s.mid = mid_.load(std::memory_order_relaxed);
+  s.treble = treble_.load(std::memory_order_relaxed);
+  s.track = s.active ? current_.load(std::memory_order_relaxed) : -1;
+  s.order = order_.load(std::memory_order_relaxed);
+  s.pattern = pattern_.load(std::memory_order_relaxed);
+  s.row = row_.load(std::memory_order_relaxed);
+  s.tempo = tempo_.load(std::memory_order_relaxed);
+  s.speed = speed_.load(std::memory_order_relaxed);
 #endif
   return s;
 }
@@ -231,7 +239,8 @@ void AudioPlayer::callback(void* userdata, Uint8* stream, int len) {
 void AudioPlayer::rewind(Track& t) {
   if (t.mod) openmpt_module_set_position_seconds(t.mod, 0.0);
   t.pos = 0;
-  onsetDetector_.reset();onset_.store(0);
+  onsetDetector_.reset();
+  onset_.store(0, std::memory_order_relaxed);
 }
 
 void AudioPlayer::render(float* out, int frames) {
@@ -242,21 +251,25 @@ void AudioPlayer::render(float* out, int frames) {
   // Fill the whole block, moving to the next track (and wrapping to the first) whenever the current
   // one ends, so there is no gap between tracks. A one-track playlist simply loops that track.
   int done = 0, switches = 0;
-  int cur = current_.load();
-  const int requested = start_.exchange(-1), step = skip_.exchange(0);
+  int cur = current_.load(std::memory_order_relaxed);
+  const int requested = start_.exchange(-1, std::memory_order_relaxed);
+  const int step = skip_.exchange(0, std::memory_order_relaxed);
   if (requested >= 0 || step) {
     const int64_t n = int64_t(tracks_.size());
     const int64_t target = int64_t(requested >= 0 ? requested : cur) + step;
     cur = int((target % n + n) % n);
     rewind(tracks_[size_t(cur)]);
-    current_.store(cur);
-    nativeBpm_.store(tracks_[size_t(cur)].bpm);
-    tempoConfidence_.store(tracks_[size_t(cur)].confidence);
-    level_.store(0); bass_.store(0); mid_.store(0); treble_.store(0);
+    current_.store(cur, std::memory_order_relaxed);
+    nativeBpm_.store(tracks_[size_t(cur)].bpm, std::memory_order_relaxed);
+    tempoConfidence_.store(tracks_[size_t(cur)].confidence, std::memory_order_relaxed);
+    level_.store(0, std::memory_order_relaxed);
+    bass_.store(0, std::memory_order_relaxed);
+    mid_.store(0, std::memory_order_relaxed);
+    treble_.store(0, std::memory_order_relaxed);
     for (int channel = 0; channel < 2; ++channel) lpB_[channel] = lpM_[channel] = 0;
   }
   // Track selection remains responsive while paused, without advancing played time.
-  if (paused_.load()) {
+  if (paused_.load(std::memory_order_relaxed)) {
     std::fill(out, out + frames * 2, 0.f);
     return;
   }
@@ -280,25 +293,25 @@ void AudioPlayer::render(float* out, int frames) {
       rewind(tracks_[size_t(cur)]);
     }
   }
-  current_.store(cur);
+  current_.store(cur, std::memory_order_relaxed);
   analyze(out, frames * 2); // analysis precedes volume: muting does not mute visual rhythm
-  const float gain = volume_.load();
+  const float gain = volume_.load(std::memory_order_relaxed);
   for (int i = 0; i < frames * 2; ++i)
     out[i] = std::isfinite(out[i]) ? std::clamp(out[i] * gain, -1.f, 1.f) : 0.f;
   playedFrames_ += uint64_t(frames);
-  seconds_.store(double(playedFrames_) / double(rate_));
+  seconds_.store(double(playedFrames_) / double(rate_), std::memory_order_relaxed);
   if (openmpt_module* m = tracks_[size_t(cur)].mod) {
-    order_.store(int(openmpt_module_get_current_order(m)));
-    pattern_.store(int(openmpt_module_get_current_pattern(m)));
-    row_.store(int(openmpt_module_get_current_row(m)));
-    tempo_.store(int(std::lround(openmpt_module_get_current_tempo2(m))));
+    order_.store(int(openmpt_module_get_current_order(m)), std::memory_order_relaxed);
+    pattern_.store(int(openmpt_module_get_current_pattern(m)), std::memory_order_relaxed);
+    row_.store(int(openmpt_module_get_current_row(m)), std::memory_order_relaxed);
+    tempo_.store(int(std::lround(openmpt_module_get_current_tempo2(m))), std::memory_order_relaxed);
     const int speed = int(openmpt_module_get_current_speed(m));
-    speed_.store(speed);
-    nativeBpm_.store(trackerBpm(openmpt_module_get_current_tempo2(m), speed));
-    tempoConfidence_.store(1);
+    speed_.store(speed, std::memory_order_relaxed);
+    nativeBpm_.store(trackerBpm(openmpt_module_get_current_tempo2(m), speed), std::memory_order_relaxed);
+    tempoConfidence_.store(1, std::memory_order_relaxed);
   } else {
-    nativeBpm_.store(tracks_[size_t(cur)].bpm);
-    tempoConfidence_.store(tracks_[size_t(cur)].confidence);
+    nativeBpm_.store(tracks_[size_t(cur)].bpm, std::memory_order_relaxed);
+    tempoConfidence_.store(tracks_[size_t(cur)].confidence, std::memory_order_relaxed);
   }
 }
 
@@ -307,23 +320,22 @@ void AudioPlayer::analyze(const float* out, int valid) {
   float bSum=0,mSum=0,tSum=0;
   // Independent channel filters avoid interleaving L/R samples into one IIR state.
   // Coefficients follow the actual device rate; treble is the >3 kHz residual.
-  const float aB=1.f-std::exp(-6.2831853f*350.f/float(rate_));
-  const float aM=1.f-std::exp(-6.2831853f*3000.f/float(rate_));
   for (int i = 0; i < valid; ++i) {
     const int channel = i & 1;
     const float s = std::isfinite(out[i]) ? out[i] : 0.f;
     sum += double(s) * double(s);
-    lpB_[channel] += aB*(s-lpB_[channel]); lpM_[channel] += aM*(s-lpM_[channel]);
+    lpB_[channel] += bassAlpha_*(s-lpB_[channel]); lpM_[channel] += midAlpha_*(s-lpM_[channel]);
     bSum += std::fabs(lpB_[channel]);
     mSum += std::fabs(lpM_[channel]-lpB_[channel]);
     tSum += std::fabs(s-lpM_[channel]);
   }
   const int N=std::max(1,valid);
   const float rms = static_cast<float>(std::sqrt(sum / N));
-  onset_.store(onsetDetector_.process(rms,bSum/float(N),mSum/float(N),tSum/float(N),double(valid)/(2.0*rate_)));
-  level_.store(std::clamp(rms * 4.0f, 0.0f, 1.0f));
-  bass_.store(std::clamp(bSum/float(N)*6.0f,0.f,1.f));
-  mid_.store(std::clamp(mSum/float(N)*6.0f,0.f,1.f));
-  treble_.store(std::clamp(tSum/float(N)*6.0f,0.f,1.f));
+  onset_.store(onsetDetector_.process(rms,bSum/float(N),mSum/float(N),tSum/float(N),double(valid)/(2.0*rate_)),
+               std::memory_order_relaxed);
+  level_.store(std::clamp(rms * 4.0f, 0.0f, 1.0f), std::memory_order_relaxed);
+  bass_.store(std::clamp(bSum/float(N)*6.0f,0.f,1.f), std::memory_order_relaxed);
+  mid_.store(std::clamp(mSum/float(N)*6.0f,0.f,1.f), std::memory_order_relaxed);
+  treble_.store(std::clamp(tSum/float(N)*6.0f,0.f,1.f), std::memory_order_relaxed);
 }
 #endif

@@ -19,7 +19,8 @@ def main():
         result = subprocess.run(args, capture_output=True, text=True, timeout=60)
         log = result.stdout + result.stderr
         if (result.returncode or "--frames 4 reached" not in log
-                or any(word in log.lower() for word in ("unavailable", "fallback (log once)", "sw vertex", "software vertex", "opengl error"))
+                or any(word in log.lower() for word in ("unavailable", "fallback (log once)", "unsupported (log once)",
+                                                        "sw vertex", "software vertex", "opengl error"))
                 or (expected and expected not in log)):
             raise RuntimeError(f"{' '.join(args)}\n{log}")
         return log
@@ -30,7 +31,11 @@ def main():
             raise RuntimeError("Static geometry was not uploaded exactly once: " + log)
         run(demo)
         print(f"{demo}: post and bypass paths passed", flush=True)
-    run("hello_demo", ("--window", "320x200", "--help-overlay"))
+    overlay = run("hello_demo", ("--window", "320x200", "--help-overlay", "--stats"))
+    if "text=1 updates/" not in overlay:
+        raise RuntimeError("Unchanged overlay text was uploaded more than once: " + overlay)
+    info = run("ripple_demo", ("--gpu-info",), "hardware tessellation")
+    run("ripple_demo", ("--no-tessellation",), "tessellation off")
     run("impossible_wireframe", ("--help-overlay",))
     run("hold_infinity", ("--hud", "--infinity-scene", "20", "--infinity-pixels", "30000"))
     print("Responsive help and playback cards passed", flush=True)

@@ -16,6 +16,17 @@ per edge. Each generated vertex is displaced before projection, and the analytic
 projected tangent supplies an antialiased ribbon width. This adds detail along
 existing edges; it does not reconstruct a smooth surface from arbitrary wire meshes.
 
+The renderer queries the hardware tessellation, texture, renderbuffer, viewport and
+combined sampler limits from the live context. On Apple's Metal-backed OpenGL driver,
+the quad ribbon also handles undeformed edges with one segment, bypassing the slower
+geometry-shader expansion path. A 600-frame test in a 1440x900 logical window with
+the default HDR pixel cap on the M1 Pro measured
+1.650 ms average GPU time for this ribbon path versus 1.953 ms for the geometry-stage
+reference, a 15.5% reduction for that isolated scene. `--tessellation N` caps adaptive
+subdivision at 1..64, `--no-tessellation` selects the reference path, and `--gpu-info`
+prints the resolved driver limits. The automatic ceiling is 32 on Metal-backed OpenGL
+and 16 elsewhere, always clamped to `GL_MAX_TESS_GEN_LEVEL`.
+
 The quad path omits the geometry stage: testing on this Mac exposed driver software
 fallbacks with tessellated isolines plus geometry expansion. Undeformed meshes keep
 the existing vertex/geometry path. If the optional tessellation shaders fail to link,
@@ -27,6 +38,8 @@ and skip repeated validation when both match a previously validated mesh. The CP
 cache holds one additional copy of the last uploaded geometry. The revision API
 skips these comparisons entirely for static meshes.
 Line expansion now clips camera-crossing edges before perspective division.
+The resident font code-strip texture also updates only when its text changes; status
+cards and scene tickers no longer re-upload identical bytes every frame.
 
 Bloom obtains source dimensions with GLSL `textureSize`, removing CPU texture-size
 queries from each frame. The pyramid stops at 1 by 1 for small targets. First-pass
@@ -39,6 +52,11 @@ when its scene target is smaller than the display. Native-resolution presentatio
 keeps the original direct sampling. The reconstruction smooths reduced-resolution
 edges without negative-weight highlight ringing, at the cost of extra texture reads.
 HDR remains floating-point rendering tone-mapped to the existing display output.
+HDR dimensions are clamped to the intersection of the context's texture,
+renderbuffer and viewport limits. Optional post samplers bind a complete 1x1 black
+half-float texture when their pass is disabled, avoiding unloadable-texture diagnostics
+on the Metal-backed driver. `--stats` uses an eight-query, non-blocking timer ring and
+reports average/peak generic renderer GPU time after warmup without `glFinish`.
 
 ## Recipe effects and instanced copies
 

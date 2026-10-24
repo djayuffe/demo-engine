@@ -134,3 +134,10 @@ card with demo-specific shortcuts. J cycles hybrid, audio and clock beat sources
 Pause, volume, track and pulse/flash changes show a brief card even with the ticker off.
 The cards use the resident GPU font, wrap at narrow window sizes, and remain responsive
 while music is paused. `--no-hints` disables the brief startup hint.
+
+The SDL callback performs no allocation, file I/O, locks, or transcendental filter
+setup. Device-rate crossover coefficients are prepared when the device opens, and
+the control/telemetry atomics use relaxed ordering because each value is independent.
+Analysis still runs before output gain, so muted playback continues driving visuals.
+Configure with `-DIW_ENABLE_AUDIO=OFF` for a clock-only build, or
+`-DIW_ENABLE_SNDFILE=OFF` to retain tracker/WAV playback without optional codecs.

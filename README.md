@@ -60,6 +60,8 @@ make run                                  # the native optical and Atlas demo
 ```
 
 GPU geometry: [adaptive tessellation, 23 offloaded effects, instanced copies, HDR and validation](docs/GPU_RENDERING.md).
+On Metal-backed OpenGL, the engine automatically bypasses geometry-shader expansion
+for compatible wires; use `--gpu-info` to inspect the selected path and live limits.
 
 ## What the engine provides
 | Feature | What you get | Where |

@@ -47,10 +47,11 @@ public:
   bool open(const std::vector<std::filesystem::path>& playlist);
   bool open(const std::filesystem::path& path) { return open(std::vector<std::filesystem::path>{path}); }
   void close();
-  void setVolume(float volume) { volume_.store(std::isfinite(volume) ? std::clamp(volume, 0.f, 2.f) : 1.f); }
-  float volume() const { return volume_.load(); }
-  void setPaused(bool paused) { paused_.store(paused); }
-  bool paused() const { return paused_.load(); }
+  void setVolume(float volume) { volume_.store(std::isfinite(volume) ? std::clamp(volume, 0.f, 2.f) : 1.f,
+                                                std::memory_order_relaxed); }
+  float volume() const { return volume_.load(std::memory_order_relaxed); }
+  void setPaused(bool paused) { paused_.store(paused, std::memory_order_relaxed); }
+  bool paused() const { return paused_.load(std::memory_order_relaxed); }
   static bool extendedFormats();
   MusicState state() const;
   int trackCount() const { return int(tracks_.size()); }
@@ -61,9 +62,9 @@ public:
   const char* tempoSource(int i) const;
   // Jump to another track of the playlist (wraps; negative steps go back). Thread-safe: the audio
   // callback picks the request up at its next block and starts that track from the top.
-  void skip(int step = 1) { skip_.fetch_add(step); }
+  void skip(int step = 1) { skip_.fetch_add(step, std::memory_order_relaxed); }
   // Start on track i instead of the first (call before or after open()).
-  void startAt(int i) { start_.store(std::max(0, i)); }
+  void startAt(int i) { start_.store(std::max(0, i), std::memory_order_relaxed); }
 private:
   std::atomic<int> skip_{0}, start_{-1};
   std::atomic<float> volume_{1.f};
@@ -92,6 +93,7 @@ private:
   uint64_t playedFrames_{};
   SDL_AudioDeviceID device_{};
   int rate_{48000};
+  float bassAlpha_{}, midAlpha_{};
   std::atomic<double> seconds_{}, nativeBpm_{};
   std::atomic<float> level_{}, onset_{}, tempoConfidence_{};
   audio_rhythm::Onset onsetDetector_;

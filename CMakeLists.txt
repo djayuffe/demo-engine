@@ -70,6 +70,8 @@ if(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64" OR (APPLE AND CMAKE_
   add_compile_options("$<$<CONFIG:Release>:-O3>")
 endif()
 option(IW_BUILD_TESTS "Build the engine and wireframe-demo tests" ON)
+option(IW_ENABLE_AUDIO "Enable SDL2/libopenmpt playback and audio-reactive analysis" ON)
+option(IW_ENABLE_SNDFILE "Enable FLAC/OGG/MP3/AIFF/AU decoding through libsndfile" ON)
 # Off by default so a fresh toolchain (new Apple clang / MSVC) can't break a
 # user's first build over an unrelated new warning. CI sets this ON to keep the
 # strictness where the toolchain is controlled.
@@ -137,6 +139,7 @@ endif()
 
 # SDL2: CMake config, then pkg-config, then raw find_path/find_library
 # (Homebrew/CLT ship SDL2 with no CMake config and no pkg-config on a fresh Mac).
+if(IW_ENABLE_AUDIO)
 find_package(SDL2 CONFIG QUIET)
 if(TARGET SDL2::SDL2)
  set(IW_SDL_TARGET SDL2::SDL2)
@@ -170,6 +173,9 @@ else()
   set_target_properties(iw_openmpt PROPERTIES IMPORTED_LOCATION "${OPENMPT_LIBRARY}" INTERFACE_INCLUDE_DIRECTORIES "${OPENMPT_INCLUDE_DIR}")
   set(IW_OPENMPT_TARGET iw_openmpt)
  endif()
+endif()
+else()
+ message(STATUS "Audio disabled by IW_ENABLE_AUDIO=OFF")
 endif()
 
 
@@ -205,16 +211,18 @@ if(OpenGL_FOUND AND glfw3_FOUND)
  else()
   target_link_libraries(de_engine PUBLIC OpenGL::GL)
  endif()
- if(IW_SDL_TARGET AND IW_OPENMPT_TARGET)
-  target_link_libraries(de_engine PUBLIC ${IW_SDL_TARGET} ${IW_OPENMPT_TARGET})
-  target_compile_definitions(de_engine PUBLIC IW_HAS_AUDIO SDL_MAIN_HANDLED)
- elseif(NOT IW_SDL_TARGET)
-  message(WARNING "SDL2 not found: building with BPM-only timing (macOS: brew install sdl2; Linux: apt install libsdl2-dev)")
- elseif(NOT IW_OPENMPT_TARGET)
-  message(WARNING "libopenmpt not found: building with BPM-only timing (macOS: brew install libopenmpt; Linux: apt install libopenmpt-dev)")
+ if(IW_ENABLE_AUDIO)
+  if(IW_SDL_TARGET AND IW_OPENMPT_TARGET)
+   target_link_libraries(de_engine PUBLIC ${IW_SDL_TARGET} ${IW_OPENMPT_TARGET})
+   target_compile_definitions(de_engine PUBLIC IW_HAS_AUDIO SDL_MAIN_HANDLED)
+  elseif(NOT IW_SDL_TARGET)
+   message(WARNING "SDL2 not found: building with BPM-only timing (macOS: brew install sdl2; Linux: apt install libsdl2-dev)")
+  elseif(NOT IW_OPENMPT_TARGET)
+   message(WARNING "libopenmpt not found: building with BPM-only timing (macOS: brew install libopenmpt; Linux: apt install libopenmpt-dev)")
+  endif()
  endif()
  # Optional PCM codecs; SDL remains responsible for device conversion and playback.
- if(IW_SDL_TARGET AND IW_OPENMPT_TARGET)
+ if(IW_ENABLE_AUDIO AND IW_ENABLE_SNDFILE AND IW_SDL_TARGET AND IW_OPENMPT_TARGET)
   find_path(IW_SNDFILE_INCLUDE_DIR sndfile.h HINTS ${IW_SEARCH_INC})
   find_library(IW_SNDFILE_LIBRARY NAMES sndfile HINTS ${IW_SEARCH_LIB})
   if(IW_SNDFILE_INCLUDE_DIR AND IW_SNDFILE_LIBRARY)

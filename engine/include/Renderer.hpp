@@ -14,8 +14,30 @@
 struct GLFWwindow;
 class Renderer {
 public:
-  struct UploadStats { size_t vertices=0, indices=0, bytes=0; };
+  struct UploadStats {
+    size_t vertices=0, indices=0, bytes=0;
+    size_t textUpdates=0, textBytes=0;
+  };
+  struct GpuInfo {
+    std::string vendor, renderer, version, shadingLanguage;
+    int maxTextureSize=0, maxRenderbufferSize=0, maxViewportWidth=0, maxViewportHeight=0;
+    int maxTessellationLevel=0, maxTextureUnits=0;
+    bool metalBacked=false;
+  };
+  struct GpuTiming {
+    size_t samples=0;
+    double totalMs=0, peakMs=0;
+    double averageMs() const { return samples ? totalMs / double(samples) : 0; }
+  };
   const UploadStats& uploadStats() const { return uploadStats_; }
+  const GpuInfo& gpuInfo() const { return gpuInfo_; }
+  std::string gpuDescription(bool detailed=false) const;
+  // -1 selects the driver-aware default, 0 disables tessellation, and 1..64 caps adaptive segments.
+  void setTessellationLimit(int segments) { requestedTessellationLimit_ = std::clamp(segments, -1, 64); }
+  int tessellationLimit() const { return tessellationLimit_; }
+  bool tessellationAvailable() const { return tessProgram_ != 0; }
+  void setGpuTiming(bool enabled) { gpuTimingEnabled_ = enabled; }
+  const GpuTiming& gpuTiming() const { return gpuTiming_; }
   bool init(GLFWwindow* w, const std::string& shaderDir = "shaders");
   bool upload(const Mesh3& m);
   bool draw(float time, int width, int height, float aspect, int sceneIndex = 0, float scale = 1.f,
@@ -106,11 +128,15 @@ private:
                 bool panel, float opacity);
   int uScPanel_ = -1;
   UploadStats uploadStats_;
+  GpuInfo gpuInfo_;
   rhythm::Drive beat_;
   int uPostBeatDrive_=-1, uTravelerBeat_=-1;
   void bindWireProgram();
   void drawWireMesh();
+  void beginGpuTimer();
+  void endGpuTimer();
   unsigned tessProgram_ = 0, activeWireProgram_ = 0;
+  int requestedTessellationLimit_ = -1, tessellationLimit_ = 0;
   float setWireWidth(float lineWidth, float music) const;   // returns the effective width in pixels
   void cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const;
   bool createGl(const std::string& shaderDir);
@@ -120,7 +146,7 @@ private:
   bool initBackground(const std::string& shaderDir);
   bool initTravelers(const std::string& shaderDir);
   unsigned vao_ = 0, vbo_ = 0, ebo_ = 0, program_ = 0, postProgram_ = 0, postVao_ = 0, postVbo_ = 0, hdrFbo_ = 0,
-           hdrTex_ = 0, depthRbo_ = 0, scrollerProgram_ = 0, scrollerVao_ = 0, scrollerVbo_ = 0, bgProgram_ = 0,
+           hdrTex_ = 0, depthRbo_ = 0, blackTex_ = 0, scrollerProgram_ = 0, scrollerVao_ = 0, scrollerVbo_ = 0, bgProgram_ = 0,
            bgVao_ = 0, bgVbo_ = 0, bgTexA_ = 0, bgTexB_ = 0, travelerProgram_ = 0, travelerVao_ = 0, travelerVbo_ = 0,
            travelerEbo_ = 0;
   int edgeCount_ = 0, hdrW_ = 0, hdrH_ = 0;
@@ -139,6 +165,7 @@ private:
       uScCodes_ = -1, uScCount_ = -1, uScOpacity_ = -1;
   unsigned scrollerFontTex_ = 0, scrollerCodesTex_ = 0;
   int scrollerCodesTexW_ = 0;
+  std::vector<unsigned char> scrollerCodesCache_;
   int travelerEdgeCount_ = 0;
   int uBgMix_ = -1, uBgZoom_ = -1, uBgAspect_ = -1, uBgTexAspect_ = -1, uBgOp_ = -1, uBgTime_ = -1, uBgMusic_ = -1,
       uBgTexA_ = -1, uBgTexB_ = -1;
@@ -166,12 +193,17 @@ private:
   SpecialFx fx_;
   Bloom bloom_;
   bool wideWires_ = false;
-  int uViewport_ = -1, uWidthPx_ = -1;
+  int uViewport_ = -1, uWidthPx_ = -1, uTessMax_ = -1;
   LookFx lookFx_;
   LookFx::Amounts look_;
   bool lookOk_ = false;
   int uPostBloom_ = -1;
   bool bloomOk_ = false;
+  struct TimerSlot { unsigned id=0; bool pending=false; };
+  TimerSlot timer_[8]{};
+  int timerCursor_=0, timerWarmup_=0;
+  bool gpuTimingEnabled_=false, gpuTimerActive_=false;
+  GpuTiming gpuTiming_;
   float modelShear_[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   float temporalAmt_ = 0.f, memoryAmt_ = 0.f;
   std::string error_;
