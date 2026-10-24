@@ -241,19 +241,31 @@ The H³ renderer uses finite point-light geodesics for occlusion and local-rest-
 ## Parametric point field (4.2)
 
 Scene 26 ports the supplied browser experiment's four phase-shifted parametric lobes,
-spectral point colour, moon-like companion and falling marker, then adds orbital light
-guides and a three-dimensional star shell. The 68,548-point base composition is synthesized
-from `gl_VertexID`; no position buffer is rebuilt or uploaded per frame. On Metal-backed
-OpenGL, four instanced phase echoes produce 225,040 vertex invocations without a geometry
-shader; other drivers use two echoes by default. A GPU ping-pong pass rotates, expands and
-decays prior HDR light for curved colour-separated persistence. Additive point cores feed
-the existing highlight pyramid, while bass expands the field, mid energy twists the echoes
-and rings, treble wakes the stars, and beat attacks brighten and enlarge the core.
+spectral point colour, moon-like companion and falling marker, then adds six orbital light
+guides, a three-dimensional temperature-varied star shell and a spiral dust volume. The
+103,044-point base composition is synthesized from `gl_VertexID`; no position buffer is
+rebuilt or uploaded per frame. On Metal-backed OpenGL, four instanced phase echoes produce
+327,696 vertex invocations without a geometry shader; other drivers use two echoes by
+default.
+
+Analytic parametric derivatives give the central field a stable curved normal, including a
+bounded fallback at its singular poles. Per-particle micro-sphere shading separates crystal,
+translucent membrane, cratered stone, hot ember, brushed orbital metal, stellar and dust
+materials. Depth fog, Fresnel edges, caustics, anisotropic highlights and star flares provide
+spatial cues without textures. Two slow narrative envelopes move the palette between cool
+wonder and warm tension while the faster audio envelopes retain precise musical response:
+bass breathes the shell and dust, mid energy twists the echoes and orbit guides, treble wakes
+the stars, and beat attacks send a brief warm highlight through the field.
+
+A GPU ping-pong pass rotates, expands and decays prior HDR light for curved,
+resolution-independent chromatic persistence. It bounds retained radiance before the shared
+highlight pyramid, keeping long trails finite while preserving bright detail.
 
 Mouse orbit, translated parallax, adaptive resolution, fixed-step capture and finite-HDR
-validation work through the existing native host. A 600-frame, 400,000-pixel M1 Pro run
-measured 1.804 ms average and 2.104 ms p95 GPU time for the full field, temporal pass,
-bloom and final composition. [Port boundary and source hashes](../aviation/SOURCE.md).
+validation work through the existing native host. A 360-frame, 400,000-pixel M1 Pro run at
+an oblique orbit measured 5.856 ms average and 7.410 ms p95 GPU time for the denser field,
+material shading, temporal pass, bloom and final composition. [Port boundary and source
+hashes](../aviation/SOURCE.md).
 ## Shared beat and music controls
 
 All scenes use the engine’s shared beat pulse and exposure-flash envelopes. Use `--pulse-amount`, `--flash-amount`, `--beat-division`, `--beat-decay` and `--beat-offset`; E/F toggle pulse/flash. Music presets, folder playlists, shuffle, pause and volume are described in [Music and beats](../../docs/MUSIC_AND_BEATS.md). The default playlist now includes Silicon Dancer and Wireframe Pulse as well as the original two tracks. Atlas reduced-motion and pause modes suppress the new composition flash.
