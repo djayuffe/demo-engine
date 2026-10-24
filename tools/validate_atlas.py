@@ -47,6 +47,10 @@ def main():
         b = run(f'paused-long-{scene}', scene, ('--atlas-paused',), 30)
         if a != b:
             raise SystemExit(f'Pause drift in scene {scene}')
+    for scene in (18,19,22):
+        run(f'grazing-relief-{scene}',scene,('--infinity-orbit','.5','1.1'))
+    for scene in (12,13,14,15,16,17,20,23,24,25):
+        run(f'orbit-{scene}',scene,('--infinity-orbit','.65','.4'))
     run('reduced-motion', 21, ('--atlas-reduced-motion', '--atlas-flash-gain', '0', '--atlas-exposure', '.7'))
     run('zero-exposure', 20, ('--atlas-exposure', '0'))
     for option, value in (('--atlas-exposure', '-1'), ('--atlas-exposure', 'nan'),

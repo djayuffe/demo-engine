@@ -19,6 +19,13 @@ template <class F> void rejects(F f) {
 }
 int main() {
   try {
+    for (double extent : {.975, 1.0, 1.025}) {
+      auto breathing = slice::section({0, 0, 0, 1}, 0, 0, true, extent);
+      require(breathing.vertices.size() == 8, "breathing section topology");
+      for (auto v : breathing.vertices)
+        for (double x : v) require(std::abs(std::abs(x) - extent) < 1e-10, "breathing slice extent");
+    }
+    rejects([] { slice::section({0, 0, 0, 1}, 0, 0, true, 0); });
     auto cube = slice::section({0, 0, 0, 1}, 0, 0);
     require(cube.vertices.size() == 8, "central cube section");
     auto octa = slice::section({1, 1, 1, 1}, 0, 0);
@@ -69,6 +76,8 @@ int main() {
           auto s = scene.spheres[size_t(scene.nodes[j].leaf)];
           require(h3Distance(n.bound.center, s.center) + s.radius <= n.bound.radius + 1e-7,
                   "H3 bound does not contain descendant");
+          require(h3Distance(n.bound.center, s.center) + s.radius * 1.025 <= n.bound.radius + .008,
+                  "breathing sphere escaped GPU bound");
         }
     }
     std::mt19937 rng(2016);

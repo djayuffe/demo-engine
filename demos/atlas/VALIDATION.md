@@ -16,3 +16,11 @@ The generic reference shader and each specialized Atlas mode were captured with 
 [Recorded GPU measurements](../../docs/atlas-gpu-results.json) include reference and specialized timings. These are one 60-frame run per path with 50 timed samples, at a 120,000-pixel ceiling. For example, the final H³ sphere run measured 1.322 ms reference versus 0.599 ms accelerated; the portal measured 0.623 versus 0.539 ms. Short-run variance prevents treating these as universal speedup figures. The generic and accelerated modes remain available for repeat measurements on other hardware.
 
 [Gallery](../../docs/atlas-contact.jpg) uses actual native captures. [Feature coverage and research boundaries](README.md) separate the implemented archive algorithms from open roadmap topics.
+
+## 4.1 integration check — 24 October 2026
+
+After pulling `origin/main`, the strict-warning build and all seven CTest checks pass. All 26 native scenes, full optical ray-state comparisons, target lifetime checks, still convergence and the complete automatic cycle pass with the shared highlight pyramid enabled.
+
+Reference-versus-specialized image checks for scenes 14, 18, 20, 23, 24 and 25 pass: the lowest finite PSNR is 90.29 dB and SSIM is 1.0 throughout. [Recorded measurements](../../docs/effects-gpu-results.json) include the new H³ shadow rays and HDR passes. Single-run GPU timing varies; some specialized paths were slower in this sample, so these results do not establish a uniform speedup.
+
+The extended control checks cover pause identity, portrait views, displaced eyes, fixed orbits, grazing-angle relief, reduced motion, exposure and original source hashes. New CPU invariants cover audio update subdivision, release envelopes, invalid inputs, pause/resume, backward seeks, reduced-motion rate, periodic breathing, breathing slice topology and padded animated sphere bounds.

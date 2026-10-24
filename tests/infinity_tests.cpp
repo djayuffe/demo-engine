@@ -1,4 +1,6 @@
 #include "Sync.hpp"
+#include "Motion.hpp"
+#include "OpticalPost.hpp"
 #include "Parallax.hpp"
 #include "OpticalMath.hpp"
 #include "MatrixLife.hpp"
@@ -18,6 +20,39 @@ void require(bool ok, const char* message) {
   if (!ok) throw std::runtime_error(message);
 }
 int main() {
+  {
+    infinity_motion::Bands whole, split;
+    const auto expected = whole.update(1, .5f, .25f, .3);
+    for (int i = 0; i < 30; ++i) split.update(1, .5f, .25f, .01);
+    const auto actual = split.update(1, .5f, .25f, 0);
+    for (int i = 0; i < 3; ++i)
+      require(std::abs(expected[i] - actual[i]) < 1e-6, "audio response depends on frame subdivision");
+    const auto decay = whole.update(0, 0, 0, .3);
+    require(decay[0] < expected[0] && decay[0] > 0, "audio release is not smooth");
+    const auto invalid = whole.update(NAN, INFINITY, -1, NAN);
+    for (int i = 0; i < 3; ++i) require(invalid[i] == decay[i], "invalid audio timestep changed state");
+    infinity_motion::Clock clock;
+    clock.advance(8, false, false);
+    require(std::abs(clock.time() - 4.4) < 1e-12, "clock initial phase");
+    clock.advance(12, true, false);
+    require(std::abs(clock.time() - 4.4) < 1e-12, "pause clock drift");
+    clock.advance(13, false, false);
+    require(std::abs(clock.time() - 4.95) < 1e-12, "pause catchup jump");
+    clock.advance(1, false, false);
+    require(std::abs(clock.time() - .55) < 1e-12, "backward seek did not reset motion");
+    clock.advance(NAN, false, false);
+    require(std::abs(clock.time() - .55) < 1e-12, "NaN poisoned clock");
+    infinity_motion::Clock reduced;
+    reduced.advance(8, false, true);
+    require(std::abs(reduced.time() - 4.4 * .12) < 1e-12, "reduced motion ratio");
+    for (int i = 0; i < 200; ++i) {
+      const auto b = infinity_motion::breath(i * .137);
+      require(b >= 0 && b <= 1, "breath outside unit range");
+      require(std::abs(b - infinity_motion::breath(i * .137 + 4.4)) < 1e-6, "breath period");
+    }
+    require(infinity_motion::breath(NAN) == 0, "invalid breath phase");
+  }
+
   const auto checkpointShader = infinity_sequential::geometry(infinity_shader::INTEGRATE_FS, true);
   const auto fillShader = infinity_sequential::geometry(infinity_shader::INTEGRATE_FS, false);
   require(checkpointShader.find("max_vertices=16") != std::string::npos &&

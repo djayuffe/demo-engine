@@ -10,7 +10,7 @@ uniform vec2 uRes;
 uniform vec3 uEye;
 uniform mat3 uCam;
 uniform mat4 uRotation;
-uniform float uTime, uPulse, uBass, uExposure;
+uniform float uTime, uPulse, uBass, uExposure, uBreath;
 uniform int uMode, uUseBvh, uEmpty;
 uniform vec4 uPlanes[8], uBounds[112], uMeta[56], uLevels[9], uEvents[24];
 const float PI = 3.14159265359;
@@ -75,8 +75,8 @@ vec3 hypercube(vec3 ro, vec3 rd) {
         a[k] = (i & (1 << k)) != 0 ? 1 : -1;
         b[k] = (j & (1 << k)) != 0 ? 1 : -1;
       }
-      a = uRotation * a;
-      b = uRotation * b;
+      a = uRotation * a * (1 + .025 * (2 * uBreath - 1));
+      b = uRotation * b * (1 + .025 * (2 * uBreath - 1));
       float limit = 3.95;
       bool ia = a.w <= limit, ib = b.w <= limit;
       if (!ia && !ib)
@@ -100,12 +100,12 @@ vec3 hypercube(vec3 ro, vec3 rd) {
     }
   return color;
 }
-vec3 radial(vec2 p) {
+vec3 radial(vec2 p, float pixel) {
   float r = max(length(p), .001), a = atan(p.y, p.x), sum = 0;
   for (int k = 0; k < 9; k++) {
     vec4 l = uLevels[k];
     float phase = l.x * a + uTime * (.25 + float(k) * .04) + l.y + l.z * log(r);
-    float footprint = length(vec2(l.x, l.z)) / (r * uRes.y);
+    float footprint = length(vec2(l.x, l.z)) * pixel / r;
     float lod = 1 - smoothstep(.25, 1.5, footprint);
     sum += l.w * sin(phase) * lod;
   }
@@ -114,9 +114,9 @@ vec3 radial(vec2 p) {
   return palette(.62 + sum * .10 + uTime * .02) * (ridge * .85 + abs(tanh(sum * 1.5)) * .18) * iris *
          (.85 + .12 * uPulse);
 }
-vec3 folds(vec2 p) {
+vec3 folds(vec2 p, float pixel) {
   float accum = 0;
-  float footprint = 2 / uRes.y;
+  float footprint = pixel;
   for (int k = 0; k < 7; k++) {
     p = rot(uTime * .1 + float(k) * .73) * p;
     p = (abs(p) - vec2(.57, .49)) * 1.22;
@@ -159,17 +159,13 @@ float sphere(vec4 o, vec4 d, vec4 packed, bool bound) {
 }
 vec4 primitive(int i) {
   float f = float(i), phi = f * 2.39996323;
-  return vec4(.92 * cos(phi), .92 * sin(phi), 1.7 + float(i % 8) * .44, .16 + .035 * float(i % 4));
+  return vec4(.92 * cos(phi), .92 * sin(phi), 1.7 + float(i % 8) * .44,
+              (.16 + .035 * float(i % 4)) * (1 + .025 * uBreath));
 }
-vec3 h3(vec2 p, float view) {
-  float turn = uTime * .09;
-  vec3 origin = uCam * (uEye * .22 + vec3(view * .38, 0, 0));
-  vec3 direction = normalize(uCam * vec3(p * .92, 1.25));
-  origin.xy = rot(turn) * origin.xy;
-  direction.xy = rot(turn) * direction.xy;
-  vec4 o = lift(origin), d = tangent(o, direction);
-  float nearest = 1e10;
-  int material = -1;
+// The same exact Lorentz traversal serves primary and finite point-light rays.
+float traceH3(vec4 o, vec4 d, float limit, bool shadow, out int material) {
+  float nearest = limit;
+  material = -1;
   if (uUseBvh != 0) {
     int index = 0;
     for (int iteration = 0; iteration < 112; iteration++) {
@@ -188,6 +184,8 @@ vec3 h3(vec2 p, float view) {
         if (t < nearest) {
           nearest = t;
           material = leaf;
+          if (shadow)
+            return nearest;
         }
       }
       index++;
@@ -198,34 +196,82 @@ vec3 h3(vec2 p, float view) {
       if (t < nearest) {
         nearest = t;
         material = i;
+        if (shadow)
+          return nearest;
       }
     }
+  return nearest;
+}
+vec3 microfacet(vec3 albedo, vec3 n, vec3 v, vec3 l, float roughness) {
+  float nv = clamp(dot(n, v), 0, 1), nl = clamp(dot(n, l), 0, 1);
+  vec3 halfv = v + l;
+  vec3 h = halfv * inversesqrt(max(dot(halfv, halfv), 1e-8));
+  float nh = clamp(dot(n, h), 0, 1), vh = clamp(dot(v, h), 0, 1), a = roughness * roughness, a2 = a * a;
+  float denominator = nh * nh * (a2 - 1) + 1;
+  float distribution = a2 / (PI * denominator * denominator);
+  float gv = 2 * nv / max(nv + sqrt(a2 + (1 - a2) * nv * nv), 1e-5);
+  float gl = 2 * nl / max(nl + sqrt(a2 + (1 - a2) * nl * nl), 1e-5);
+  vec3 fresnel = vec3(.045) + vec3(.955) * pow(1 - vh, 5);
+  vec3 spec = distribution * gv * gl * fresnel / max(4 * nv * nl, 1e-5);
+  return ((1 - fresnel) * albedo / PI + spec) * nl;
+}
+vec3 restFrame(vec4 p, vec4 v) {
+  vec3 q = v.yzw - p.yzw * v.x / (p.x + 1);
+  return q * inversesqrt(max(dot(q, q), 1e-10));
+}
+vec3 h3(vec2 p, float view) {
+  float turn = uTime * .09;
+  vec3 origin = uCam * (uEye * .22 + vec3(view * .38, 0, 0));
+  vec3 direction = normalize(uCam * vec3(p * .92, 1.25));
+  origin.xy = rot(turn) * origin.xy;
+  direction.xy = rot(turn) * direction.xy;
+  vec4 o = lift(origin), d = tangent(o, direction);
+  int material;
+  float nearest = traceH3(o, d, 1e10, false, material);
   if (material < 0) {
     float r = length(p), a = atan(p.y, p.x);
     float ridge = pow(abs(sin(15 * a + 8 * log(r + .02) - uTime)), 18);
-    float coverage = 1 - smoothstep(.2, 1, 15 / (max(r, .01) * uRes.y));
+    float coverage = 1 - smoothstep(.2, 1, 30 / (max(r, .01) * uRes.y));
     return vec3(.02, .13, .25) * ridge * coverage;
   }
   vec4 s = primitive(material), center = lift(s.xyz);
   vec4 hit = o * cosh(nearest) + d * sinh(nearest);
   vec4 n = (cosh(s.w) * hit - center) / sinh(s.w);
-  // Transport the normal and viewing tangent to the hit point's rest frame.
-  vec3 normal = normalize(n.yzw - hit.yzw * n.x / (hit.x + 1));
+  n /= sqrt(max(lor(n, n), 1e-8));
+  vec3 normal = restFrame(hit, n);
   vec4 viewT = -(o * sinh(nearest) + d * cosh(nearest));
-  vec3 v = normalize(viewT.yzw - hit.yzw * viewT.x / (hit.x + 1));
-  vec3 light = normalize(vec3(-.5, .8, -.7));
-  float diffuse = max(.06, dot(normal, light));
-  vec3 halfv = light + v;
-  float spec = pow(max(0, dot(normal, normalize(halfv + vec3(1e-6)))), 52);
-  float bands = .5 + .5 * sin(22 * atan(normal.y, normal.x) + uTime + 14 * normal.z);
+  vec3 v = restFrame(hit, viewT);
+  vec4 lamp = lift(vec3(-1.4, 2.1, .2));
+  float coshDistance = max(1.00001, -lor(hit, lamp));
+  vec4 lightT = (lamp - coshDistance * hit) / sqrt(coshDistance * coshDistance - 1);
+  vec3 light = restFrame(hit, lightT);
+  float visibility = 1;
+  if (dot(normal, light) > 0) {
+    // Offset along the surface geodesic, not in Poincare screen coordinates.
+    vec4 offset = hit * cosh(.004) + n * sinh(.004);
+    float A = max(1.00001, -lor(offset, lamp)), root = sqrt(A * A - 1);
+    vec4 toward = (lamp - A * offset) / root;
+    int blocker;
+    traceH3(offset, toward, log(A + root) - .006, true, blocker);
+    if (blocker >= 0)
+      visibility = 0;
+  }
+  float azimuth = max(length(normal.xy), .06);
+  float footprint = (22 / azimuth + 14) * sinh(nearest) * 1.84 / (1.25 * uRes.y * sinh(s.w));
+  float bands =
+      .5 + .5 * sin(22 * atan(normal.y, normal.x) + uTime + 14 * normal.z) * exp(-footprint * footprint / 24);
   vec3 color = mix(vec3(.08, .55, .95), vec3(.78, .13, .44), bands);
-  return (color * (diffuse * .85 + .035) + vec3(.6, .8, 1) * spec * .65) * exp(-nearest * .1) *
-         (1 + .1 * uPulse);
+  float roughness = mix(.26, .40, bands);
+  vec3 direct = microfacet(color, normal, v, light, roughness);
+  float attenuation = 6.0 / (1 + .04 * (coshDistance * coshDistance - 1));
+  float rim = pow(1 - max(dot(normal, v), 0), 4);
+  return (direct * visibility * attenuation + color * .035 + vec3(.025, .08, .12) * rim) *
+         exp(-nearest * .07) * (1 + .10 * uPulse + .06 * uBass);
 }
-vec3 ornament(vec2 p) {
+vec3 ornament(vec2 p, float pixel) {
   float r = length(p), a = atan(p.y, p.x);
   float angle = 14 * a + uTime + 3 * log(r + .01), rad = 24 * r - uTime * .4;
-  float footprint = (14 / max(r, .01) + 24) / uRes.y;
+  float footprint = (14 / max(r, .01) + 24) * pixel;
   float edge = pow(abs(sin(angle) * cos(rad)), 8) * (1 - smoothstep(.3, 1, footprint));
   return palette(.65 + r * .2 + uTime * .012) * edge * .8;
 }
@@ -259,11 +305,18 @@ vec3 events(vec3 ro, vec3 rd) {
       d = segment(ro, rd, parent.xyz, e.xyz, depth);
       if (depth > 0)
         color += tint * line(d, .004, depth / uRes.y) * .11;
-      float progress = clamp(age * .8, 0, 1);
+      // Authored node time is arrival time: packets depart at the parent's
+      // event and reach this child exactly when its light activates.
+      float progress = clamp((clock - parent.w) / max(e.w - parent.w, .001), 0, 1);
       vec3 end = mix(parent.xyz, e.xyz, progress);
       d = segment(ro, rd, parent.xyz, end, depth);
       if (depth > 0)
         color += tint * line(d, .007, depth / uRes.y) * life * .65;
+      float travelling =
+          smoothstep(parent.w, parent.w + .12, clock) * (1 - smoothstep(e.w - .12, e.w, clock));
+      d = segment(ro, rd, end, end + vec3(0, .001, 0), depth);
+      if (depth > 0)
+        color += tint * exp(-d * d / .002) * travelling * 1.25;
     }
   }
   return color;
@@ -283,7 +336,12 @@ float face(vec3 p) {
   return max(min(head, nose), -mouth);
 }
 vec3 emergence(vec3 ro, vec3 rd) {
-  float t = 0;
+  float b = dot(ro, rd), disc = b * b - dot(ro, ro) + 2.25;
+  if (disc < 0)
+    return vec3(0);
+  float root = sqrt(disc), t = max(0, -b - root), end = -b + root;
+  if (end <= 0)
+    return vec3(0);
   vec3 hit;
   bool found = false;
   for (int i = 0; i < 96; i++) {
@@ -294,40 +352,113 @@ vec3 emergence(vec3 ro, vec3 rd) {
       break;
     }
     t += max(abs(d) * .65, .0005);
-    if (t > 12)
+    if (t > end)
       break;
   }
   if (!found)
     return vec3(0);
   vec2 e = vec2(.002, 0);
-  vec3 n = normalize(vec3(face(hit + e.xyy) - face(hit - e.xyy), face(hit + e.yxy) - face(hit - e.yxy),
-                          face(hit + e.yyx) - face(hit - e.yyx)));
+  vec3 gradient = vec3(face(hit + e.xyy) - face(hit - e.xyy), face(hit + e.yxy) - face(hit - e.yxy),
+                       face(hit + e.yyx) - face(hit - e.yyx));
+  vec3 n = gradient * inversesqrt(max(dot(gradient, gradient), 1e-10));
   float weave = sin(hit.x * 38 + sin(hit.y * 19)) * sin(hit.y * 32 + sin(hit.z * 16));
   float emerge = .5 + .5 * sin(uTime * .16);
   float mask = smoothstep(-.8, .8, emerge * 2 - 1 + weave * .45);
   float light = .15 + .7 * max(0, dot(n, normalize(vec3(-.5, .8, 1))));
-  float contour = line(weave, .06, max(fwidth(weave), .02));
+  // Analytic material footprint remains defined across divergent ray marches.
+  float wx = hit.x * 38 + sin(hit.y * 19), wy = hit.y * 32 + sin(hit.z * 16);
+  vec3 weaveGradient =
+      vec3(38 * cos(wx) * sin(wy), 19 * cos(hit.y * 19) * cos(wx) * sin(wy) + 32 * sin(wx) * cos(wy),
+           16 * cos(hit.z * 16) * sin(wx) * cos(wy));
+  float footprint = length(weaveGradient) * t * 2 / (2.1 * uRes.y * max(abs(dot(n, rd)), .15));
+  float contour = line(weave, .06, max(footprint, .02));
+  float ao = 1;
+  for (int i = 1; i <= 3; i++) {
+    float distance = .04 * float(i);
+    ao -= max(0, distance - face(hit + n * distance)) * (.16 / distance);
+  }
+  light *= clamp(ao, .35, 1);
   return palette(.64 + hit.y * .14) * (mask * light * .6 + contour * .25) * (1 + .08 * uPulse);
+}
+float relief(vec2 p) {
+  float r = length(p);
+  if (uMode == 3)
+    return .06 * sin(p.x * 3 + uTime * .15) * cos(p.y * 3 - uTime * .1);
+  return (.065 + .015 * uBreath) * sin(r * 5 - uTime * .35) * exp(-r * r * .4);
+}
+vec3 reliefSurface(vec3 ro, vec3 rd, vec3 rayDx, vec3 rayDy) {
+  if (abs(rd.z) < 1e-5)
+    return vec3(0);
+  float a = (-.1 - ro.z) / rd.z, b = (.1 - ro.z) / rd.z, lo = min(a, b), hi = max(a, b);
+  if (hi <= 0)
+    return vec3(0);
+  float t;
+  if (abs(rd.z) > .5) {
+    // |grad(height)| < .5, so this bracket is monotone at ordinary view angles.
+    float signLo = rd.z < 0 ? 1 : -1;
+    for (int i = 0; i < 11; i++) {
+      float mid = (lo + hi) * .5;
+      vec3 q = ro + rd * mid;
+      float f = q.z - relief(q.xy);
+      if (f * signLo > 0)
+        lo = mid;
+      else
+        hi = mid;
+    }
+    t = (lo + hi) * .5;
+  } else {
+    // At grazing angles use a Lipschitz step to retain the first intersection.
+    t = max(0, lo);
+    bool found = false;
+    float bound = abs(rd.z) + .5 * length(rd.xy);
+    for (int i = 0; i < 96; i++) {
+      vec3 q = ro + rd * t;
+      float distance = abs(q.z - relief(q.xy));
+      if (distance < .00015) {
+        found = true;
+        break;
+      }
+      t += distance / max(bound, 1e-5);
+      if (t > min(hi, 40))
+        break;
+    }
+    if (!found)
+      return vec3(0);
+  }
+  vec3 hit = ro + rd * t;
+  vec2 plane = hit.xy * (uMode == 2 ? .42 : .7);
+  if (t <= 0)
+    return vec3(0);
+  float e = .002;
+  vec3 n = normalize(vec3(relief(hit.xy - vec2(e, 0)) - relief(hit.xy + vec2(e, 0)),
+                          relief(hit.xy - vec2(0, e)) - relief(hit.xy + vec2(0, e)), 2 * e));
+  float denominator = dot(n, rd);
+  denominator = denominator < 0 ? min(denominator, -1e-4) : max(denominator, 1e-4);
+  vec3 surfaceDx = t * (rayDx - rd * dot(n, rayDx) / denominator),
+       surfaceDy = t * (rayDy - rd * dot(n, rayDy) / denominator);
+  float pixel = max(length(surfaceDx.xy), length(surfaceDy.xy)) * (uMode == 2 ? .42 : .7);
+  vec3 color =
+      uMode == 2 ? radial(plane, pixel) : (uMode == 3 ? folds(plane, pixel) : ornament(plane, pixel));
+  float light = .8 + .2 * max(dot(n, normalize(vec3(-.5, .8, 1))), 0);
+  return color * light * (.97 + .06 * uBreath + .04 * uBass);
 }
 void main() {
   vec2 p = (vUv * 2 - 1) * vec2(uRes.x / uRes.y, 1);
   vec3 ro = uCam * (vec3(0, 0, 5) + uEye), rd = normalize(uCam * vec3(p, -2.1));
+  vec3 rayDx = dFdx(rd), rayDy = dFdy(rd);
   vec3 c = vec3(0);
   if (uMode == 0)
     c = section(ro, rd);
   else if (uMode == 1)
     c = hypercube(ro, rd);
-  else if (uMode == 2 || uMode == 3 || uMode == 6) {
-    float t = -ro.z / rd.z;
-    vec2 plane = (ro + rd * t).xy * (uMode == 2 ? .42 : .7);
-    if (t > 0)
-      c = uMode == 2 ? radial(plane) : (uMode == 3 ? folds(plane) : ornament(plane));
-  } else if (uMode == 4)
+  else if (uMode == 2 || uMode == 3 || uMode == 6)
+    c = reliefSurface(ro, rd, rayDx, rayDy);
+  else if (uMode == 4)
     c = h3(p, 0);
   else if (uMode == 5) {
     float r = length(p), a = atan(p.y, p.x), aperture = .48 + .055 * sin(uTime * .7 + 7 * a);
     float f = smoothstep(aperture - .018, aperture + .018, r);
-    vec3 outside = ornament(p);
+    vec3 outside = ornament(p, 2 / uRes.y);
     c = f >= 1 ? outside : mix(h3(p, 0), outside, f);
     c += vec3(.05, .3, .5) * line(r - aperture, .003, 2 / uRes.y);
   } else if (uMode == 7)

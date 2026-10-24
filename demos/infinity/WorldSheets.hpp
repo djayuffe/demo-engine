@@ -50,7 +50,8 @@ vec3 poincare(vec3 ro,vec3 rd){
   float signedDistance=(dot(edgeVector,edgeVector)-uPolygon.y*uPolygon.y)
     /(uPolygon.y*max(1.0-dot(z,z),1e-5));
   float edge=abs(asinh(signedDistance));
-  float fp=max(fwidth(edge),0.001);
+  // Conservative hyperbolic pixel footprint, defined even at folded-domain seams.
+  float fp=max(1.68*abs(t)/(uRes.y*max(abs(rd.z),0.1)*1.48*max(1.0-r2,0.002)),0.001);
   float line=stroke(edge,0.012,fp);
   float halo=exp(-edge*22.0)*0.13;
   float fine=1.0-smoothstep(0.02,0.12,fp);
@@ -82,7 +83,7 @@ float crystalField(vec3 p){
   }
   return (length(q)-1.0)*scale*0.65;
 }
-float field(vec3 p){return uMode==0?flowerField(p):crystalField(p);}
+float field(vec3 p){float scale=1.0+0.018*sin(uBeat*(PI/4.0));return (uMode==0?flowerField(p/scale):crystalField(p/scale))*scale;}
 vec3 solid(vec3 ro,vec3 rd){
   float b=dot(ro,rd),c=dot(ro,ro)-2.25,disc=b*b-c;
   if(disc<0.0)return vec3(0);
@@ -107,7 +108,10 @@ vec3 solid(vec3 ro,vec3 rd){
   float lines=uMode==0?sin(theta*14.0+latitude*8.0-phase):sin((p.x+p.y-p.z)*25.0+phase);
   float detail=stroke(lines,0.055,min(0.5,t/uRes.y*22.0));
   vec3 tint=uMode==0?palette(latitude/PI+phase/(8.0*PI)):palette(dot(p,vec3(.22,.31,.17))+phase/(8.0*PI));
-  float rim=pow(1.0-max(dot(n,-rd),0.0),3.0);
+  float ao=1.0;
+  for(int i=1;i<=3;++i){float distance=float(i)*0.045;ao-=max(0.0,distance-field(p+n*distance))*(0.16/distance);}
+  diffuse*=clamp(ao,0.35,1.0);
+  float rim=pow(1.0-clamp(dot(n,-rd),0.0,1.0),3.0);
   return tint*(0.055+diffuse*0.65)+vec3(1.0,0.85,0.6)*spec*2.0
     +tint*detail*(0.55+0.65*uPulse)+vec3(0.1,0.35,0.65)*rim*0.4;
 }
@@ -115,7 +119,7 @@ vec3 solid(vec3 ro,vec3 rd){
 // Gaussian curvature is negative but not constant; these are not H2 planes.
 vec3 saddles(vec3 ro,vec3 rd){
   vec3 color=vec3(0);float transmission=1.0;
-  float distances[10];vec3 shades[10];
+  float distances[10],alphas[10];vec3 shades[10];
   float phase=uBeat*(2.0*PI/32.0);
   for(int sheet=0;sheet<5;++sheet){
     float angle=float(sheet)*PI/5.0+phase*0.25;
@@ -134,13 +138,16 @@ vec3 saddles(vec3 ro,vec3 rd){
       int index=sheet*2+j;float t=candidates[j];vec3 p=o+d*t;
       bool duplicate=j==1&&abs(candidates[1]-candidates[0])<1e-4;
       bool valid=t>0.0&&t<1e8&&length(p.xy)<1.3&&!duplicate;
-      distances[index]=valid?t:1e9;shades[index]=vec3(0);
+      distances[index]=valid?t:1e9;shades[index]=vec3(0);alphas[index]=0.0;
       if(valid){
         vec3 n=normalize(vec3(-2.0*k*p.x,2.0*k*p.y,1.0));
         float fp=max(t/uRes.y*2.0,0.002);
         float grid=max(stroke(sin(p.x*20.0),0.035,fp*12.0),stroke(sin(p.y*20.0),0.035,fp*12.0));
         float rings=stroke(sin(length(p.xy)*28.0-phase*2.0),0.05,fp*16.0);
-        float rim=pow(1.0-abs(dot(n,-d)),2.0);
+        float cosine=clamp(abs(dot(n,-d)),0.0,1.0);
+        float fresnel=0.05+0.95*pow(1.0-cosine,5.0);
+        alphas[index]=0.18+0.50*fresnel;
+        float rim=pow(1.0-cosine,2.0);
         shades[index]=palette(float(sheet)*.17+phase/(16.0*PI))*(grid*1.45+rings*.75+rim*.2+0.035);
       }
     }
@@ -149,7 +156,7 @@ vec3 saddles(vec3 ro,vec3 rd){
   for(int pass=0;pass<10;++pass){int front=-1;float t=1e8;
     for(int j=0;j<10;++j)if(distances[j]<t){front=j;t=distances[j];}
     if(front<0)break;
-    float alpha=0.38;
+    float alpha=alphas[front];
     color+=transmission*shades[front]*(0.9+0.35*uPulse)*alpha;
     transmission*=1.0-alpha;distances[front]=1e9;
   }

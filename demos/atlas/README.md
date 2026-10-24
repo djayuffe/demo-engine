@@ -75,3 +75,7 @@ The following roadmap topics remain outside this implementation and are not repr
 ## Provenance
 
 See [SOURCE.md](SOURCE.md) for preserved files and source status. Original archive documentation in `reference/` is retained as reference material; its roadmap is not silently converted into scientific or implementation claims.
+
+## 4.1 rendering refinements
+
+Atlas now adds geometry breathing, conservative animated sphere bounds, exact H³ shadow rays and GGX shading, actual relief intersections for scenes 18/19/22, projected material filtering and causally timed event packets. The face marcher rejects rays outside an enclosing sphere and evaluates material footprints without divergent screen derivatives. Shared HDR highlight processing also benefits the earlier optical scenes. See the [rendering controls and implementation notes](../infinity/README.md#rendering-refinement-41).

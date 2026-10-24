@@ -16,6 +16,8 @@
 #include "GpuTimer.hpp"
 #include "SequentialRays.hpp"
 #include "WorldSheets.hpp"
+#include "Motion.hpp"
+#include "OpticalPost.hpp"
 #include "../atlas/AtlasShaders.hpp"
 #include "Slice.hpp"
 #include "HyperAtlas.hpp"
@@ -58,18 +60,6 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "ATLAS / FILIGREE FACE EMERGENCE",
                                  "ATLAS / THREE HYPERBOLIC VIEWPOINTS"};
 static_assert(std::size(names) == infinity_sync::sceneCount);
-constexpr const char* composite = R"GLSL(#version 410 core
-in vec2 vUv; out vec4 outColor; uniform sampler2D uImg; uniform float uFade;
-void main(){
-  vec3 c=max(texture(uImg,vUv).rgb-vec3(0.008),vec3(0.0));
-  c=pow(c,vec3(1.18));
-  // Hue-preserving shoulder: keep white-hot cores below display white.
-  float peak=max(c.r,max(c.g,c.b));
-  float mapped=peak<=0.58?peak:0.58+0.40*(1.0-exp(-(peak-0.58)/0.40));
-  c*=mapped/max(peak,1e-6);
-  outColor=vec4(c*uFade,1.0);
-}
-)GLSL";
 struct Target {
   Target() = default;
   Target(const Target&) = delete;
@@ -152,7 +142,11 @@ class Infinity final : public de::Demo {
   std::array<GLuint, 128> specialized_{};
   std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniforms_;
   InfinityGpuTimer timer_;
-  bool profile_ = false, reference_ = false, adaptive_ = true;
+  bool profile_ = false, reference_ = false, adaptive_ = true, opticalBloom_ = true;
+  GLuint bloomExtract_ = 0;
+  infinity_motion::Bands bandMotion_;
+  infinity_motion::Clock atlasMotion_;
+  size_t bloomBuilds_ = 0;
   double targetMs_ = 1000.0 / 60.0;
   std::array<infinity_opt::SceneQuality, infinity_sync::sceneCount> quality_;
   infinity_opt::RaySolveKey solved_;
@@ -170,11 +164,11 @@ class Infinity final : public de::Demo {
   dmt::atlas::Atlas atlasGeometry_;
   bool atlasReduced_ = false, atlasPaused_ = false, atlasPauseKey_ = false;
   float atlasExposure_ = 1.f, atlasFlash_ = 1.f;
-  double atlasClock_ = 0, atlasLastBeat_ = -1;
+
   bool rasterIntegrator_ = false, forceSequential_ = false, validateRays_ = false, validatedRays_ = false,
        validateTargets_ = false, validateOutput_ = false;
   std::array<bool, infinity_sync::sceneCount> outputChecked_{};
-  Target image_, output_, state_, checkpoints_;
+  Target image_, output_, state_, checkpoints_, bloom_;
   de::FrameInfo frame_;
   infinity_sync::Cue cue_;
   int manual_ = -1, previous_ = -1, announced_ = -1, pixels_ = 400000, samples_ = 0;
@@ -485,10 +479,12 @@ class Infinity final : public de::Demo {
     output_.bind();
     glUseProgram(p);
     two(p, "uRes", float(w), float(h));
-    const double time = still_ ? 0.0 : atlasClock_;
+    const double time = still_ ? 0.0 : atlasMotion_.time();
+    const float breath = infinity_motion::breath(time);
+    one(p, "uBreath", breath);
     one(p, "uTime", float(time));
     one(p, "uPulse", atlasPaused_ || atlasReduced_ ? 0.f : cue_.strike * atlasFlash_);
-    one(p, "uBass", cue_.bass);
+    one(p, "uBass", atlasPaused_ || atlasReduced_ ? 0.f : cue_.bass * atlasFlash_);
     one(p, "uExposure", atlasExposure_);
     integer(p, "uUseBvh", reference_ ? 0 : 1);
     three(p, "uEye", atlasEye_.x, atlasEye_.y, atlasEye_.z);
@@ -496,7 +492,8 @@ class Infinity final : public de::Demo {
     glUniformMatrix3fv(loc(p, "uCam"), 1, GL_FALSE, cam.m);
     if (reference_) integer(p, "uMode", mode);
     if (mode == 0) {
-      const auto slice = dmt::slice::section({.31, .48, .25, .77}, .16 * std::sin(time * .2), time * .12, false);
+      const auto slice = dmt::slice::section({.31, .48, .25, .77}, .16 * std::sin(time * .2), time * .12, false,
+                                             1 + .025 * (2 * breath - 1));
       float planes[32];
       for (size_t i = 0; i < 8; ++i)
         for (size_t j = 0; j < 4; ++j) planes[i * 4 + j] = float(slice.planes[i][j]);
@@ -522,7 +519,7 @@ class Infinity final : public de::Demo {
       const auto& node = atlasGeometry_.nodes[i];
       for (int j = 0; j < 3; ++j) bounds[i * 4 + size_t(j)] = float(node.bound.center[size_t(j + 1)]);
       // Round outward for float GPU bounds built from double CPU geometry.
-      bounds[i * 4 + 3] = float(node.bound.radius + 1e-4);
+      bounds[i * 4 + 3] = float(node.bound.radius + .008);
       meta[i * 2] = float(node.escape);
       meta[i * 2 + 1] = float(node.leaf + 1);
     }
@@ -572,7 +569,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "4.0";
+    c.version = "4.1";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
@@ -598,6 +595,20 @@ public:
       if (end != value.size() || !std::isfinite(fps) || fps < 24 || fps > 144)
         throw std::runtime_error("infinity fps must be 24..144");
       targetMs_ = 1000.0 / fps;
+      return true;
+    }
+    if (a == "--infinity-orbit") {
+      if (i + 2 >= argc) throw std::runtime_error(a + " needs YAW PITCH in radians");
+      float values[2];
+      for (int j = 0; j < 2; ++j) {
+        std::string text = argv[++i];
+        size_t end = 0;
+        values[j] = std::stof(text, &end);
+        if (end != text.size() || !std::isfinite(values[j]) || std::abs(values[j]) > (j == 0 ? 3.141593f : 1.2f))
+          throw std::runtime_error("orbit exceeds yaw/pitch limits");
+      }
+      yawOffset_ = values[0];
+      pitchOffset_ = values[1];
       return true;
     }
     if (a == "--infinity-eye") {
@@ -643,6 +654,10 @@ public:
     }
     if (a == "--infinity-reference") {
       reference_ = true;
+      return true;
+    }
+    if (a == "--no-optical-bloom") {
+      opticalBloom_ = false;
       return true;
     }
     if (a == "--atlas-reduced-motion") {
@@ -705,11 +720,13 @@ public:
   }
   std::string usage() const override {
     return "  --infinity-scene N  Hold one optical scene (0..25)\n"
+           "  --no-optical-bloom Disable shared GPU highlight pyramid for A/B timing\n"
            "  --atlas-reduced-motion Slow new Atlas effects; suppress beat flashes\n"
            "  --atlas-paused     Freeze Atlas animation; P toggles pause\n"
            "  --atlas-exposure F Atlas exposure cap 0..2 (default 1)\n"
            "  --atlas-flash-gain F Atlas beat light gain 0..1 (default 1)\n"
            "  --infinity-pixels N GPU budget (10000..4000000; default 400000)\n"
+           "  --infinity-orbit Y P Fixed initial yaw/pitch in radians (yaw +/-pi, pitch +/-1.2)\n"
            "  --infinity-eye X Y  Fixed camera offset (-1..1); disables automatic dolly\n"
            "  --still             Fixed camera; accumulate up to 400 samples\n"
            "  --instrument-state N Seven-bit optical state (0..127; see demo README)\n"
@@ -770,9 +787,11 @@ public:
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
-    compose_ = program(FULLSCREEN_VS, composite);
+    compose_ = program(FULLSCREEN_VS, infinity_post::composite);
+    bloomExtract_ = program(FULLSCREEN_VS, infinity_post::extract);
     if (std::any_of(chamber_.begin(), chamber_.end(), [](GLuint p) { return !p; }) || !post_ ||
-        (reference_ && !trace_) || !show_ || !integrate_ || !rays_ || !compose_ || (validateRays_ && !integrate_) ||
+        (reference_ && !trace_) || !show_ || !integrate_ || !rays_ || !compose_ || !bloomExtract_ ||
+        (validateRays_ && !integrate_) ||
         (reference_ ? !worldReference_ : std::any_of(worlds_.begin(), worlds_.end(), [](GLuint p) { return !p; }))) {
       std::fprintf(stderr, "Infinity shader failure: %s\n", error_.c_str());
       return false;
@@ -804,6 +823,8 @@ public:
       assign(integrate_, "uCk", 0);
       assign(rays_, "uState", 0);
       assign(compose_, "uImg", 0);
+      assign(compose_, "uBloom", 1);
+      assign(bloomExtract_, "uImg", 0);
       assign(sequential_[1], "uCk", 0);
       for (auto p : chamber_) assign(p, "uAntField", 2);
     }
@@ -869,10 +890,7 @@ public:
   }
   bool update(const de::FrameInfo& f, const de::Input& in, de::Frame& out) override {
     frame_ = f;
-    if (atlasLastBeat_ >= 0 && !atlasPaused_ && f.sync.beat >= atlasLastBeat_)
-      atlasClock_ += (f.sync.beat - atlasLastBeat_) * (atlasReduced_ ? .12 : .55);
-    atlasLastBeat_ = f.sync.beat;
-    if (atlasClock_ > 65536) atlasClock_ = std::fmod(atlasClock_, 65536.0);
+    atlasMotion_.advance(f.sync.beat, atlasPaused_, atlasReduced_);
     traffic_.advance(f.sync.beat);
     ballWorld_.advance(f.sync.beat);
     viewDirty_ = false;
@@ -914,6 +932,10 @@ public:
     if (in.pressed(de::Key::Space)) manual_ = -1;
     cue_ = infinity_sync::sample(f.sync.beat, f.sync.pulse, f.music.active, f.music.bass, f.music.mid, f.music.treble,
                                  manual_);
+    const auto& bands = bandMotion_.update(cue_.bass, cue_.mid, cue_.treble, f.dt);
+    cue_.bass = bands[0];
+    cue_.mid = bands[1];
+    cue_.treble = bands[2];
     if (cue_.scene != announced_) {
       std::fprintf(stdout, "infinity scene %02d: %s / beat %.2f\n", cue_.scene, names[cue_.scene], f.sync.beat);
       announced_ = cue_.scene;
@@ -1013,12 +1035,32 @@ public:
       atlasHistoryValid_ = true;
     } else
       atlasHistoryValid_ = false;
+    if (opticalBloom_) {
+      if (!bloom_.resize(std::max(1, w / 2), std::max(1, h / 2), GL_RGBA16F, true, error)) {
+        timer_.end();
+        return false;
+      }
+      bloom_.bind();
+      glUseProgram(bloomExtract_);
+      presented->sample();
+      sampler(bloomExtract_, "uImg", 0);
+      two(bloomExtract_, "uTexel", 1.f / float(w), 1.f / float(h));
+      quad();
+      bloom_.generate();
+      ++bloomBuilds_;
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, f.width, f.height);
     glDisable(GL_BLEND);
     glUseProgram(compose_);
     presented->sample();
     sampler(compose_, "uImg", 0);
+    if (opticalBloom_) bloom_.sample(1);
+    sampler(compose_, "uBloom", 1);
+    const bool frozen = cue_.scene >= 16 && (atlasPaused_ || still_);
+    const float breath = cue_.scene >= 16 ? infinity_motion::breath(still_ ? 0 : atlasMotion_.time()) : cue_.breath;
+    one(compose_, "uGlow",
+        opticalBloom_ ? (cue_.scene < 12 ? .07f : .14f) * (frozen ? 1.f : (.94f + .12f * breath)) : 0.f);
     one(compose_, "uFade", cue_.fade);
     quad();
     timer_.end();
@@ -1074,6 +1116,8 @@ public:
       }
     uniforms_.clear();
 
+    if (profile_) std::printf("GPU highlight pyramids: %zu\n", bloomBuilds_);
+    bloom_.release();
     image_.release();
     output_.release();
     state_.release();
@@ -1083,7 +1127,7 @@ public:
         glDeleteProgram(p);
         p = 0;
       }
-    for (auto* p : {&post_, &trace_, &show_, &integrate_, &rays_, &compose_})
+    for (auto* p : {&post_, &trace_, &show_, &integrate_, &rays_, &compose_, &bloomExtract_})
       if (*p) {
         glDeleteProgram(*p);
         *p = 0;

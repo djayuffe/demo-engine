@@ -226,3 +226,13 @@ Headless checks verify disk-circle orthogonality, three-polygon vertex angles, d
 ## DMT Atlas integration
 
 Scenes 16–25 port the supplied v0.3 Atlas archive and extend its concrete rendering roadmap. See the [feature matrix, controls, geometry conventions, validation and research boundaries](../atlas/README.md). P pauses Atlas animation; `--atlas-reduced-motion`, `--atlas-exposure` and `--atlas-flash-gain` control the new effects. Original source bytes and hashes are preserved separately from the production derivatives.
+
+## Rendering refinement (4.1)
+
+All 26 scenes share a half-resolution RGBA16F highlight pyramid: soft-knee extraction, weighted downsampling, GPU mip generation and explicit-LOD composition. Bloom adds a restrained halo without raising black input. `--no-optical-bloom` disables this pass for A/B measurements. GPU timing includes the new passes, so the existing adaptive pixel governor accounts for their cost.
+
+Audio bands use frame-independent exponential attack/release smoothing. Beat attacks retain their phase-locked clock; smooth envelopes supply the sustained motion. Atlas motion now handles backward seeks, pause/resume and a consistent 12% reduced-motion rate. Sphere radii and 4D section extents breathe geometrically, with conservative hierarchy padding for the maximum radius.
+
+The H³ renderer uses finite point-light geodesics for occlusion and local-rest-frame GGX/Fresnel shading. Radial, folded and ornament scenes intersect bounded height fields, using bracketed roots at ordinary angles and conservative Lipschitz steps at grazing angles. Material footprints follow surface ray differentials. Face shading avoids derivatives inside divergent ray marching, rejects rays outside its enclosing sphere and adds local occlusion. Saddle sheets use angle-dependent Fresnel transmission; event packets arrive when their child events activate.
+
+`--infinity-orbit YAW PITCH` sets a reproducible initial view in radians (yaw ±π, pitch ±1.2). This is useful for inspecting actual relief and comparing landscape, portrait and grazing-angle renders. All changes remain within OpenGL 4.1; no compute-shader support is required.

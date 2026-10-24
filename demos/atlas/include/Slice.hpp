@@ -26,9 +26,10 @@ struct Section {
 };
 // Restrict all eight cubic-cell halfspaces to an orthonormal slice basis.
 // This also handles a plane coincident with a cubic cell without duplicate faces.
-inline Section section(V4 normal, double offset, double phase, bool topology = true) {
+inline Section section(V4 normal, double offset, double phase, bool topology = true, double extent = 1) {
   double n = std::sqrt(dot4(normal, normal));
-  if (!std::isfinite(n) || n < 1e-12 || !std::isfinite(offset)) throw std::domain_error("invalid slice plane");
+  if (!std::isfinite(extent) || extent <= 0 || !std::isfinite(n) || n < 1e-12 || !std::isfinite(offset))
+    throw std::domain_error("invalid slice plane");
   for (auto& x : normal) x /= n;
   offset /= n;
   std::array<V4, 3> basis{};
@@ -53,11 +54,11 @@ inline Section section(V4 normal, double offset, double phase, bool topology = t
       V4 v{};
       v[axis] = side ? 1 : -1;
       v = rotated(v, phase);
-      V4 p{dot4(v, basis[0]), dot4(v, basis[1]), dot4(v, basis[2]), 1 - offset * dot4(v, normal)};
+      V4 p{dot4(v, basis[0]), dot4(v, basis[1]), dot4(v, basis[2]), extent - offset * dot4(v, normal)};
       out.planes[2 * axis + side] = p;
       if (p[0] * p[0] + p[1] * p[1] + p[2] * p[2] < 1e-20 && p[3] < -1e-10) out.empty = true;
     }
-  if (out.empty || (!topology && std::abs(offset) < 1)) return out;
+  if (out.empty || (!topology && std::abs(offset) < extent)) return out;
   for (int i = 0; i < 8; ++i)
     for (int j = i + 1; j < 8; ++j)
       for (int k = j + 1; k < 8; ++k) {
