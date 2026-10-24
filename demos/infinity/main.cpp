@@ -158,15 +158,16 @@ class Infinity final : public de::Demo {
   size_t integrations_ = 0, uniformLookups_ = 0, submitFrames_ = 0, mipBuilds_ = 0;
 
   GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
-  GLuint aviation_ = 0;
+  GLuint aviation_ = 0, aviationTemporal_ = 0;
+  int aviationLayers_ = 2;
   std::array<GLuint, 2> sequential_{};
   std::array<GLuint, 4> worlds_{};
   GLuint worldReference_ = 0;
   std::array<GLuint, dmt::gpu::modes> atlasPrograms_{};
   GLuint atlasReference_ = 0, atlasTemporal_ = 0;
-  std::array<Target, 2> atlasHistory_;
-  int atlasHistoryIndex_ = 0;
-  bool atlasHistoryValid_ = false;
+  std::array<Target, 2> temporalHistory_;
+  int temporalHistoryIndex_ = 0;
+  bool temporalHistoryValid_ = false;
   dmt::atlas::Atlas atlasGeometry_;
   bool atlasReduced_ = false, atlasPaused_ = false, atlasPauseKey_ = false;
   float atlasExposure_ = 1.f, atlasFlash_ = 1.f;
@@ -576,6 +577,7 @@ class Infinity final : public de::Demo {
     one(aviation_, "uTime", still_ ? 0.f : float(cue_.flow));
     one(aviation_, "uPulse", still_ ? 0.f : cue_.strike);
     one(aviation_, "uBass", cue_.bass);
+    one(aviation_, "uMid", cue_.mid);
     one(aviation_, "uTreble", cue_.treble);
     const float phase = still_ ? 0.f : float(cue_.flow);
     const auto cam = camera(yawOffset_ + .45f + .10f * std::sin(phase * .08f),
@@ -588,7 +590,10 @@ class Infinity final : public de::Demo {
     glEnable(GL_PROGRAM_POINT_SIZE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
-    glDrawArrays(GL_POINTS, 0, aviation_gpu::pointCount);
+    // Metal handles vertex instancing efficiently and avoids its expensive geometry-shader path.
+    // Only the parametric field is echoed; companion/ring/star points are evaluated once.
+    glDrawArraysInstanced(GL_POINTS, 0, aviation_gpu::fieldPoints, aviationLayers_);
+    glDrawArrays(GL_POINTS, aviation_gpu::fieldPoints, aviation_gpu::pointCount - aviation_gpu::fieldPoints);
     glDisable(GL_BLEND);
     glDisable(GL_PROGRAM_POINT_SIZE);
   }
@@ -869,6 +874,9 @@ public:
       }
     atlasTemporal_ = program(FULLSCREEN_VS, dmt::gpu::temporal);
     aviation_ = glutil::linkProgram(aviation_gpu::vertex, aviation_gpu::fragment, error_);
+    aviationTemporal_ = program(FULLSCREEN_VS, aviation_gpu::temporal);
+    const char* glVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+    aviationLayers_ = glVersion && std::string(glVersion).find("Metal") != std::string::npos ? 4 : 2;
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
@@ -881,7 +889,7 @@ public:
       std::fprintf(stderr, "Infinity shader failure: %s\n", error_.c_str());
       return false;
     }
-    if (!atlasTemporal_ || !aviation_ ||
+    if (!atlasTemporal_ || !aviation_ || !aviationTemporal_ ||
         (reference_ ? !atlasReference_
                     : std::any_of(atlasPrograms_.begin(), atlasPrograms_.end(), [](GLuint p) { return !p; }))) {
       std::fprintf(stderr, "Atlas/point-field shader failure: %s\n", error_.c_str());
@@ -933,7 +941,13 @@ public:
         }
       }
     }
-    if (profile_) std::printf("GPU device: %s / %s\n", glGetString(GL_RENDERER), glGetString(GL_VERSION));
+    if (profile_) {
+      std::printf("GPU device: %s / %s\n", glGetString(GL_RENDERER), glGetString(GL_VERSION));
+      const int pointVertices = aviation_gpu::fieldPoints * aviationLayers_ +
+                                (aviation_gpu::pointCount - aviation_gpu::fieldPoints);
+      std::printf("GPU point field: layers=%d vertices=%d geometry-uploads=0 temporal=gpu\n",
+                  aviationLayers_, pointVertices);
+    }
     glGenTextures(1, &antTexture_);
     glBindTexture(GL_TEXTURE_2D, antTexture_);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 64, 64, 0, GL_RGBA, GL_FLOAT, nullptr);
@@ -1103,40 +1117,45 @@ public:
       std::printf("HDR output validation: scene %02d finite (%d pixels)\n", cue_.scene, w * h);
     }
     const Target* presented = &output_;
-    if (atlasScene(cue_.scene)) {
-      bool reset = !atlasHistoryValid_ || previous_ != cue_.scene || viewDirty_ || atlasPaused_ || still_;
-      for (auto& history : atlasHistory_) {
+    if (cue_.scene >= 16) {
+      const bool atlas = atlasScene(cue_.scene);
+      bool reset = !temporalHistoryValid_ || previous_ != cue_.scene || viewDirty_ || still_ || (atlas && atlasPaused_);
+      for (auto& history : temporalHistory_) {
         reset = reset || history.w != w || history.h != h;
         if (!history.resize(w, h, GL_RGBA16F, false, error)) {
           timer_.end();
           return false;
         }
       }
-      auto& destination = atlasHistory_[size_t(atlasHistoryIndex_)];
-      auto& history = atlasHistory_[size_t(1 - atlasHistoryIndex_)];
+      auto& destination = temporalHistory_[size_t(temporalHistoryIndex_)];
+      auto& history = temporalHistory_[size_t(1 - temporalHistoryIndex_)];
+      const auto temporal = atlas ? atlasTemporal_ : aviationTemporal_;
       destination.bind();
-      glUseProgram(atlasTemporal_);
+      glUseProgram(temporal);
       output_.sample(0);
       history.sample(1);
-      integer(atlasTemporal_, "uCurrent", 0);
-      integer(atlasTemporal_, "uHistory", 1);
-      two(atlasTemporal_, "uTexel", 1.f / float(w), 1.f / float(h));
-      one(atlasTemporal_, "uWeight", reset ? 0.f : float(std::exp(-std::max(0.0, double(f.dt)) * 16.0)));
+      integer(temporal, "uCurrent", 0);
+      integer(temporal, "uHistory", 1);
+      two(temporal, "uTexel", 1.f / float(w), 1.f / float(h));
+      one(temporal, "uWeight",
+          reset ? 0.f : float(std::exp(-std::max(0.0, double(f.dt)) * (atlas ? 16.0 : 4.2))));
+      one(temporal, "uPulse", cue_.strike);
+      one(temporal, "uTime", float(cue_.flow));
       quad();
       if (validateOutput_) {
         std::vector<float> values(size_t(w * h * 4));
         glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, values.data());
         if (std::any_of(values.begin(), values.end(), [](float x) { return !std::isfinite(x); })) {
-          error = "Non-finite Atlas temporal output";
+          error = "Non-finite temporal output";
           timer_.end();
           return false;
         }
       }
       presented = &destination;
-      atlasHistoryIndex_ = 1 - atlasHistoryIndex_;
-      atlasHistoryValid_ = true;
+      temporalHistoryIndex_ = 1 - temporalHistoryIndex_;
+      temporalHistoryValid_ = true;
     } else
-      atlasHistoryValid_ = false;
+      temporalHistoryValid_ = false;
     if (opticalBloom_) {
       if (!bloom_.resize(std::max(1, w / 2), std::max(1, h / 2), GL_RGBA16F, true, error)) {
         timer_.end();
@@ -1212,7 +1231,11 @@ public:
       glDeleteProgram(aviation_);
       aviation_ = 0;
     }
-    for (auto& history : atlasHistory_) history.release();
+    if (aviationTemporal_) {
+      glDeleteProgram(aviationTemporal_);
+      aviationTemporal_ = 0;
+    }
+    for (auto& history : temporalHistory_) history.release();
     for (auto& p : worlds_)
       if (p) {
         glDeleteProgram(p);

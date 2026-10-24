@@ -14,8 +14,10 @@ rather than presenting it as aviation-navigation data.
 
 Scene 26 ports the page's four-lobe parametric point equation, animated phase,
 per-point spectral colour, moon-like companion, falling marker, orbit control,
-additive light and bloom. Vertex positions are evaluated from `gl_VertexID` in an
-OpenGL 4.1 shader, eliminating the source page's per-frame JavaScript position upload.
+additive light and bloom. Native additions include procedural orbit guides, a star shell,
+instanced phase echoes and bounded temporal light persistence. Vertex positions are
+evaluated from `gl_VertexID` in an OpenGL 4.1 shader, eliminating the source page's
+per-frame JavaScript position upload.
 The existing floating-point target, highlight pyramid, music analysis, beat envelopes,
 adaptive pixel budget and native camera controls replace Three.js, Cannon, DOM controls,
 the remote texture and the missing placeholder HDR URL. No CDN assets or thesis text

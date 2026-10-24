@@ -1,7 +1,8 @@
 # PurpleTwilight parametric point field — 2026-10-25
 
 - Add scene 26, a native OpenGL 4.1 port of the supplied four-lobe parametric point effect with spectral additive particles, moon companion, bouncing marker and star field.
-- Generate all 64,452 positions in the vertex shader from `gl_VertexID`, eliminating the browser source's per-frame CPU geometry upload while adding music-band and beat drive through the existing HDR bloom pipeline.
+- Generate the 68,548-point base composition in the vertex shader from `gl_VertexID`, eliminating the browser source's per-frame CPU geometry upload while adding music-band and beat drive through the existing HDR bloom pipeline.
+- Use four Metal-tuned instanced phase echoes, procedural orbit guides and GPU-only ping-pong light persistence; the resulting 225,040 vertex samples plus temporal HDR, bloom and composition averaged 1.804 ms over a 600-frame M1 Pro run.
 - Record the supplied archive/file hashes and distinguish its actual “Quantum Fractal Explorer” content from the aviation-oriented archive filename.
 
 # Integrated rendering and playback polish — 2026-10-24

@@ -11,8 +11,9 @@ inline constexpr int lobes = 4;
 inline constexpr int fieldPoints = (uSteps + 1) * (vSteps + 1) * lobes;
 inline constexpr int moonPoints = 8192;
 inline constexpr int markerPoints = 1024;
+inline constexpr int ringPoints = 4096;
 inline constexpr int starPoints = 3072;
-inline constexpr int pointCount = fieldPoints + moonPoints + markerPoints + starPoints;
+inline constexpr int pointCount = fieldPoints + moonPoints + markerPoints + ringPoints + starPoints;
 
 inline constexpr const char* vertex = R"AVIATION(#version 410 core
 uniform mat3 uCam;
@@ -21,6 +22,7 @@ uniform vec2 uRes;
 uniform float uTime;
 uniform float uPulse;
 uniform float uBass;
+uniform float uMid;
 uniform float uTreble;
 out vec3 vColor;
 out float vOpacity;
@@ -32,6 +34,7 @@ const int LOBES = 4;
 const int FIELD_POINTS = (U_STEPS + 1) * (V_STEPS + 1) * LOBES;
 const int MOON_POINTS = 8192;
 const int MARKER_POINTS = 1024;
+const int RING_POINTS = 4096;
 
 uint hash(uint x) {
   x ^= x >> 16u;
@@ -65,6 +68,7 @@ void main() {
   float size = 2.0;
   vOpacity = 1.0;
   if (id < FIELD_POINTS) {
+    float echo = float(gl_InstanceID);
     int lobe = id % LOBES;
     int cell = id / LOBES;
     int ui = cell % (U_STEPS + 1);
@@ -72,17 +76,20 @@ void main() {
     float u = float(ui) * (2.0 * PI / float(U_STEPS));
     float v = float(vi) * (PI / float(V_STEPS));
     float angle = float(lobe) * PI * 0.5;
-    float phase = uTime * 0.5 + 0.16 * uPulse + 0.08 * uBass;
+    float echoDelay = echo * (0.055 + 0.025 * uBass);
+    float phase = (uTime - echoDelay) * 0.5 + 0.16 * uPulse + 0.08 * uBass;
     float wave = sin(angle * 0.5 + v + phase);
     float ySignal = sin(u) * sin(v) * wave;
     p = vec3(cos(u) * sin(v) + sin(angle),
              sin(u) * cos(v) * wave + cos(angle),
              ySignal);
-    p *= 0.94 + 0.055 * uBass;
-    p = rotateField(p, uTime * 0.05, uTime * 0.10);
-    vColor = hsv(fract(0.5 * (ySignal + 1.0) + uTime * 0.012), 0.94,
-                 1.15 + 0.45 * uPulse + 0.18 * uTreble);
-    size = 2.3 + 1.7 * uPulse;
+    p *= 0.94 + 0.055 * uBass + echo * 0.006;
+    p = rotateField(p, (uTime - echoDelay) * 0.05,
+                    (uTime - echoDelay) * (0.10 + 0.012 * uMid));
+    vColor = hsv(fract(0.5 * (ySignal + 1.0) + uTime * 0.012 - echo * 0.018), 0.94,
+                 (1.15 + 0.45 * uPulse + 0.18 * uTreble) * exp(-echo * 0.48));
+    vOpacity = exp(-echo * 0.62);
+    size = 2.3 + 1.7 * uPulse + echo * 0.22;
   } else if (id < FIELD_POINTS + MOON_POINTS) {
     vec3 n = fibonacciSphere(id - FIELD_POINTS, MOON_POINTS);
     p = n * 0.48 + vec3(2.35, 0.35, -1.45);
@@ -98,8 +105,23 @@ void main() {
     vColor = mix(vec3(1.4, 0.04, 0.015), vec3(2.4, 0.7, 0.08),
                  max(0.0, dot(n, normalize(vec3(-0.4, 0.8, 0.5))))) * (1.0 + 0.5 * uPulse);
     size = 4.2;
+  } else if (id < FIELD_POINTS + MOON_POINTS + MARKER_POINTS + RING_POINTS) {
+    int rid = id - FIELD_POINTS - MOON_POINTS - MARKER_POINTS;
+    int ring = rid / 1024;
+    int sampleIndex = rid - ring * 1024;
+    float a = float(sampleIndex) * (2.0 * PI / 1024.0);
+    float radius = 1.42 + float(ring) * 0.29 + 0.035 * uPulse;
+    p = vec3(cos(a) * radius, sin(a) * radius, 0.0);
+    float tilt = 0.35 + float(ring) * 0.43;
+    p = rotateField(p, tilt + 0.08 * sin(uTime * 0.13 + float(ring)),
+                    uTime * (0.025 + 0.006 * float(ring)) + float(ring) * 0.7);
+    float packet = pow(max(0.0, cos(a * (4.0 + float(ring)) - uTime * (1.2 + 0.2 * uMid))), 18.0);
+    vColor = mix(vec3(0.04, 0.18, 0.42), hsv(0.52 + 0.055 * float(ring), 0.8, 1.25),
+                 0.32 + 0.68 * packet) * (0.55 + 0.25 * uMid + 0.30 * uPulse);
+    vOpacity = 0.42 + 0.48 * packet;
+    size = 1.5 + 1.8 * packet + 0.6 * uPulse;
   } else {
-    uint sid = uint(id - FIELD_POINTS - MOON_POINTS - MARKER_POINTS);
+    uint sid = uint(id - FIELD_POINTS - MOON_POINTS - MARKER_POINTS - RING_POINTS);
     float a = random(sid * 3u) * 2.0 * PI;
     float z = random(sid * 3u + 1u) * 2.0 - 1.0;
     float r = 5.5 + random(sid * 3u + 2u) * 3.0;
@@ -132,8 +154,35 @@ out vec4 outColor;
 void main() {
   vec2 p = gl_PointCoord * 2.0 - 1.0;
   float radius = dot(p, p);
-  float coverage = (1.0 - smoothstep(0.38, 1.0, radius)) * vOpacity;
-  outColor = vec4(vColor * coverage, coverage);
+  float halo = 1.0 - smoothstep(0.08, 1.0, radius);
+  float core = 1.0 - smoothstep(0.0, 0.16, radius);
+  float coverage = halo * vOpacity;
+  outColor = vec4(vColor * (0.32 * halo + 0.92 * core) * vOpacity, coverage);
+}
+)AVIATION";
+
+// GPU-only feedback for luminous motion persistence. A tiny rotating expansion
+// produces curved afterimages while exponential decay keeps energy bounded.
+inline constexpr const char* temporal = R"AVIATION(#version 410 core
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uCurrent, uHistory;
+uniform float uWeight, uPulse, uTime;
+void main() {
+  vec3 current = texture(uCurrent, vUv).rgb;
+  if (uWeight <= 0.0) {
+    outColor = vec4(current, 1.0);
+    return;
+  }
+  vec2 p = vUv - 0.5;
+  float angle = 0.0018 + 0.0012 * uPulse + 0.0005 * sin(uTime * 0.3);
+  float c = cos(angle), s = sin(angle);
+  vec2 historyUv = 0.5 + mat2(c, -s, s, c) * p * (1.0022 + 0.0012 * uPulse);
+  vec3 history = texture(uHistory, historyUv).rgb;
+  history.r = texture(uHistory, historyUv + vec2(0.00045, 0.0)).r;
+  history.b = texture(uHistory, historyUv - vec2(0.00045, 0.0)).b;
+  vec3 persistent = history * uWeight;
+  outColor = vec4(max(current, persistent) + min(current, persistent) * 0.06, 1.0);
 }
 )AVIATION";
 }  // namespace aviation_gpu

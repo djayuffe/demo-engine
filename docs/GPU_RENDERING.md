@@ -58,6 +58,13 @@ half-float texture when their pass is disabled, avoiding unloadable-texture diag
 on the Metal-backed driver. `--stats` uses an eight-query, non-blocking timer ring and
 reports average/peak generic renderer GPU time after warmup without `glFinish`.
 
+Hold Infinity scene 26 uses a custom GPU-resident point pipeline. Metal-backed OpenGL
+draws four phase echoes with vertex instancing, while other drivers default to two; the
+path deliberately avoids geometry shaders. Parametric positions, spectral colours,
+companion spheres, orbital guides and stars all derive from `gl_VertexID`. A GPU ping-pong
+pass adds bounded light persistence before the shared HDR highlight pyramid, with no
+streaming geometry, frame readback or CPU particle simulation during normal playback.
+
 ## Recipe effects and instanced copies
 
 The wireframe demo calls `applyRecipeGpu` by default. It executes the CPU prefix in
