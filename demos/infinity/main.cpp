@@ -21,6 +21,7 @@
 #include "Motion.hpp"
 #include "OpticalPost.hpp"
 #include "../atlas/AtlasShaders.hpp"
+#include "../aviation/AviationShader.hpp"
 #include "Slice.hpp"
 #include "HyperAtlas.hpp"
 #include <unordered_map>
@@ -60,7 +61,8 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "ATLAS / EUCLIDEAN ORNAMENT",
                                  "ATLAS / CAUSAL EVENT VOLUME",
                                  "ATLAS / FILIGREE FACE EMERGENCE",
-                                 "ATLAS / THREE HYPERBOLIC VIEWPOINTS"};
+                                 "ATLAS / THREE HYPERBOLIC VIEWPOINTS",
+                                 "SPECTRAL PARAMETRIC POINT FIELD"};
 static_assert(std::size(names) == infinity_sync::sceneCount);
 
 struct Target {
@@ -156,6 +158,7 @@ class Infinity final : public de::Demo {
   size_t integrations_ = 0, uniformLookups_ = 0, submitFrames_ = 0, mipBuilds_ = 0;
 
   GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
+  GLuint aviation_ = 0;
   std::array<GLuint, 2> sequential_{};
   std::array<GLuint, 4> worlds_{};
   GLuint worldReference_ = 0;
@@ -563,6 +566,32 @@ class Infinity final : public de::Demo {
     }
     quad();
   }
+  static bool atlasScene(int scene) { return scene >= 16 && scene < 26; }
+  void aviation(int w, int h) {
+    output_.bind();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(aviation_);
+    two(aviation_, "uRes", float(w), float(h));
+    one(aviation_, "uTime", still_ ? 0.f : float(cue_.flow));
+    one(aviation_, "uPulse", still_ ? 0.f : cue_.strike);
+    one(aviation_, "uBass", cue_.bass);
+    one(aviation_, "uTreble", cue_.treble);
+    const float phase = still_ ? 0.f : float(cue_.flow);
+    const auto cam = camera(yawOffset_ + .45f + .10f * std::sin(phase * .08f),
+                            pitchOffset_ + .10f + .06f * std::sin(phase * .05f));
+    glUniformMatrix3fv(loc(aviation_, "uCam"), 1, GL_FALSE, cam.m);
+    const float distance = 4.5f;
+    three(aviation_, "uEye", cam.back[0] * distance + cam.m[0] * eye_.x + cam.m[3] * eye_.y,
+          cam.back[1] * distance + cam.m[1] * eye_.x + cam.m[4] * eye_.y,
+          cam.back[2] * distance + cam.m[2] * eye_.x + cam.m[5] * eye_.y);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArrays(GL_POINTS, 0, aviation_gpu::pointCount);
+    glDisable(GL_BLEND);
+    glDisable(GL_PROGRAM_POINT_SIZE);
+  }
   void atlasConstants(GLuint p) {
     glUseProgram(p);
     float bounds[112 * 4]{}, meta[56 * 4]{}, levels[9 * 4]{}, events[24 * 4]{};
@@ -620,7 +649,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "4.1";
+    c.version = "4.2";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
@@ -771,7 +800,7 @@ public:
     return false;
   }
   std::string usage() const override {
-    return "  --infinity-scene N  Hold one optical scene (0..25)\n"
+    return "  --infinity-scene N  Hold one optical scene (0..26)\n"
            "  --no-optical-bloom Disable shared GPU highlight pyramid for A/B timing\n"
            "  --atlas-reduced-motion Slow new Atlas effects; suppress beat flashes\n"
            "  --atlas-paused     Freeze Atlas animation; P toggles pause\n"
@@ -839,6 +868,7 @@ public:
         if (atlasPrograms_[size_t(mode)]) atlasConstants(atlasPrograms_[size_t(mode)]);
       }
     atlasTemporal_ = program(FULLSCREEN_VS, dmt::gpu::temporal);
+    aviation_ = glutil::linkProgram(aviation_gpu::vertex, aviation_gpu::fragment, error_);
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
@@ -851,10 +881,10 @@ public:
       std::fprintf(stderr, "Infinity shader failure: %s\n", error_.c_str());
       return false;
     }
-    if (!atlasTemporal_ ||
+    if (!atlasTemporal_ || !aviation_ ||
         (reference_ ? !atlasReference_
                     : std::any_of(atlasPrograms_.begin(), atlasPrograms_.end(), [](GLuint p) { return !p; }))) {
-      std::fprintf(stderr, "Atlas shader failure: %s\n", error_.c_str());
+      std::fprintf(stderr, "Atlas/point-field shader failure: %s\n", error_.c_str());
       return false;
     }
     const auto polygon = infinity_worlds::heptagon();
@@ -965,7 +995,7 @@ public:
       const bool pauseKey = glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS;
       if (pauseKey && !atlasPauseKey_) {
         atlasPaused_ = !atlasPaused_;
-        if (atlasPaused_ && cue_.scene >= 16) manual_ = cue_.scene;
+        if (atlasPaused_ && atlasScene(cue_.scene)) manual_ = cue_.scene;
       }
       atlasPauseKey_ = pauseKey;
       double x = 0, y = 0;
@@ -1015,9 +1045,10 @@ public:
     }
     out.travelers = false;
     out.ticker = std::string(names[cue_.scene]) +
-                 (cue_.scene < 12   ? "  /  HOLD INFINITY BY PURPLETWILIGHT  /  "
-                  : cue_.scene < 16 ? "  /  QRI ESSAY INSPIRED GEOMETRY STUDIES  /  "
-                                    : "  /  DMT ATLAS / GEOMETRY STUDIES  /  ") +
+                 (cue_.scene < 12    ? "  /  HOLD INFINITY BY PURPLETWILIGHT  /  "
+                  : cue_.scene < 16  ? "  /  QRI ESSAY INSPIRED GEOMETRY STUDIES  /  "
+                  : cue_.scene < 26  ? "  /  DMT ATLAS / GEOMETRY STUDIES  /  "
+                                     : "  /  PURPLETWILIGHT PARAMETRIC 3D STUDY  /  ") +
                  (f.musicPath.empty() ? "BPM CLOCK" : musiccat::credit(f.musicPath));
     return !in.pressed(de::Key::Q);
   }
@@ -1054,8 +1085,10 @@ public:
       grin(cue_.scene, w, h);
     else if (cue_.scene < 16)
       worldSheet(cue_.scene, w, h);
-    else
+    else if (cue_.scene < 26)
       atlas(cue_.scene, w, h);
+    else
+      aviation(w, h);
     if (validateOutput_ && !outputChecked_[size_t(cue_.scene)]) {
       std::vector<float> values(size_t(w * h * 4));
       output_.bind();
@@ -1070,7 +1103,7 @@ public:
       std::printf("HDR output validation: scene %02d finite (%d pixels)\n", cue_.scene, w * h);
     }
     const Target* presented = &output_;
-    if (cue_.scene >= 16) {
+    if (atlasScene(cue_.scene)) {
       bool reset = !atlasHistoryValid_ || previous_ != cue_.scene || viewDirty_ || atlasPaused_ || still_;
       for (auto& history : atlasHistory_) {
         reset = reset || history.w != w || history.h != h;
@@ -1126,12 +1159,12 @@ public:
     sampler(compose_, "uImg", 0);
     if (opticalBloom_) bloom_.sample(1);
     sampler(compose_, "uBloom", 1);
-    const bool frozen = cue_.scene >= 16 && (atlasPaused_ || still_);
-    const float breath = cue_.scene >= 16 ? infinity_motion::breath(still_ ? 0 : atlasMotion_.time()) : cue_.breath;
+    const bool frozen = atlasScene(cue_.scene) && (atlasPaused_ || still_);
+    const float breath = atlasScene(cue_.scene) ? infinity_motion::breath(still_ ? 0 : atlasMotion_.time()) : cue_.breath;
     one(compose_, "uGlow",
         opticalBloom_ ? (cue_.scene < 12 ? .07f : .14f) * (frozen ? 1.f : (.94f + .12f * breath)) : 0.f);
     one(compose_, "uFade", cue_.fade);
-    const bool quiet = still_ || (cue_.scene >= 16 && (atlasPaused_ || atlasReduced_));
+    const bool quiet = still_ || (atlasScene(cue_.scene) && (atlasPaused_ || atlasReduced_));
     two(compose_, "uDrive", quiet ? 0.f : f.beat.pulse, quiet ? 0.f : f.beat.flash);
     one(compose_, "uUpscale", (w < f.width || h < f.height) ? 1.f : 0.f);
     quad();
@@ -1174,6 +1207,10 @@ public:
     if (atlasTemporal_) {
       glDeleteProgram(atlasTemporal_);
       atlasTemporal_ = 0;
+    }
+    if (aviation_) {
+      glDeleteProgram(aviation_);
+      aviation_ = 0;
     }
     for (auto& history : atlasHistory_) history.release();
     for (auto& p : worlds_)

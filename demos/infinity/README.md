@@ -1,6 +1,6 @@
 # Hold Infinity — native music-directed optical demo
 
-`make run` now launches this demo. It renders the supplied optical code and four original geometry studies and ten Atlas scenes directly through OpenGL 4.1, without the old wireframe recipes, travellers or logo cards. `make run-wireframe` opens the previous show.
+`make run` now launches this demo. It renders the supplied optical code, four original geometry studies, ten Atlas scenes and a native GPU parametric point field directly through OpenGL 4.1, without the old wireframe recipes, travellers or logo cards. `make run-wireframe` opens the previous show.
 
 ```sh
 make
@@ -42,6 +42,7 @@ Drag to orbit. Left/right select scenes; Space returns to the automatic show; Q 
 | 23 | Causal event volume and procedural glyphs |
 | 24 | Filigree face emergence |
 | 25 | Three independent H³ viewpoints |
+| 26 | Spectral parametric point field, moon companion and bouncing marker |
 
 ## Music direction
 
@@ -76,7 +77,7 @@ ctest --test-dir build --output-on-failure
 python3 tools/smoke_infinity.py
 ```
 
-Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 26 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
+Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 27 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
 
 [Source attribution, original archive hash and port boundaries](SOURCE.md).
 
@@ -229,13 +230,23 @@ Scenes 16–25 port the supplied v0.3 Atlas archive and extend its concrete rend
 
 ## Rendering refinement (4.1)
 
-All 26 scenes share a half-resolution RGBA16F highlight pyramid: soft-knee extraction, weighted downsampling, GPU mip generation and explicit-LOD composition. Bloom adds a restrained halo without raising black input. `--no-optical-bloom` disables this pass for A/B measurements. GPU timing includes the new passes, so the existing adaptive pixel governor accounts for their cost.
+All 27 scenes share a half-resolution RGBA16F highlight pyramid: soft-knee extraction, weighted downsampling, GPU mip generation and explicit-LOD composition. Bloom adds a restrained halo without raising black input. `--no-optical-bloom` disables this pass for A/B measurements. GPU timing includes the new passes, so the existing adaptive pixel governor accounts for their cost.
 
 Audio bands use frame-independent exponential attack/release smoothing. Beat attacks retain their phase-locked clock; smooth envelopes supply the sustained motion. Atlas motion now handles backward seeks, pause/resume and a consistent 12% reduced-motion rate. Sphere radii and 4D section extents breathe geometrically, with conservative hierarchy padding for the maximum radius.
 
 The H³ renderer uses finite point-light geodesics for occlusion and local-rest-frame GGX/Fresnel shading. Radial, folded and ornament scenes intersect bounded height fields, using bracketed roots at ordinary angles and conservative Lipschitz steps at grazing angles. Material footprints follow surface ray differentials. Face shading avoids derivatives inside divergent ray marching, rejects rays outside its enclosing sphere and adds local occlusion. Saddle sheets use angle-dependent Fresnel transmission; event packets arrive when their child events activate.
 
 `--infinity-orbit YAW PITCH` sets a reproducible initial view in radians (yaw ±π, pitch ±1.2). This is useful for inspecting actual relief and comparing landscape, portrait and grazing-angle renders. All changes remain within OpenGL 4.1; no compute-shader support is required.
+
+## Parametric point field (4.2)
+
+Scene 26 ports the supplied browser experiment's four phase-shifted parametric lobes,
+spectral point colour, moon-like companion and falling marker. The complete 64,452-point
+composition is synthesized from `gl_VertexID`; no position buffer is rebuilt or uploaded
+per frame. Additive HDR points feed the existing highlight pyramid, while bass expands
+the field, treble wakes the stars and beat attacks brighten and enlarge the core.
+Mouse orbit, translated parallax, adaptive resolution, fixed-step capture and finite-HDR
+validation work through the existing native host. [Port boundary and source hashes](../aviation/SOURCE.md).
 ## Shared beat and music controls
 
 All scenes use the engine’s shared beat pulse and exposure-flash envelopes. Use `--pulse-amount`, `--flash-amount`, `--beat-division`, `--beat-decay` and `--beat-offset`; E/F toggle pulse/flash. Music presets, folder playlists, shuffle, pause and volume are described in [Music and beats](../../docs/MUSIC_AND_BEATS.md). The default playlist now includes Silicon Dancer and Wireframe Pulse as well as the original two tracks. Atlas reduced-motion and pause modes suppress the new composition flash.

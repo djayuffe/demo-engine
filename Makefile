@@ -8,6 +8,7 @@
 #   make test       # build + run ctest
 #   make run        # build + launch Hold Infinity (tempo from the soundtrack)
 #   make run-atlas  # build + launch the first live GPU Atlas scene
+#   make run-aviation # launch the supplied parametric 3D point effect
 #   make run-silicon# the wireframe demo with Silicon Dancer by Drozerix
 #   make run-hello  # build + launch the minimal hello demo
 #   make run-ripple # build + launch the GPU-tessellated ripple demo
@@ -49,7 +50,7 @@ CMAKE_FLAGS := -DCMAKE_BUILD_TYPE=$(TYPE) -DIW_BUILD_TESTS=ON $(CMAKE_EXTRA)
 # the build-type / generator case.)
 STAMP := $(BUILD_DIR)/.stamp
 
-.PHONY: all configure build test run run-atlas run-atlas-reference run-atlas-advanced run-wireframe run-silicon run-hello run-ripple run-pulse clean reconfigure diag help stamp
+.PHONY: all configure build test run run-atlas run-aviation run-atlas-reference run-atlas-advanced run-wireframe run-silicon run-hello run-ripple run-pulse clean reconfigure diag help stamp
 
 all: build
 
@@ -96,6 +97,9 @@ run: build
 
 run-atlas: build
 	$(BIN) --infinity-scene 16
+
+run-aviation: build
+	$(BIN) --infinity-scene 26
 
 run-atlas-reference: build
 	$(ATLAS_RENDER) $(BUILD_DIR)/atlas-reference.ppm 0.9 480
@@ -152,6 +156,7 @@ help:
 	@echo "  test            Build + run ctest"
 	@echo "  run             Build + launch Hold Infinity (music tempo)"
 	@echo "  run-atlas       Build + launch the first live GPU Atlas scene"
+	@echo "  run-aviation    Build + launch the supplied parametric 3D point effect"
 	@echo "  run-atlas-reference Generate the four-panel CPU Atlas reference image"
 	@echo "  run-atlas-advanced  Generate the advanced CPU Atlas reference image"
 	@echo "  run-wireframe   Build + launch the previous wireframe show"

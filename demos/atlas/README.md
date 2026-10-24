@@ -1,6 +1,6 @@
 # DMT Atlas — native Demo Engine integration
 
-The user-supplied `dmt_atlas_v03_gap_closure.zip` is integrated into the live OpenGL 4.1 show. All executable archive features remain available as CPU reference tools; their rendering algorithms also have live GPU counterparts. Ten Atlas scenes extend the show to 26 scenes. These are procedural geometry studies, without claims about reproducing subjective perception.
+The user-supplied `dmt_atlas_v03_gap_closure.zip` is integrated into the live OpenGL 4.1 show. All executable archive features remain available as CPU reference tools; their rendering algorithms also have live GPU counterparts. The ten Atlas studies occupy scenes 16–25 of the 27-scene show. These are procedural geometry studies, without claims about reproducing subjective perception.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release

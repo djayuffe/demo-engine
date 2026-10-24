@@ -1,6 +1,6 @@
 # Hold Infinity on Demo Engine
 
-The default demo now ports **Hold Infinity**, supplied as `hold_infinity_by_purpletwilight21858029.zip`: mirrored dodecahedral chambers, hyperbolic honeycombs, spectral GRIN glass and a GPU gradient-index ray lab. Its 26 optical and Atlas scenes follow the soundtrack's beats, bars and frequency bands. The earlier effects are bypassed in this show. Normal playback adapts each scene’s resolution to GPU load; fixed-budget captures and still accumulation remain available.
+The default demo now ports **Hold Infinity**, supplied as `hold_infinity_by_purpletwilight21858029.zip`: mirrored dodecahedral chambers, hyperbolic honeycombs, spectral GRIN glass, a GPU gradient-index ray lab and the supplied parametric point-field study. Its 27 optical, Atlas and point-field scenes follow the soundtrack's beats, bars and frequency bands. The earlier effects are bypassed in this show. Normal playback adapts each scene’s resolution to GPU load; fixed-budget captures and still accumulation remain available.
 
 ```sh
 make run
@@ -65,8 +65,9 @@ Run these from the repository root after `make`. Each `make run-*` command also
 builds first, so it is safe to use directly after cloning.
 
 ```sh
-make run                  # Hold Infinity: optical scenes 0-15, then GPU Atlas scenes 16-25
+make run                  # Hold Infinity: optical 0-15, GPU Atlas 16-25, point field 26
 make run-atlas            # Hold Infinity opened directly on GPU Atlas scene 16
+make run-aviation         # supplied parametric 3D point effect, native GPU scene 26
 make run-wireframe        # Impossible Wireframe show
 make run-hello            # minimal engine example
 make run-ripple           # adaptive GPU-tessellation example
@@ -79,6 +80,7 @@ Any live Atlas scene can be selected directly:
 ```sh
 ./build/hold_infinity --infinity-scene 16  # first Atlas scene
 ./build/hold_infinity --infinity-scene 25  # final Atlas scene
+./build/hold_infinity --infinity-scene 26  # spectral parametric point field
 ./build/hold_infinity --infinity-scene 21 --atlas-reduced-motion
 ```
 
@@ -138,7 +140,7 @@ This exact code is `demos/ripple/main.cpp`. Register a demo with one line in `CM
 | [`demos/hello`](demos/hello/main.cpp) | `hello_demo` | The minimum: a tumbling cube-in-cube with the ticker, FX off. About 40 lines |
 | [`demos/ripple`](demos/ripple/main.cpp) | `ripple_demo` | The README example above, compiled as a real demo so the docs cannot drift |
 | [`demos/wireframe`](demos/wireframe/README.md) | `impossible_wireframe` | The flagship: 57 mathematical objects, effect recipes, logo show, art background. Uses almost every engine feature, including the golden glimmer orbit clouds ported from uber256-lab |
-| [`demos/infinity`](demos/infinity/README.md) | `hold_infinity` | The native optical show: scenes 0-15 plus ten integrated GPU Atlas scenes 16-25 |
+| [`demos/infinity`](demos/infinity/README.md) | `hold_infinity` | Native optical scenes 0-15, GPU Atlas scenes 16-25 and the spectral point field at 26 |
 | [`demos/atlas`](demos/atlas/README.md) | `atlas_render`, `atlas_advanced` | Standalone CPU reference renderers that write PPM images |
 
 ![Hello demo](docs/hello-demo.jpg)

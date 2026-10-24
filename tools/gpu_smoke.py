@@ -48,7 +48,7 @@ def main():
     if numeric.returncode:
         raise RuntimeError(numeric.stdout + numeric.stderr)
     print(numeric.stdout.strip(), flush=True)
-    for scene in range(26):
+    for scene in range(27):
         extra = ["--silent", "--infinity-scene", str(scene), "--infinity-pixels", "30000",
                  "--validate-output", "--bpm", "120", "--beat-division", "4",
                  "--pulse-amount", "2", "--flash-amount", "2", "--fixed-step", "0.125"]
