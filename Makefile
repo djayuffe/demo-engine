@@ -7,8 +7,10 @@
 #   make            # configure + build (Release)
 #   make test       # build + run ctest
 #   make run        # build + launch Hold Infinity (tempo from the soundtrack)
+#   make run-atlas  # build + launch the first live GPU Atlas scene
 #   make run-silicon# the wireframe demo with Silicon Dancer by Drozerix
 #   make run-hello  # build + launch the minimal hello demo
+#   make run-ripple # build + launch the GPU-tessellated ripple demo
 #   make run-pulse  # launch with the CC0 Wireframe Pulse track
 #   make clean      # remove the build/ directory
 #   make reconfigure# force a fresh CMake configure (new build dir)
@@ -31,6 +33,9 @@ CTEST       ?= ctest
 BIN         := $(BUILD_DIR)/hold_infinity
 WIREFRAME   := $(BUILD_DIR)/impossible_wireframe
 HELLO       := $(BUILD_DIR)/hello_demo
+RIPPLE      := $(BUILD_DIR)/ripple_demo
+ATLAS_RENDER := $(BUILD_DIR)/demos/atlas/atlas_render
+ATLAS_ADVANCED := $(BUILD_DIR)/demos/atlas/atlas_advanced
 
 # Common CMake flags. -DIW_BUILD_TESTS=ON is explicit so a user who disables
 # tests has to do so deliberately. CMAKE_EXTRA is appended last so it can
@@ -44,7 +49,7 @@ CMAKE_FLAGS := -DCMAKE_BUILD_TYPE=$(TYPE) -DIW_BUILD_TESTS=ON $(CMAKE_EXTRA)
 # the build-type / generator case.)
 STAMP := $(BUILD_DIR)/.stamp
 
-.PHONY: all configure build test run run-silicon run-hello run-pulse clean reconfigure diag help stamp
+.PHONY: all configure build test run run-atlas run-atlas-reference run-atlas-advanced run-wireframe run-silicon run-hello run-ripple run-pulse clean reconfigure diag help stamp
 
 all: build
 
@@ -89,6 +94,17 @@ test: build
 run: build
 	$(BIN)
 
+run-atlas: build
+	$(BIN) --infinity-scene 16
+
+run-atlas-reference: build
+	$(ATLAS_RENDER) $(BUILD_DIR)/atlas-reference.ppm 0.9 480
+	@echo "Wrote $(BUILD_DIR)/atlas-reference.ppm"
+
+run-atlas-advanced: build
+	$(ATLAS_ADVANCED) $(BUILD_DIR)/atlas-advanced.ppm 640 0.8 0
+	@echo "Wrote $(BUILD_DIR)/atlas-advanced.ppm"
+
 run-wireframe: build
 	$(WIREFRAME)
 
@@ -97,6 +113,9 @@ run-silicon: build
 
 run-hello: build
 	$(HELLO)
+
+run-ripple: build
+	$(RIPPLE)
 
 run-pulse: build
 	$(BIN) --bpm 128 --music demos/wireframe/assets/music/wireframe_pulse.wav
@@ -132,8 +151,12 @@ help:
 	@echo "  all / build     Configure (if needed) + build (Release, parallel)"
 	@echo "  test            Build + run ctest"
 	@echo "  run             Build + launch Hold Infinity (music tempo)"
+	@echo "  run-atlas       Build + launch the first live GPU Atlas scene"
+	@echo "  run-atlas-reference Generate the four-panel CPU Atlas reference image"
+	@echo "  run-atlas-advanced  Generate the advanced CPU Atlas reference image"
 	@echo "  run-wireframe   Build + launch the previous wireframe show"
 	@echo "  run-hello       Build + launch the minimal hello demo"
+	@echo "  run-ripple      Build + launch the GPU-tessellated ripple demo"
 	@echo "  run-pulse       Build + launch Hold Infinity with the CC0 Pulse track"
 	@echo "  configure       Wipe build/ and reconfigure"
 	@echo "  reconfigure     Alias for configure"
@@ -149,5 +172,3 @@ help:
 	@echo "  CTEST=ctest        ctest binary"
 	@echo "  CMAKE_EXTRA=       Extra CMake flags (e.g. -DIW_WARNINGS_AS_ERRORS=ON,"
 	@echo "                     -DIW_SYSROOT=\$$(xcrun --show-sdk-path))"
-
-.PHONY: run-wireframe

@@ -59,6 +59,33 @@ make run-hello                            # the minimal demo
 make run                                  # the native optical and Atlas demo
 ```
 
+### Start every version
+
+Run these from the repository root after `make`. Each `make run-*` command also
+builds first, so it is safe to use directly after cloning.
+
+```sh
+make run                  # Hold Infinity: optical scenes 0-15, then GPU Atlas scenes 16-25
+make run-atlas            # Hold Infinity opened directly on GPU Atlas scene 16
+make run-wireframe        # Impossible Wireframe show
+make run-hello            # minimal engine example
+make run-ripple           # adaptive GPU-tessellation example
+make run-atlas-reference  # CPU Atlas four-panel image -> build/atlas-reference.ppm
+make run-atlas-advanced   # CPU Atlas advanced image -> build/atlas-advanced.ppm
+```
+
+Any live Atlas scene can be selected directly:
+
+```sh
+./build/hold_infinity --infinity-scene 16  # first Atlas scene
+./build/hold_infinity --infinity-scene 25  # final Atlas scene
+./build/hold_infinity --infinity-scene 21 --atlas-reduced-motion
+```
+
+Press **Left/Right** to change scenes, **P** to pause Atlas motion and **Q** or
+**Escape** to quit. Full Atlas controls and the scene matrix are in
+[`demos/atlas/README.md`](demos/atlas/README.md).
+
 GPU geometry: [adaptive tessellation, 23 offloaded effects, instanced copies, HDR and validation](docs/GPU_RENDERING.md).
 On Metal-backed OpenGL, the engine automatically bypasses geometry-shader expansion
 for compatible wires; use `--gpu-info` to inspect the selected path and live limits.
@@ -111,6 +138,8 @@ This exact code is `demos/ripple/main.cpp`. Register a demo with one line in `CM
 | [`demos/hello`](demos/hello/main.cpp) | `hello_demo` | The minimum: a tumbling cube-in-cube with the ticker, FX off. About 40 lines |
 | [`demos/ripple`](demos/ripple/main.cpp) | `ripple_demo` | The README example above, compiled as a real demo so the docs cannot drift |
 | [`demos/wireframe`](demos/wireframe/README.md) | `impossible_wireframe` | The flagship: 57 mathematical objects, effect recipes, logo show, art background. Uses almost every engine feature, including the golden glimmer orbit clouds ported from uber256-lab |
+| [`demos/infinity`](demos/infinity/README.md) | `hold_infinity` | The native optical show: scenes 0-15 plus ten integrated GPU Atlas scenes 16-25 |
+| [`demos/atlas`](demos/atlas/README.md) | `atlas_render`, `atlas_advanced` | Standalone CPU reference renderers that write PPM images |
 
 ![Hello demo](docs/hello-demo.jpg)
 
@@ -121,9 +150,11 @@ simplest path is just:
 ```sh
 make            # configure (if needed) + build (Release, parallel)
 make test       # build + run the geometry/scroller tests
-make run        # build + launch the wireframe demo (default music, 132 bpm)
+make run        # build + launch Hold Infinity (optical + Atlas show)
+make run-atlas  # launch directly into the live GPU Atlas
 make run-hello  # launch the minimal hello demo
-make run-pulse  # wireframe demo with the CC0 Wireframe Pulse track
+make run-ripple # launch the adaptive tessellation demo
+make run-pulse  # Hold Infinity with the CC0 Wireframe Pulse track
 make diag       # dump the resolved toolchain (SDK, GLFW, SDL2, openmpt)
 make clean      # remove the build/ directory
 make reconfigure# wipe build/ and reconfigure (recover from a stale cache)
