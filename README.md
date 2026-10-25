@@ -1,4 +1,36 @@
-# Hold Infinity on Demo Engine
+# Demo Engine — Hold Infinity
+
+[![CI](https://github.com/djayuffe/demo-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/djayuffe/demo-engine/actions)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)
+![OpenGL 4.1](https://img.shields.io/badge/OpenGL-4.1-5586A4)
+
+**A native, music-driven graphics playground for optical worlds, hyperbolic geometry and four-dimensional light.**
+
+Demo Engine combines a reusable C++20/OpenGL renderer with **Hold Infinity**, a show of 31 directly selectable scenes. Explore mirrored chambers, spectral glass, Lorentz geometry, 4D sections, procedural particle fields and cosmic effects, animated by tracker and PCM music. The automatic sequence visits 30 scenes; scene 25 remains available by explicit selection.
+
+![Golden particle sculpture captured in the native demo](docs/screenshots/golden-particles.jpg)
+
+[Build and run](#quick-start) · [Screenshot gallery](docs/SCREENSHOTS.md) · [Controls and scenes](demos/infinity/README.md) · [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [License scope](LICENSES.md)
+
+## Highlights
+
+- GPU ray integration, hyperbolic reflections, spectral refraction and projected 4D geometry.
+- HDR render targets, bloom, tone mapping and adaptive scene resolution.
+- Tracker/PCM playback with beat, bar and frequency-band response; eight bundled tracks.
+- Interactive camera controls, scene selection, reproducible captures and reference renderers.
+- Reusable wireframe geometry, deformation, tessellation and particle rendering paths.
+- CMake builds and CI definitions for macOS, Linux and Windows; recent native GPU validation uses Apple M1 Pro.
+
+## Get the source
+
+```sh
+git clone git@github.com:djayuffe/demo-engine.git
+cd demo-engine
+```
+
+HTTPS also works: `git clone https://github.com/djayuffe/demo-engine.git`.
+
+## Hold Infinity
 
 The default demo now ports **Hold Infinity**, supplied as `hold_infinity_by_purpletwilight21858029.zip`: mirrored dodecahedral chambers, hyperbolic honeycombs, spectral GRIN glass, a GPU gradient-index ray lab and the supplied parametric point-field study. Its 31 optical, Atlas, cosmic and point-field scenes follow the soundtrack's beats, bars and frequency bands. The earlier effects are bypassed in this show. Normal playback adapts each scene’s resolution to GPU load; fixed-budget captures and still accumulation remain available.
 
@@ -25,7 +57,7 @@ The integrated [DMT Atlas](demos/atlas/README.md) adds a Lorentz mirror gallery,
 
 It was extracted from the [Impossible Wireframe](https://github.com/djayuffe/wireframe-scroller) demo, which is now just the first demo built on it.
 
-Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.6.0.
+Copyright (c) 2026 Ulf Bertilsson. Original engine code is MIT licensed; imported code and assets have separate terms. See [LICENSE](LICENSE), [LICENSES.md](LICENSES.md) and [NOTICE.md](NOTICE.md). Engine version 1.6.0.
 
 **Contents:** [Why](#why) | [Quick start](#quick-start) | [What the engine provides](#what-the-engine-provides) | [Writing a demo](#writing-a-demo) | [Demos in this repository](#demos-in-this-repository) | [Build](#build) | [Tests and CI](#tests-and-ci) | [Repository layout](#repository-layout) | [Roadmap](#roadmap)
 
@@ -65,7 +97,7 @@ Run these from the repository root after `make`. Each `make run-*` command also
 builds first, so it is safe to use directly after cloning.
 
 ```sh
-make run                  # Hold Infinity: optical 0-15, GPU Atlas 16-25, point field 26
+make run                  # Hold Infinity: 31 selectable scenes, 30 automatic slots
 make run-atlas            # Hold Infinity opened directly on GPU Atlas scene 16
 make run-aviation         # supplied parametric 3D point effect, native GPU scene 26
 make run-mobius           # supplied 4D Möbius universe, native GPU scene 24
@@ -92,7 +124,7 @@ Press **Left/Right** to change scenes, **P** to pause Atlas motion and **Q** or
 **Escape** to quit. Full Atlas controls and the scene matrix are in
 [`demos/atlas/README.md`](demos/atlas/README.md).
 
-GPU geometry: [adaptive tessellation, 30 native scenes, instanced copies, HDR and validation](docs/GPU_RENDERING.md).
+GPU geometry: [adaptive tessellation, native scenes, instanced copies, HDR and validation](docs/GPU_RENDERING.md).
 On Metal-backed OpenGL, the engine automatically bypasses geometry-shader expansion
 for compatible wires; use `--gpu-info` to inspect the selected path and live limits.
 
@@ -214,7 +246,7 @@ same commands (or `make`).
 If OpenGL/GLFW are absent, CMake still builds `iw_geometry` and `geometry_tests`, allowing headless CI validation.
 
 ## Tests and CI
-`make test` builds and runs `geometry_tests` (about 8 s): canonical polytope counts, validity of every wireframe scene and every effect recipe, timeline math, window parsing, scroller buffer limits and shader conventions. Targets compile with `-Wall -Wextra -Wpedantic -Werror` (`/W4 /WX` on MSVC) when `IW_WARNINGS_AS_ERRORS=ON`. GitHub Actions builds and tests on macOS 15, Ubuntu 24.04 and Windows 2022. On Windows an in-tree OpenGL loader (`engine/include/GLWin32.hpp`) fetches the GL 4.1 functions through `glfwGetProcAddress`, because `opengl32.dll` only exports GL 1.1. The identical loader builds and passes tests in the public [wireframe-scroller](https://github.com/djayuffe/wireframe-scroller) CI; this private repo's own CI is currently blocked by the GitHub account's billing limit, and the engine has not been run on a physical Windows machine yet.
+`make test` builds and runs the configured CTest suites, including geometry, audio, rhythm, optical and Atlas checks. Geometry coverage includes canonical polytope counts, validity of every wireframe scene and every effect recipe, timeline math, window parsing, scroller buffer limits and shader conventions. Targets compile with `-Wall -Wextra -Wpedantic -Werror` (`/W4 /WX` on MSVC) when `IW_WARNINGS_AS_ERRORS=ON`. GitHub Actions builds and tests on macOS 15, Ubuntu 24.04 and Windows 2022. On Windows an in-tree OpenGL loader (`engine/include/GLWin32.hpp`) fetches the GL 4.1 functions through `glfwGetProcAddress`, because `opengl32.dll` only exports GL 1.1. The identical loader builds and passes tests in the public [wireframe-scroller](https://github.com/djayuffe/wireframe-scroller) CI; current workflow results are available in [GitHub Actions](https://github.com/djayuffe/demo-engine/actions). The engine has not been verified on a physical Windows machine yet.
 
 ## Repository layout
 | Path | Contents |
@@ -223,7 +255,9 @@ If OpenGL/GLFW are absent, CMake still builds `iw_geometry` and `geometry_tests`
 | `engine/shaders` | GLSL 4.10 for wires, logo background, travellers, ticker and the post pass |
 | `demos/hello` | Minimal demo |
 | `demos/wireframe` | Flagship demo with its own scenes, assets, docs |
-| `tests/` | `geometry_tests.cpp` |
+| `tests/` | Geometry, audio, rhythm and optical regression tests |
+| `tools/` | Native GPU smoke tests, reference comparisons and validation scripts |
+| `demos/infinity`, `demos/atlas`, `demos/cosmic` | Optical show, hyperbolic geometry and cosmic GPU effects |
 | `thirdparty/` | `stb_image`, `stb_image_write` |
 | `docs/` | Guides and README images |
 
@@ -242,3 +276,9 @@ Press **H** for a responsive controls card, including the current demo’s scene
 show brief confirmation cards; a startup hint fades away after seven seconds.
 Use `--hud` or `--help-overlay` to open a card at launch, and `--no-hints` to hide
 the startup hint. Automated frame captures stay clear unless a card is explicitly requested.
+
+## Project participation and licensing
+
+Use [GitHub issues](https://github.com/djayuffe/demo-engine/issues) for reproducible bugs and focused feature proposals. See [CONTRIBUTING.md](CONTRIBUTING.md) for build checks, graphics validation and attribution requirements, and [CHANGELOG.md](CHANGELOG.md) for development history.
+
+The original engine is offered under the [MIT license](LICENSE). This repository also contains imported code without an explicit license grant and separately licensed audio. **The MIT license does not cover every file in this repository.** Review [LICENSES.md](LICENSES.md), [NOTICE.md](NOTICE.md) and the linked source records before redistributing imported components.

@@ -2,8 +2,8 @@
 
 Copyright (c) 2026 Ulf Bertilsson.
 
-This repository contains a generic wireframe demo engine, three demos built on it
-(including the Impossible Wireframe demo), geometry generators, validation tests,
+This repository contains a generic graphics demo engine, native optical, Atlas and cosmic effects,
+the Impossible Wireframe show and minimal examples, geometry generators, validation tests,
 shader code, documentation and build scripts.
 Third-party dependencies remain under their own licenses.
 
@@ -44,3 +44,5 @@ See [music credits](demos/wireframe/assets/music/README.md) and
 [the pinned source manifest](demos/wireframe/assets/music/additional_music.json)
 for source/download URLs, licensing links, author credits and SHA-256 checksums.
 The Cynic Project: https://cynicmusic.com/ and https://pixelsphere.org/.
+
+For a consolidated licensing map, see [LICENSES.md](LICENSES.md). Supplied cosmic and parametric effects are credited in [cosmic source records](demos/cosmic/SOURCE.md) and [aviation source records](demos/aviation/SOURCE.md).
