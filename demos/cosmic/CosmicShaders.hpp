@@ -25,6 +25,9 @@ inline constexpr int hyperFieldPoints = 65536;
 inline constexpr int hyperScaffoldPoints = 16384;
 inline constexpr int hyperStarPoints = 8192;
 inline constexpr int hyperPointCount = hyperFieldPoints + hyperScaffoldPoints + hyperStarPoints;
+inline constexpr int blackHoleDiskParticles = 98304;
+inline constexpr int blackHoleJetParticles = 32768;
+inline constexpr int blackHoleParticleCount = blackHoleDiskParticles + blackHoleJetParticles;
 
 inline constexpr const char* mobiusSurfaceVertex = R"COSMIC(#version 410 core
 uniform mat3 uCam;
@@ -240,6 +243,103 @@ void main() {
   float fog = smoothstep(6.0, 12.0, vDepth);
   vec3 color = mix(vColor, vec3(0.012, 0.025, 0.085), fog * 0.48);
   outColor = vec4(color * energy * vOpacity, halo * vOpacity);
+}
+)COSMIC";
+
+// A zero-upload particle pass for the black hole. Every orbit and jet path is
+// reconstructed from gl_VertexID, leaving animation and physics on the GPU.
+inline constexpr const char* blackHoleParticleVertex = R"COSMIC(#version 410 core
+uniform mat3 uCam;
+uniform vec3 uEye;
+uniform vec2 uRes;
+uniform float uTime, uPulse, uBass, uMid, uTreble;
+out vec3 vColor;
+out float vOpacity;
+out float vKind;
+out float vDepth;
+
+const float PI = 3.141592653589793;
+const int DISK_PARTICLES = 98304;
+uint hash(uint x) { x ^= x >> 16u; x *= 0x7feb352du; x ^= x >> 15u; x *= 0x846ca68bu; return x ^ (x >> 16u); }
+float random(uint x) { return float(hash(x)) * (1.0 / 4294967295.0); }
+vec3 safeNormalize(vec3 value, vec3 fallback) {
+  float magnitudeSquared = dot(value, value);
+  return magnitudeSquared > 1e-12 ? value * inversesqrt(magnitudeSquared) : fallback;
+}
+void main() {
+  int id = gl_VertexID;
+  uint seed = uint(id) * 7u + 19u;
+  vec3 diskNormal = normalize(vec3(0.22, 0.86, 0.46));
+  vec3 diskX = normalize(cross(diskNormal, vec3(0.0, 1.0, 0.0)));
+  vec3 diskZ = cross(diskNormal, diskX);
+  vec3 p;
+  float size;
+
+  if (id < DISK_PARTICLES) {
+    // A long-lived Lagrangian dust parcel. Conserved angular momentum gives
+    // the visible Kepler speed-up as its orbit spirals toward the photon ring.
+    float birthRadius = mix(1.20, 4.70, pow(random(seed), 0.72));
+    float lifetime = mix(7.0, 18.0, random(seed + 1u));
+    float age = fract(random(seed + 2u) + uTime / lifetime);
+    float inwardDrift = age * age * mix(0.30, 1.36, random(seed + 3u));
+    float radius = max(0.88, birthRadius - inwardDrift);
+    float keplerOmega = (0.82 + 0.16 * uBass) * inversesqrt(birthRadius * birthRadius * birthRadius);
+    float angle = random(seed + 4u) * 2.0 * PI + uTime * keplerOmega + age * age * 3.8;
+    float epicycle = sin(angle * 3.0 + random(seed + 5u) * 2.0 * PI) * (0.012 + 0.035 * radius);
+    float scaleHeight = mix(0.012, 0.105, smoothstep(1.0, 4.7, radius));
+    float vertical = (random(seed + 6u) * 2.0 - 1.0) * scaleHeight;
+    vertical += sin(angle * 2.0 + random(seed + 7u) * 6.0) * scaleHeight * 0.28;
+    p = diskX * (cos(angle) * (radius + epicycle)) +
+        diskZ * (sin(angle) * (radius + epicycle)) + diskNormal * vertical;
+
+    vec3 orbitalVelocity = safeNormalize(diskX * -sin(angle) + diskZ * cos(angle), diskX);
+    vec3 viewDirection = safeNormalize(uEye - p, diskZ);
+    float lineVelocity = clamp(dot(orbitalVelocity, viewDirection), -1.0, 1.0);
+    float heat = 1.0 - smoothstep(0.88, 4.45, radius);
+    vec3 ember = mix(vec3(0.72, 0.035, 0.006), vec3(2.10, 0.72, 0.10), heat);
+    ember = mix(ember, lineVelocity > 0.0 ? vec3(0.55, 0.92, 2.35) : vec3(2.20, 0.10, 0.018),
+                abs(lineVelocity) * 0.26);
+    float filament = 0.52 + 0.48 * pow(0.5 + 0.5 * sin(angle * 13.0 - radius * 17.0), 8.0);
+    vColor = ember * filament * (0.46 + 0.38 * uBass + 0.42 * uPulse);
+    vOpacity = (0.20 + 0.54 * heat) * smoothstep(0.88, 0.96, radius);
+    vKind = 4.0;
+    size = mix(1.15, 2.75, heat) + 1.25 * uPulse;
+  } else {
+    // Bipolar relativistic ejecta: ballistic axial acceleration wrapped in a
+    // widening magnetic helix. Each parcel fades before it is recycled.
+    uint jetId = uint(id - DISK_PARTICLES);
+    float signAxis = (jetId & 1u) == 0u ? -1.0 : 1.0;
+    float lifetime = mix(4.0, 9.0, random(seed + 1u));
+    float age = fract(random(seed + 2u) + uTime / lifetime);
+    float axialDistance = 0.72 + 7.4 * pow(age, 1.42);
+    float helixAngle = random(seed + 3u) * 2.0 * PI + signAxis * (age * 25.0 - uTime * 1.8);
+    float opening = (0.025 + 0.21 * age) * (0.45 + random(seed + 4u));
+    float shock = sin(age * 54.0 - uTime * 4.2);
+    p = diskNormal * (signAxis * axialDistance) +
+        diskX * (cos(helixAngle) * opening) + diskZ * (sin(helixAngle) * opening);
+    p += diskNormal * (signAxis * shock * 0.035 * (0.4 + uTreble));
+    float fade = smoothstep(0.0, 0.055, age) * (1.0 - smoothstep(0.70, 1.0, age));
+    float knot = 0.55 + 0.45 * pow(0.5 + 0.5 * shock, 10.0);
+    vColor = mix(vec3(0.10, 0.50, 2.10), vec3(1.25, 0.20, 1.80), random(seed + 5u));
+    vColor *= knot * (0.46 + 0.62 * uTreble + 0.52 * uPulse);
+    vOpacity = fade * (0.24 + 0.42 * knot);
+    vKind = 2.0;
+    size = 1.1 + 2.0 * knot + 1.4 * uPulse;
+  }
+
+  vec3 view = transpose(uCam) * (p - uEye);
+  vec3 centerView = transpose(uCam) * -uEye;
+  float depth = -view.z;
+  float centerDepth = -centerView.z;
+  // Event-horizon occultation keeps far-side dust from drawing through the
+  // shadow even though this additive pass intentionally has no depth buffer.
+  if (depth > centerDepth && length(view.xy - centerView.xy) < 0.74) vOpacity = 0.0;
+  vDepth = depth;
+  float aspect = uRes.x / max(uRes.y, 1.0);
+  gl_Position = depth > 0.05 ? vec4(view.xy / (depth * vec2(0.52 * aspect, 0.52)),
+                                    clamp(depth / 14.0, 0.0, 1.0) * 2.0 - 1.0, 1.0)
+                            : vec4(2.0, 2.0, 2.0, 1.0);
+  gl_PointSize = depth > 0.05 ? clamp(size * uRes.y / (430.0 * depth), 1.0, 11.0) : 1.0;
 }
 )COSMIC";
 

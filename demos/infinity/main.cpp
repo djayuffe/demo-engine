@@ -166,7 +166,8 @@ class Infinity final : public de::Demo {
   GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
   GLuint aviation_ = 0, aviationTemporal_ = 0;
   int aviationLayers_ = 2;
-  GLuint mobiusSurface_ = 0, mobiusPoints_ = 0, quantum_ = 0, blackHole_ = 0, hyper_ = 0;
+  GLuint mobiusSurface_ = 0, mobiusPoints_ = 0, quantum_ = 0, blackHole_ = 0, blackHoleParticles_ = 0,
+         hyper_ = 0;
   int quantumLayers_ = 2, hyperLayers_ = 2;
   std::array<GLuint, 2> sequential_{};
   std::array<GLuint, 4> worlds_{};
@@ -665,6 +666,13 @@ class Infinity final : public de::Demo {
     const auto cam = camera(yawOffset_ + shot.yaw, pitchOffset_ + shot.pitch);
     cosmicUniforms(blackHole_, w, h, cam, 0.f, shot);
     quad();
+    cosmicUniforms(blackHoleParticles_, w, h, cam, 5.2f, shot);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArrays(GL_POINTS, 0, cosmic_gpu::blackHoleParticleCount);
+    glDisable(GL_BLEND);
+    glDisable(GL_PROGRAM_POINT_SIZE);
   }
   void hyperfractal(int w, int h) {
     output_.bind();
@@ -966,6 +974,7 @@ public:
     mobiusPoints_ = glutil::linkProgram(cosmic_gpu::mobiusPointVertex, cosmic_gpu::pointFragment, error_);
     quantum_ = glutil::linkProgram(cosmic_gpu::quantumVertex, cosmic_gpu::pointFragment, error_);
     blackHole_ = program(FULLSCREEN_VS, cosmic_gpu::blackHoleFragment);
+    blackHoleParticles_ = glutil::linkProgram(cosmic_gpu::blackHoleParticleVertex, cosmic_gpu::pointFragment, error_);
     hyper_ = glutil::linkProgram(cosmic_gpu::hyperVertex, cosmic_gpu::pointFragment, error_);
     const char* glVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));
     const bool metalBacked = glVersion && std::string(glVersion).find("Metal") != std::string::npos;
@@ -987,7 +996,7 @@ public:
       return false;
     }
     if (!atlasTemporal_ || !aviation_ || !aviationTemporal_ || !mobiusSurface_ || !mobiusPoints_ || !quantum_ ||
-        !blackHole_ || !hyper_ ||
+        !blackHole_ || !blackHoleParticles_ || !hyper_ ||
         (reference_ ? !atlasReference_
                     : std::any_of(atlasPrograms_.begin(), atlasPrograms_.end(), [](GLuint p) { return !p; }))) {
       std::fprintf(stderr, "Atlas/point-field shader failure: %s\n", error_.c_str());
@@ -1053,7 +1062,8 @@ public:
                   quantumLayers_, quantumVertices);
       const int hyperVertices = cosmic_gpu::hyperFieldPoints * hyperLayers_ +
                                 (cosmic_gpu::hyperPointCount - cosmic_gpu::hyperFieldPoints);
-      std::printf("GPU black hole: ray-steps=96 step-scaled-curvature=1 volumetric-disk=1 temporal=gpu\n");
+      std::printf("GPU black hole: ray-steps=96 particles=%d kepler-disk=1 helical-jets=1 geometry-uploads=0 temporal=gpu\n",
+                  cosmic_gpu::blackHoleParticleCount);
       std::printf("GPU hyperfractal: layers=%d vertices=%d iterations=28 geometry-uploads=0\n",
                   hyperLayers_, hyperVertices);
     }
@@ -1371,6 +1381,10 @@ public:
     if (blackHole_) {
       glDeleteProgram(blackHole_);
       blackHole_ = 0;
+    }
+    if (blackHoleParticles_) {
+      glDeleteProgram(blackHoleParticles_);
+      blackHoleParticles_ = 0;
     }
     if (hyper_) {
       glDeleteProgram(hyper_);

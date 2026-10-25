@@ -32,6 +32,18 @@ int main() {
           "black-hole subpixel stars or volumetric disk detail missing");
   require(blackHoleShader.find("mix(pos, nextPos, crossing)") != std::string::npos,
           "black-hole disk crossing is no longer interpolated within the ray step");
+  const std::string blackHoleParticles = cosmic_gpu::blackHoleParticleVertex;
+  require(cosmic_gpu::blackHoleParticleCount == 131072 &&
+              blackHoleParticles.find("gl_VertexID") != std::string::npos,
+          "black-hole GPU particle density or zero-upload generation regressed");
+  require(blackHoleParticles.find("inversesqrt(birthRadius * birthRadius * birthRadius)") != std::string::npos &&
+              blackHoleParticles.find("inwardDrift") != std::string::npos,
+          "black-hole accretion particles lost Kepler motion or radial infall");
+  require(blackHoleParticles.find("pow(age, 1.42)") != std::string::npos &&
+              blackHoleParticles.find("helixAngle") != std::string::npos,
+          "black-hole jet particles lost ballistic or magnetic motion");
+  require(blackHoleParticles.find("depth > centerDepth") != std::string::npos,
+          "black-hole particles no longer respect event-horizon occultation");
   for (int scene = 0; scene < infinity_sync::sceneCount; ++scene) {
     const auto a = infinity_composition::shot(scene, 17.25, 1.2f, false);
     const auto loop = infinity_composition::shot(scene, 145.25, 1.2f, false);
