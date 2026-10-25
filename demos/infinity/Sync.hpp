@@ -4,7 +4,7 @@
 #include <cstdint>
 
 namespace infinity_sync {
-inline constexpr int sceneCount = 26;
+inline constexpr int sceneCount = 27;
 inline constexpr double beatsPerScene = 32.0;
 struct Cue {
   int scene = 0;

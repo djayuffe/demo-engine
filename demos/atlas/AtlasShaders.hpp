@@ -2,9 +2,44 @@
 #include <string>
 #include <stdexcept>
 namespace dmt::gpu {
-inline constexpr int modes = 10;
+inline constexpr int modes = 11;
+// Sixteen projected corners are evaluated in the vertex stage, packed into
+// 48 flat varying components: below the GL 4.1 minimum output budget.
+inline constexpr const char* vertex=R"GLSL(#version 410 core
+out vec2 vUv;
+flat out vec4 vCorners[12];
+uniform mat4 uRotation;
+uniform float uBreath;
+void main() {
+  vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  vUv = p;
+  gl_Position = vec4(p * 2 - 1, 0, 1);
+  for (int i = 0; i < 12; i++)
+    vCorners[i] = vec4(0);
+  for (int i = 0; i < 16; i++) {
+    vec4 v;
+    for (int k = 0; k < 4; k++)
+      v[k] = (i & (1 << k)) != 0 ? 1 : -1;
+    v = uRotation * v * (1 + .025 * (2 * uBreath - 1));
+    // The bounded tesseract has |w|<=2.05, entirely inside the 3.95 eye plane.
+    vec3 projected = v.xyz * 4 / (4 - v.w);
+    for (int k = 0; k < 3; k++) {
+      int component = i * 3 + k;
+      vCorners[component / 4][component % 4] = projected[k];
+    }
+  }
+}
+)GLSL";
 inline constexpr const char* fragment = R"GLSL(#version 410 core
 in vec2 vUv;
+flat in vec4 vCorners[12];
+uniform int uGpuCache;
+layout(std140) uniform AtlasGeometry {
+  vec4 uNodeCenters[112];
+  vec4 uNodeData[112];
+  vec4 uSphereCenters[56];
+  vec4 uSphereData[56];
+};
 out vec4 outColor;
 uniform vec2 uRes;
 uniform vec3 uEye;
@@ -63,6 +98,10 @@ vec3 section(vec3 ro, vec3 rd) {
   return palette(float(face) * .13 + uTime * .015) *
          (light * .24 + wire * (1.5 + .15 * uPulse) + exp(-edge * 32) * .2 + grid * .05);
 }
+vec3 projectedCorner(int i) {
+  int k = i * 3;
+  return vec3(vCorners[k / 4][k % 4], vCorners[(k + 1) / 4][(k + 1) % 4], vCorners[(k + 2) / 4][(k + 2) % 4]);
+}
 vec3 hypercube(vec3 ro, vec3 rd) {
   vec3 color = vec3(0);
   for (int i = 0; i < 16; i++)
@@ -70,25 +109,32 @@ vec3 hypercube(vec3 ro, vec3 rd) {
       int j = i ^ (1 << axis);
       if (i >= j)
         continue;
-      vec4 a, b;
-      for (int k = 0; k < 4; k++) {
-        a[k] = (i & (1 << k)) != 0 ? 1 : -1;
-        b[k] = (j & (1 << k)) != 0 ? 1 : -1;
+      vec3 pa, pb;
+      if (uGpuCache != 0) {
+        pa = projectedCorner(i);
+        pb = projectedCorner(j);
+      } else {
+        vec4 a, b;
+        for (int k = 0; k < 4; k++) {
+          a[k] = (i & (1 << k)) != 0 ? 1 : -1;
+          b[k] = (j & (1 << k)) != 0 ? 1 : -1;
+        }
+        a = uRotation * a * (1 + .025 * (2 * uBreath - 1));
+        b = uRotation * b * (1 + .025 * (2 * uBreath - 1));
+        float limit = 3.95;
+        bool ia = a.w <= limit, ib = b.w <= limit;
+        if (!ia && !ib)
+          continue;
+        if (ia != ib) {
+          vec4 p = mix(a, b, (limit - a.w) / (b.w - a.w));
+          if (!ia)
+            a = p;
+          else
+            b = p;
+        }
+        pa = a.xyz * 4 / (4 - a.w);
+        pb = b.xyz * 4 / (4 - b.w);
       }
-      a = uRotation * a * (1 + .025 * (2 * uBreath - 1));
-      b = uRotation * b * (1 + .025 * (2 * uBreath - 1));
-      float limit = 3.95;
-      bool ia = a.w <= limit, ib = b.w <= limit;
-      if (!ia && !ib)
-        continue;
-      if (ia != ib) {
-        vec4 p = mix(a, b, (limit - a.w) / (b.w - a.w));
-        if (!ia)
-          a = p;
-        else
-          b = p;
-      }
-      vec3 pa = a.xyz * 4 / (4 - a.w), pb = b.xyz * 4 / (4 - b.w);
       float t;
       float d = segment(ro, rd, pa, pb, t);
       if (t <= 0)
@@ -134,9 +180,8 @@ vec4 tangent(vec4 o, vec3 v) {
   float d = dot(o.yzw, v);
   return vec4(d, v + o.yzw * d / (o.x + 1));
 }
-float sphere(vec4 o, vec4 d, vec4 packed, bool bound) {
-  vec4 c = lift(packed.xyz);
-  float A = -lor(o, c), B = -lor(d, c), C = cosh(packed.w);
+float hitSphere(vec4 o, vec4 d, vec4 c, float C, bool bound) {
+  float A = -lor(o, c), B = -lor(d, c);
   if (bound && A <= C)
     return 0;
   float aa = A + B, cc = A - B, disc = C * C - aa * cc;
@@ -157,10 +202,31 @@ float sphere(vec4 o, vec4 d, vec4 packed, bool bound) {
   }
   return best;
 }
+float sphere(vec4 o, vec4 d, vec4 packed, bool bound) {
+  return hitSphere(o, d, lift(packed.xyz), cosh(packed.w), bound);
+}
 vec4 primitive(int i) {
   float f = float(i), phi = f * 2.39996323;
   return vec4(.92 * cos(phi), .92 * sin(phi), 1.7 + float(i % 8) * .44,
               (.16 + .035 * float(i % 4)) * (1 + .025 * uBreath));
+}
+void sphereShape(int i, out vec4 center, out vec3 shape) {
+  if (uGpuCache != 0) {
+    center = uSphereCenters[i];
+    vec3 base = uSphereData[i].xyz;
+    float delta = base.x * .025 * uBreath, c = 1 + delta * delta * .5, s = delta * (1 + delta * delta / 6);
+    shape = vec3(base.x + delta, base.y * c + base.z * s, base.z * c + base.y * s);
+  } else {
+    vec4 p = primitive(i);
+    center = lift(p.xyz);
+    shape = vec3(p.w, cosh(p.w), sinh(p.w));
+  }
+}
+float primitiveHit(vec4 o, vec4 d, int i) {
+  vec4 center;
+  vec3 shape;
+  sphereShape(i, center, shape);
+  return hitSphere(o, d, center, shape.y, false);
 }
 // The same exact Lorentz traversal serves primary and finite point-light rays.
 float traceH3(vec4 o, vec4 d, float limit, bool shadow, out int material) {
@@ -171,16 +237,24 @@ float traceH3(vec4 o, vec4 d, float limit, bool shadow, out int material) {
     for (int iteration = 0; iteration < 112; iteration++) {
       if (index >= 111)
         break;
-      vec4 meta = uMeta[index / 2];
-      vec2 info = (index % 2) == 0 ? meta.xy : meta.zw;
-      float entry = sphere(o, d, uBounds[index], true);
+      vec2 info;
+      float entry;
+      if (uGpuCache != 0) {
+        vec4 data = uNodeData[index];
+        info = data.yz;
+        entry = hitSphere(o, d, uNodeCenters[index], data.x, true);
+      } else {
+        vec4 meta = uMeta[index / 2];
+        info = (index % 2) == 0 ? meta.xy : meta.zw;
+        entry = sphere(o, d, uBounds[index], true);
+      }
       if (entry >= 1e9 || entry > nearest) {
         index = int(info.x + .5);
         continue;
       }
       int leaf = int(info.y + .5) - 1;
       if (leaf >= 0) {
-        float t = sphere(o, d, primitive(leaf), false);
+        float t = primitiveHit(o, d, leaf);
         if (t < nearest) {
           nearest = t;
           material = leaf;
@@ -192,7 +266,7 @@ float traceH3(vec4 o, vec4 d, float limit, bool shadow, out int material) {
     }
   } else
     for (int i = 0; i < 56; i++) {
-      float t = sphere(o, d, primitive(i), false);
+      float t = primitiveHit(o, d, i);
       if (t < nearest) {
         nearest = t;
         material = i;
@@ -234,9 +308,11 @@ vec3 h3(vec2 p, float view) {
     float coverage = 1 - smoothstep(.2, 1, 30 / (max(r, .01) * uRes.y));
     return vec3(.02, .13, .25) * ridge * coverage;
   }
-  vec4 s = primitive(material), center = lift(s.xyz);
+  vec4 center;
+  vec3 shape;
+  sphereShape(material, center, shape);
   vec4 hit = o * cosh(nearest) + d * sinh(nearest);
-  vec4 n = (cosh(s.w) * hit - center) / sinh(s.w);
+  vec4 n = (shape.y * hit - center) / shape.z;
   n /= sqrt(max(lor(n, n), 1e-8));
   vec3 normal = restFrame(hit, n);
   vec4 viewT = -(o * sinh(nearest) + d * cosh(nearest));
@@ -257,7 +333,7 @@ vec3 h3(vec2 p, float view) {
       visibility = 0;
   }
   float azimuth = max(length(normal.xy), .06);
-  float footprint = (22 / azimuth + 14) * sinh(nearest) * 1.84 / (1.25 * uRes.y * sinh(s.w));
+  float footprint = (22 / azimuth + 14) * sinh(nearest) * 1.84 / (1.25 * uRes.y * shape.z);
   float bands =
       .5 + .5 * sin(22 * atan(normal.y, normal.x) + uTime + 14 * normal.z) * exp(-footprint * footprint / 24);
   vec3 color = mix(vec3(.08, .55, .95), vec3(.78, .13, .44), bands);
@@ -380,6 +456,81 @@ vec3 emergence(vec3 ro, vec3 rd) {
   light *= clamp(ao, .35, 1);
   return palette(.64 + hit.y * .14) * (mask * light * .6 + contour * .25) * (1 + .08 * uPulse);
 }
+vec4 roomPlane(int face) {
+  vec4 normal = vec4(sinh(.52), 0, 0, 0);
+  normal[1 + face / 2] = (face % 2 == 0 ? 1 : -1) * cosh(.52);
+  return normal;
+}
+float planeHit(vec4 origin, vec4 direction, vec4 normal) {
+  float denominator = lor(direction, normal);
+  if (abs(denominator) < 1e-7)
+    return 1e10;
+  float ratio = -lor(origin, normal) / denominator;
+  if (ratio <= 1e-6 || ratio >= 1)
+    return 1e10;
+  return atanh(ratio);
+}
+vec3 mirrorGallery(vec2 p) {
+  vec4 origin = lift(uCam * (uEye * .22)), direction = tangent(origin, normalize(uCam * vec3(p * .92, 1.25)));
+  vec3 result = vec3(0), throughput = vec3(1);
+  int previous = -1;
+  vec4 center = lift(vec3(.06, .025, .32));
+  float radius = .065 * (1 + .025 * uBreath);
+  for (int bounce = 0; bounce < 6; bounce++) {
+    int side = -1;
+    float nearest = 1e10;
+    for (int face = 0; face < 6; face++) {
+      if (face == previous)
+        continue;
+      float t = planeHit(origin, direction, roomPlane(face));
+      if (t < nearest) {
+        nearest = t;
+        side = face;
+      }
+    }
+    float ball = hitSphere(origin, direction, center, cosh(radius), false);
+    if (ball < nearest) {
+      vec4 hit = origin * cosh(ball) + direction * sinh(ball);
+      vec4 normal = (cosh(radius) * hit - center) / sinh(radius);
+      vec3 n = restFrame(hit, normal), view = restFrame(hit, -(origin * sinh(ball) + direction * cosh(ball)));
+      vec4 lamp = lift(vec3(-.22, .26, .05));
+      float A = max(1.00001, -lor(hit, lamp));
+      vec3 light = restFrame(hit, (lamp - A * hit) / sqrt(A * A - 1));
+      vec3 albedo = palette(.62 + normal.z * .15);
+      result +=
+          throughput * (microfacet(albedo, n, view, light, .28) * 1.8 + albedo * .045) * (1 + .1 * uPulse);
+      break;
+    }
+    if (side < 0 || nearest > 20)
+      break;
+    vec4 hit = origin * cosh(nearest) + direction * sinh(nearest),
+         travel = origin * sinh(nearest) + direction * cosh(nearest);
+    vec4 normal = roomPlane(side);
+    // Inverse boost maps this geodesic wall to an H2 plane through the origin.
+    int axis = side / 2;
+    float signSide = side % 2 == 0 ? 1 : -1;
+    float localTime = cosh(.52) * hit.x - signSide * sinh(.52) * hit[axis + 1];
+    vec2 coordinates = vec2(hit[1 + (axis + 1) % 3], hit[1 + (axis + 2) % 3]);
+    float crossDistance = min(abs(asinh(coordinates.x)), abs(asinh(coordinates.y)));
+    float rings = sin(acosh(max(localTime, 1)) * 18 - uTime * .15);
+    float footprint = (1 + float(bounce)) * 2 / uRes.y;
+    float mark = line(crossDistance, .004, footprint) * .65 + line(rings, .045, footprint * 18) * .2;
+    float edge = 100;
+    for (int face = 0; face < 6; face++)
+      if (face != side)
+        edge = min(edge, abs(lor(hit, roomPlane(face))));
+    vec3 tint = palette(float(side) * .14 + uTime * .008);
+    result += throughput * tint * (mark * .25 + exp(-edge * 80) * .3);
+    throughput *= mix(vec3(.78), tint, .08);
+    travel -= 2 * lor(travel, normal) * normal;
+    // Reproject after each reflection to contain finite-precision drift.
+    origin = lift(hit.yzw);
+    travel += lor(origin, travel) * origin;
+    direction = travel * inversesqrt(max(lor(travel, travel), 1e-8));
+    previous = side;
+  }
+  return result;
+}
 float relief(vec2 p) {
   float r = length(p);
   if (uMode == 3)
@@ -465,13 +616,14 @@ void main() {
     c = events(ro, rd);
   else if (uMode == 8)
     c = emergence(ro, rd);
-  else {
+  else if (uMode == 9) {
     float pane = floor(vUv.x * 3);
     vec2 q = vec2((fract(vUv.x * 3) * 2 - 1) * uRes.x / uRes.y / 3, p.y);
     c = h3(q, pane - 1);
     float border = min(fract(vUv.x * 3), 1 - fract(vUv.x * 3));
     c *= smoothstep(0, .015, border);
-  }
+  } else
+    c = mirrorGallery(p);
   outColor = vec4(max(c, vec3(0)) * uExposure, 1);
 }
 )GLSL";
@@ -499,11 +651,13 @@ void main() {
   outColor = vec4(mix(c, h, uWeight), 1);
 }
 )GLSL";
-inline std::string specialized(int mode) {
+inline std::string specialized(int mode,bool cached=true) {
   if (mode < 0 || mode >= modes) throw std::out_of_range("atlas mode");
   std::string s = fragment;
   const std::string from = "uniform int uMode, uUseBvh, uEmpty;";
   s.replace(s.find(from), from.size(), "const int uMode=" + std::to_string(mode) + ";uniform int uUseBvh,uEmpty;");
+  const std::string cache="uniform int uGpuCache;";
+  s.replace(s.find(cache),cache.size(),"const int uGpuCache="+std::to_string(cached?1:0)+";");
   return s;
 }
 } // namespace dmt::gpu

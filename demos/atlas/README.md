@@ -1,6 +1,6 @@
 # DMT Atlas — native Demo Engine integration
 
-The user-supplied `dmt_atlas_v03_gap_closure.zip` is integrated into the live OpenGL 4.1 show. All executable archive features remain available as CPU reference tools; their rendering algorithms also have live GPU counterparts. Ten Atlas scenes extend the show to 26 scenes. These are procedural geometry studies, without claims about reproducing subjective perception.
+The user-supplied `dmt_atlas_v03_gap_closure.zip` is integrated into the live OpenGL 4.1 show. All executable archive features remain available as CPU reference tools; their rendering algorithms also have live GPU counterparts. Eleven Atlas scenes extend the show to 27 scenes. These are procedural geometry studies, without claims about reproducing subjective perception.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -12,7 +12,7 @@ cmake --build build -j
 
 Left/right select scenes; Space resumes the 32-beat automatic director. Drag to orbit; pointer movement supplies camera parallax. P pauses Atlas animation and holds the current Atlas scene; P resumes animation, and Space resumes automatic scene selection. Music continues during a visual pause. Playback still starts with Digital Rendezvous, the second playlist song.
 
-`--atlas-reduced-motion` slows Atlas motion to 12% and suppresses its beat flashes and automatic camera dolly. `--atlas-flash-gain 0..1` scales the modest beat accents. `--atlas-exposure 0..2` caps linear Atlas exposure before the existing hue-preserving display shoulder. `--atlas-paused` starts with frozen Atlas animation. These controls apply to scenes 16–25; they do not change the earlier optical scenes. Interactive camera movement remains available.
+`--atlas-reduced-motion` slows Atlas motion to 12% and suppresses its beat flashes and automatic camera dolly. `--atlas-flash-gain 0..1` scales the modest beat accents. `--atlas-exposure 0..2` caps linear Atlas exposure before the existing hue-preserving display shoulder. `--atlas-paused` starts with frozen Atlas animation. These controls apply to scenes 16–26; they do not change the earlier optical scenes. Interactive camera movement remains available.
 
 ## Live scenes and archive coverage
 
@@ -29,6 +29,7 @@ Left/right select scenes; Space resumes the 32-beat automatic director. Drag to 
 | 23 | Added authored event graph: 24 position/time nodes, four-unit durations, parent links, depth as a time axis and a 3–6-sided procedural glyph grammar |
 | 24 | Added face emergence: ellipsoid head, bilateral eye sockets, nose and mouth landmark fields, filigree and phrase-driven visibility |
 | 25 | Added three independent displaced H³ viewpoints, each with its own rays and occlusion |
+| 26 | Lorentz mirror gallery: geodesic planes, six metric-preserving ray reflections, intrinsic H² wall markings and a geodesic sphere |
 
 The palette, contrast, lighting and animation adapt the references to the existing music-directed show. CPU PPM output remains available for inspecting the original compositions.
 
@@ -67,9 +68,9 @@ The archive contains executable code **and an open research roadmap**. The execu
 The following roadmap topics remain outside this implementation and are not represented as completed:
 
 - The preserved tiling BFS uses quantized centroid deduplication. The live disk renderer folds reflection domains; neither supplies canonical Coxeter group words or a persistent exact combinatorial cell database.
-- H³ scene primitives are geodesic spheres. There is no general arbitrary-surface H³ mesher/intersector.
+- H³ scene primitives include geodesic spheres and planes. There is no general arbitrary-surface H³ mesher/intersector.
 - The portal is the archive's image-space chart composite, not a smooth metric-preserving transition between spaces of different curvature.
-- The archive names a “21-system registry” without specifying its systems or interfaces. The actual scene registry is the engine's 26 named scenes; no unsupported registry is invented.
+- The archive names a “21-system registry” without specifying its systems or interfaces. The actual scene registry is the engine's 27 named scenes; no unsupported registry is invented.
 - Face recognizability, perceptual equivalence, VR navigation and human studies have not been validated. RGB rendering cannot create additional spectral primaries or genuinely infinite detail.
 
 ## Provenance
@@ -79,3 +80,19 @@ See [SOURCE.md](SOURCE.md) for preserved files and source status. Original archi
 ## 4.1 rendering refinements
 
 Atlas now adds geometry breathing, conservative animated sphere bounds, exact H³ shadow rays and GGX shading, actual relief intersections for scenes 18/19/22, projected material filtering and causally timed event packets. The face marcher rejects rays outside an enclosing sphere and evaluates material footprints without divergent screen derivatives. Shared HDR highlight processing also benefits the earlier optical scenes. See the [rendering controls and implementation notes](../infinity/README.md#rendering-refinement-41).
+
+## 4.2 GPU geometry and 3D expansion
+
+The 5,376-byte `std140` Atlas geometry block stores immutable hyperboloid centers, conservative hierarchy bounds and sphere-radius coefficients. It is uploaded once and shared across programs. Runtime layout and device-limit checks guard CPU/GPU agreement. The cached radius update uses the hyperbolic addition identities with a bounded polynomial remainder below float rounding, avoiding repeated exponential evaluation at each ray intersection. `--atlas-uncached` restores per-ray reconstruction while retaining the same BVH and shading for isolated comparisons.
+
+The hypercube projects its sixteen corners in the vertex stage and packs them into 48 flat varying components. Its bounded 4D extent keeps every corner ahead of the 4D eye plane. A separate `--atlas-edge-raster` backend uses 32 GPU instances and geometry-shader quads bounded conservatively around each projected edge. It preserves the same analytic ray/segment shading and exposure controls, with a very faint tail cutoff at 0.28 world units. This backend is **opt-in**: measured geometry-stage overhead exceeded its savings at the tested budget on the M1 Pro. Shader failure falls back to the regular ray-distance path.
+
+Scene 26 extends the geometry API with exact geodesic-plane intersection and Lorentz-plane reflection. The gallery follows six reflected geodesic segments inside a compact six-wall chamber, shading a contained sphere and markings measured in each wall's induced H² chart. Reflection tangents are reprojected to contain floating-point drift. This is a bounded six-bounce rendering, not an infinite path sum or a general arbitrary-surface solver.
+
+```sh
+./build/hold_infinity --infinity-scene 26
+./build/hold_infinity --infinity-scene 17 --atlas-edge-raster
+python3 tools/benchmark_infinity.py --atlas-cache-only --scenes 17,20,21,25
+```
+
+![Native Lorentz mirror gallery](../../docs/mirror-gallery.jpg)

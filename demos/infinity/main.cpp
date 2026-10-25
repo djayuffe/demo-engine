@@ -19,8 +19,10 @@
 #include "Motion.hpp"
 #include "OpticalPost.hpp"
 #include "../atlas/AtlasShaders.hpp"
+#include "../atlas/HyperLines.hpp"
 #include "Slice.hpp"
 #include "HyperAtlas.hpp"
+#include "GpuGeometry.hpp"
 #include <unordered_map>
 #include <algorithm>
 #include <array>
@@ -58,7 +60,8 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "ATLAS / EUCLIDEAN ORNAMENT",
                                  "ATLAS / CAUSAL EVENT VOLUME",
                                  "ATLAS / FILIGREE FACE EMERGENCE",
-                                 "ATLAS / THREE HYPERBOLIC VIEWPOINTS"};
+                                 "ATLAS / THREE HYPERBOLIC VIEWPOINTS",
+                                 "ATLAS / LORENTZ MIRROR GALLERY"};
 static_assert(std::size(names) == infinity_sync::sceneCount);
 struct Target {
   Target() = default;
@@ -157,12 +160,14 @@ class Infinity final : public de::Demo {
   std::array<GLuint, 4> worlds_{};
   GLuint worldReference_ = 0;
   std::array<GLuint, dmt::gpu::modes> atlasPrograms_{};
-  GLuint atlasReference_ = 0, atlasTemporal_ = 0;
+  GLuint atlasReference_ = 0, atlasTemporal_ = 0, hyperLines_ = 0;
   std::array<Target, 2> atlasHistory_;
   int atlasHistoryIndex_ = 0;
   bool atlasHistoryValid_ = false;
   dmt::atlas::Atlas atlasGeometry_;
-  bool atlasReduced_ = false, atlasPaused_ = false, atlasPauseKey_ = false;
+  GLuint atlasBuffer_ = 0;
+  bool atlasEdgeRaster_ = false, atlasUncached_ = false, atlasReduced_ = false, atlasPaused_ = false,
+       atlasPauseKey_ = false;
   float atlasExposure_ = 1.f, atlasFlash_ = 1.f;
 
   bool rasterIntegrator_ = false, forceSequential_ = false, validateRays_ = false, validatedRays_ = false,
@@ -475,8 +480,10 @@ class Infinity final : public de::Demo {
 
   void atlas(int scene, int w, int h) {
     const int mode = scene - 16;
-    const auto p = reference_ ? atlasReference_ : atlasPrograms_[size_t(mode)];
+    const bool edgeRaster = mode == 1 && atlasEdgeRaster_ && !reference_ && !atlasUncached_ && hyperLines_;
+    const auto p = edgeRaster ? hyperLines_ : (reference_ ? atlasReference_ : atlasPrograms_[size_t(mode)]);
     output_.bind();
+    glBindBufferBase(GL_UNIFORM_BUFFER, 3, atlasBuffer_);
     glUseProgram(p);
     two(p, "uRes", float(w), float(h));
     const double time = still_ ? 0.0 : atlasMotion_.time();
@@ -510,10 +517,26 @@ class Infinity final : public de::Demo {
       }
       glUniformMatrix4fv(loc(p, "uRotation"), 1, GL_FALSE, rotation);
     }
-    quad();
+    if (edgeRaster) {
+      glClearColor(0, 0, 0, 0);
+      glClear(GL_COLOR_BUFFER_BIT);
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_ONE, GL_ONE);
+      glDrawArraysInstanced(GL_POINTS, 0, 1, 32);
+      glDisable(GL_BLEND);
+    } else
+      quad();
   }
   void atlasConstants(GLuint p) {
     glUseProgram(p);
+    integer(p, "uGpuCache", reference_ || atlasUncached_ ? 0 : 1);
+    const GLuint block = glGetUniformBlockIndex(p, "AtlasGeometry");
+    if (block != GL_INVALID_INDEX) {
+      GLint size = 0;
+      glGetActiveUniformBlockiv(p, block, GL_UNIFORM_BLOCK_DATA_SIZE, &size);
+      if (size != GLint(sizeof(dmt::atlas::GpuGeometry))) throw std::runtime_error("Atlas GPU block layout mismatch");
+      glUniformBlockBinding(p, block, 3);
+    }
     float bounds[112 * 4]{}, meta[56 * 4]{}, levels[9 * 4]{}, events[24 * 4]{};
     for (size_t i = 0; i < atlasGeometry_.nodes.size(); ++i) {
       const auto& node = atlasGeometry_.nodes[i];
@@ -569,7 +592,7 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "4.1";
+    c.version = "4.2";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
@@ -656,6 +679,14 @@ public:
       reference_ = true;
       return true;
     }
+    if (a == "--atlas-edge-raster") {
+      atlasEdgeRaster_ = true;
+      return true;
+    }
+    if (a == "--atlas-uncached") {
+      atlasUncached_ = true;
+      return true;
+    }
     if (a == "--no-optical-bloom") {
       opticalBloom_ = false;
       return true;
@@ -719,7 +750,9 @@ public:
     return false;
   }
   std::string usage() const override {
-    return "  --infinity-scene N  Hold one optical scene (0..25)\n"
+    return "  --atlas-edge-raster Use experimental instanced hypercube edge quads\n"
+           "  --atlas-uncached Disable immutable GPU geometry cache for isolated A/B timing\n"
+           "  --infinity-scene N  Hold one optical scene (0..26)\n"
            "  --no-optical-bloom Disable shared GPU highlight pyramid for A/B timing\n"
            "  --atlas-reduced-motion Slow new Atlas effects; suppress beat flashes\n"
            "  --atlas-paused     Freeze Atlas animation; P toggles pause\n"
@@ -774,15 +807,39 @@ public:
         const auto source = infinity_worlds::specialized(mode);
         worlds_[size_t(mode)] = program(FULLSCREEN_VS, source.c_str());
       }
+    GLint blockLimit = 0;
+    glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &blockLimit);
+    if (blockLimit < GLint(sizeof(dmt::atlas::GpuGeometry))) {
+      error_ = "Atlas uniform buffer exceeds device limits";
+      return false;
+    }
+    const auto geometry = dmt::atlas::gpuGeometry(atlasGeometry_);
+    glGenBuffers(1, &atlasBuffer_);
+    glBindBuffer(GL_UNIFORM_BUFFER, atlasBuffer_);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(geometry), &geometry, GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 3, atlasBuffer_);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    if (glGetError() != GL_NO_ERROR) {
+      error_ = "Atlas uniform buffer allocation failed";
+      return false;
+    }
     if (reference_) {
-      atlasReference_ = program(FULLSCREEN_VS, dmt::gpu::fragment);
+      atlasReference_ = program(dmt::gpu::vertex, dmt::gpu::fragment);
       if (atlasReference_) atlasConstants(atlasReference_);
     } else
       for (int mode = 0; mode < dmt::gpu::modes; ++mode) {
-        const auto source = dmt::gpu::specialized(mode);
-        atlasPrograms_[size_t(mode)] = program(FULLSCREEN_VS, source.c_str());
+        const auto source = dmt::gpu::specialized(mode, !atlasUncached_);
+        atlasPrograms_[size_t(mode)] = program(dmt::gpu::vertex, source.c_str());
         if (atlasPrograms_[size_t(mode)]) atlasConstants(atlasPrograms_[size_t(mode)]);
       }
+    if (atlasEdgeRaster_ && !reference_ && !atlasUncached_) {
+      const auto fragment = dmt::gpu::lineFragment();
+      hyperLines_ = glutil::linkProgram(dmt::gpu::lineVertex, dmt::gpu::lineGeometry, fragment.c_str(), error_);
+      if (!hyperLines_) {
+        std::fprintf(stderr, "Hypercube raster kernel unavailable, using ray-distance fallback: %s\n", error_.c_str());
+        error_.clear();
+      }
+    }
     atlasTemporal_ = program(FULLSCREEN_VS, dmt::gpu::temporal);
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
@@ -1074,6 +1131,15 @@ public:
   }
   void shutdown() override {
     timer_.shutdown();
+    if (hyperLines_) {
+      glDeleteProgram(hyperLines_);
+      hyperLines_ = 0;
+    }
+    if (atlasBuffer_) {
+      glBindBufferBase(GL_UNIFORM_BUFFER, 3, 0);
+      glDeleteBuffers(1, &atlasBuffer_);
+      atlasBuffer_ = 0;
+    }
     if (antTexture_) {
       glDeleteTextures(1, &antTexture_);
       antTexture_ = 0;

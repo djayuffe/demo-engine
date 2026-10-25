@@ -61,6 +61,26 @@ inline double intersectSphere(V4 o, V4 d, Sphere s) {
   }
   return best;
 }
+struct GeodesicPlane {
+  V4 normal;
+};
+inline double intersectPlane(V4 origin, V4 direction, GeodesicPlane plane) {
+  (void)geodesicRay(origin, direction, 0);
+  if (!finite(plane.normal) || std::abs(lorentz(plane.normal, plane.normal) - 1) > 1e-7)
+    throw std::domain_error("invalid geodesic plane");
+  double denominator = lorentz(direction, plane.normal);
+  if (std::abs(denominator) < 1e-14) return std::numeric_limits<double>::infinity();
+  double ratio = -lorentz(origin, plane.normal) / denominator;
+  if (ratio <= 1e-9 || ratio >= 1) return std::numeric_limits<double>::infinity();
+  return std::atanh(ratio);
+}
+inline V4 reflectInPlane(V4 vector, GeodesicPlane plane) {
+  if (!finite(vector) || !finite(plane.normal) || std::abs(lorentz(plane.normal, plane.normal) - 1) > 1e-7)
+    throw std::domain_error("invalid Lorentz reflection");
+  const double projection = 2 * lorentz(vector, plane.normal);
+  for (size_t i = 0; i < 4; ++i) vector[i] -= projection * plane.normal[i];
+  return vector;
+}
 inline Vec3 poincareBall(V4 p) {
   if (!finite(p) || p[0] < 1) throw std::domain_error("invalid hyperboloid projection");
   double d = p[0] + 1;

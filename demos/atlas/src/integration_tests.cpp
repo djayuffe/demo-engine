@@ -1,5 +1,6 @@
 #include "Slice.hpp"
 #include "HyperAtlas.hpp"
+#include "GpuGeometry.hpp"
 #include "../AtlasShaders.hpp"
 #include <iostream>
 #include <random>
@@ -67,6 +68,57 @@ int main() {
       require(int(section.vertices.size()) - int(edges.size()) + faces == 2, "slice Euler characteristic");
     }
     atlas::Atlas scene;
+    {
+      using namespace advanced;
+      GeodesicPlane plane{{std::sinh(.52), 0, 0, std::cosh(.52)}};
+      const V4 origin{1, 0, 0, 0}, direction{0, 0, 0, 1};
+      const double t = intersectPlane(origin, direction, plane);
+      require(std::abs(t - .52) < 1e-12, "geodesic plane intersection distance");
+      require(!std::isfinite(intersectPlane(origin, {0, 0, 0, -1}, plane)), "backward plane hit");
+      auto hit = geodesicRay(origin, direction, t);
+      require(std::abs(lorentz(hit, plane.normal)) < 1e-12, "plane hit off manifold");
+      V4 tangent{};
+      for (size_t i = 0; i < 4; ++i) tangent[i] = origin[i] * std::sinh(t) + direction[i] * std::cosh(t);
+      auto bounced = reflectInPlane(tangent, plane), restored = reflectInPlane(bounced, plane);
+      require(std::abs(lorentz(hit, bounced)) < 1e-12 && std::abs(lorentz(bounced, bounced) - 1) < 1e-12,
+              "Lorentz reflection tangent invariants");
+      for (size_t i = 0; i < 4; ++i)
+        require(std::abs(restored[i] - tangent[i]) < 1e-12, "Lorentz reflection is not involutive");
+      auto returned = geodesicRay(hit, bounced, t);
+      require(h3Distance(returned, origin) < 1e-7, "mirror path did not return to origin");
+      rejects([&] { intersectPlane(origin, direction, {{0, 0, 0, 0}}); });
+      rejects([&] { reflectInPlane(direction, {{NAN, 0, 0, 1}}); });
+    }
+    const auto gpu = atlas::gpuGeometry(scene);
+    for (size_t i = 0; i < scene.nodes.size(); ++i) {
+      auto node = scene.nodes[i];
+      require(int(gpu.nodeData[i][1]) == node.escape && int(gpu.nodeData[i][2]) == node.leaf + 1,
+              "GPU traversal metadata");
+      for (size_t j = 0; j < 4; ++j)
+        require(std::abs(double(gpu.nodeCenters[i][j]) - node.bound.center[j]) < 1e-6, "GPU center packing");
+    }
+    for (auto sphere : scene.spheres)
+      for (int i = 0; i <= 100; ++i) {
+        double breath = i * .01, radius = sphere.radius * (1 + .025 * breath);
+        auto cached = atlas::breathingRadius(sphere.radius, breath);
+        require(std::abs(cached[0] - radius) < 1e-14 && std::abs(cached[1] - std::cosh(radius)) < 1e-9 &&
+                    std::abs(cached[2] - std::sinh(radius)) < 1e-9,
+                "cached radius exceeds float error budget");
+        require(std::abs(cached[1] * cached[1] - cached[2] * cached[2] - 1) < 1e-9, "cached hyperbolic identity");
+      }
+    rejects([] { atlas::breathingRadius(.2, NAN); });
+    rejects([] { atlas::breathingRadius(1, 0); });
+    require(gpu::specialized(1, false).find("const int uGpuCache=0;") != std::string::npos,
+            "uncached GPU comparison unavailable");
+    for (int step = 0; step < 100; ++step)
+      for (auto point : tesseract()) {
+        auto v = slice::rotated(point, step * .317);
+        for (auto& x : v) x *= 1.025;
+        require(std::abs(v[3]) < 3.95, "vertex cache crossed the 4D eye plane");
+        auto projected = project4D(v);
+        for (double x : projected) require(std::isfinite(x), "non-finite cached 4D projection");
+      }
+
     require(scene.nodes.size() == 111, "complete binary sphere hierarchy");
     for (size_t i = 0; i < scene.nodes.size(); ++i) {
       auto n = scene.nodes[i];

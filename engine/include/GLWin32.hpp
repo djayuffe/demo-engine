@@ -20,6 +20,18 @@ typedef char GLchar;
 typedef ptrdiff_t GLsizeiptr;
 typedef ptrdiff_t GLintptr;
 
+#ifndef GL_UNIFORM_BUFFER
+#define GL_UNIFORM_BUFFER 0x8A11
+#endif
+#ifndef GL_MAX_UNIFORM_BLOCK_SIZE
+#define GL_MAX_UNIFORM_BLOCK_SIZE 0x8A30
+#endif
+#ifndef GL_UNIFORM_BLOCK_DATA_SIZE
+#define GL_UNIFORM_BLOCK_DATA_SIZE 0x8A40
+#endif
+#ifndef GL_INVALID_INDEX
+#define GL_INVALID_INDEX 0xFFFFFFFFu
+#endif
 // Constants newer than GL 1.1. Plain macros, each guarded, so ones the SDK already defines are left alone.
 #ifndef GL_ARRAY_BUFFER
 #define GL_ARRAY_BUFFER 0x8892
@@ -149,6 +161,10 @@ typedef unsigned long long GLuint64;
   X(void,    glGetShaderInfoLog,        (GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* infoLog)) \
   X(void,    glGetShaderiv,             (GLuint shader, GLenum pname, GLint* params)) \
   X(GLint,   glGetUniformLocation,      (GLuint program, const GLchar* name)) \
+  X(GLuint,  glGetUniformBlockIndex, (GLuint program,const GLchar* name)) \
+  X(void, glUniformBlockBinding, (GLuint program,GLuint index,GLuint binding)) \
+  X(void, glGetActiveUniformBlockiv, (GLuint program,GLuint index,GLenum pname,GLint* params)) \
+  X(void, glBindBufferBase, (GLenum target,GLuint index,GLuint buffer)) \
   X(void,    glLinkProgram,             (GLuint program)) \
   X(void,    glRenderbufferStorage,     (GLenum target, GLenum internalformat, GLsizei width, GLsizei height)) \
   X(void,    glShaderSource,            (GLuint shader, GLsizei count, const GLchar* const* string, const GLint* length)) \

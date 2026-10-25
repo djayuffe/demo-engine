@@ -38,19 +38,22 @@ def main():
         print(name + ': passed', flush=True)
         return image.read_bytes()
 
-    for scene in range(16, 26):
+    for scene in range(16, 27):
         run(f'scene-{scene}', scene)
-    for scene in (16, 20, 23, 24, 25):
+    for scene in (16, 20, 23, 24, 25, 26):
         run(f'portrait-eye-{scene}', scene, ('--window', '360x640', '--infinity-eye', '.8', '-.7'))
-    for scene in (16, 18, 20, 23, 24):
+    for scene in (16, 18, 20, 23, 24, 26):
         a = run(f'paused-short-{scene}', scene, ('--atlas-paused',), 4)
         b = run(f'paused-long-{scene}', scene, ('--atlas-paused',), 30)
         if a != b:
             raise SystemExit(f'Pause drift in scene {scene}')
     for scene in (18,19,22):
         run(f'grazing-relief-{scene}',scene,('--infinity-orbit','.5','1.1'))
-    for scene in (12,13,14,15,16,17,20,23,24,25):
+    for scene in (12,13,14,15,16,17,20,23,24,25,26):
         run(f'orbit-{scene}',scene,('--infinity-orbit','.65','.4'))
+    run('edge-raster-orbit',17,('--atlas-edge-raster','--infinity-orbit','.6','.4'))
+    run('edge-raster-zero-exposure',17,('--atlas-edge-raster','--atlas-exposure','0'))
+    run('uncached-h3',20,('--atlas-uncached',))
     run('reduced-motion', 21, ('--atlas-reduced-motion', '--atlas-flash-gain', '0', '--atlas-exposure', '.7'))
     run('zero-exposure', 20, ('--atlas-exposure', '0'))
     for option, value in (('--atlas-exposure', '-1'), ('--atlas-exposure', 'nan'),
