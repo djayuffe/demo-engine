@@ -38,18 +38,18 @@ def main():
         print(name + ': passed', flush=True)
         return image.read_bytes()
 
-    for scene in range(16, 27):
+    for scene in range(16, 31):
         run(f'scene-{scene}', scene)
-    for scene in (16, 20, 23, 24, 25, 26):
+    for scene in (16, 20, 23, 24, 25, 26, 30):
         run(f'portrait-eye-{scene}', scene, ('--window', '360x640', '--infinity-eye', '.8', '-.7'))
-    for scene in (16, 18, 20, 23, 24, 26):
+    for scene in (16, 18, 20, 23, 30):
         a = run(f'paused-short-{scene}', scene, ('--atlas-paused',), 4)
         b = run(f'paused-long-{scene}', scene, ('--atlas-paused',), 30)
         if a != b:
             raise SystemExit(f'Pause drift in scene {scene}')
     for scene in (18,19,22):
         run(f'grazing-relief-{scene}',scene,('--infinity-orbit','.5','1.1'))
-    for scene in (12,13,14,15,16,17,20,23,24,25,26):
+    for scene in (12,13,14,15,16,17,20,23,24,25,26,30):
         run(f'orbit-{scene}',scene,('--infinity-orbit','.65','.4'))
     run('edge-raster-orbit',17,('--atlas-edge-raster','--infinity-orbit','.6','.4'))
     run('edge-raster-zero-exposure',17,('--atlas-edge-raster','--atlas-exposure','0'))

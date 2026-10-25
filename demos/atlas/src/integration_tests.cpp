@@ -159,6 +159,14 @@ int main() {
     for (int i = 0; i < gpu::modes; ++i)
       require(gpu::specialized(i).find("const int uMode=" + std::to_string(i)) != std::string::npos,
               "GPU specialization");
+    const std::string shader = gpu::fragment;
+    require(shader.find("vec3 atlasBackground") != std::string::npos &&
+                shader.find("starLayer(direction, 260") != std::string::npos &&
+                shader.find("starLayer(direction.yzx, 470") != std::string::npos,
+            "Atlas celestial background layers missing");
+    require(shader.find("beatWave") != std::string::npos && shader.find("* uPulse") != std::string::npos &&
+                shader.find("uEye * .018") != std::string::npos,
+            "Atlas background lost beat response or parallax");
     std::cout << "Atlas topology, general Lorentz camera and 12000 BVH/brute-force rays passed\n";
   } catch (const std::exception& e) {
     std::cerr << e.what() << '\n';

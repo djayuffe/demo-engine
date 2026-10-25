@@ -10,6 +10,7 @@ bool ArtPass::init(const std::string& dir, std::string& err) {
   }
   prog_ = glutil::linkProgram(vs, fs, err);
   if (!prog_) return false;
+  uBeat_ = glGetUniformLocation(prog_, "uBeat");
   uTime_ = glGetUniformLocation(prog_, "uTime");
   uRes_ = glGetUniformLocation(prog_, "uResolution");
   uMusic_ = glGetUniformLocation(prog_, "uMusicLevel");
@@ -63,6 +64,7 @@ void ArtPass::render(const Params& p) {
   glViewport(0, 0, w_, h_);
   glUseProgram(prog_);
   glUniform1f(uTime_, p.time);
+  glUniform1f(uBeat_, p.beat);
   glUniform2f(uRes_, float(w_), float(h_));
   glUniform1f(uMusic_, std::clamp(p.music, 0.f, 1.f));
   glUniform1f(uBpm_, p.bpm);

@@ -1,7 +1,7 @@
 # Optional music
 
 The demo can run from its internal BPM clock and does not require bundled audio.
-Four tracks are bundled. By default the demo plays **Stars, Digital Rendezvous, then Silicon Dancer**, looping (key S skips to the next track, `--track N` starts on track N):
+Eight tracks are bundled. By default the demo plays **Stars, Digital Rendezvous, then Silicon Dancer, Wireframe Pulse and the four-track variety pack**, looping (key S skips to the next track, `--track N` starts on track N):
 
 - **Stars (4ch. version)** — **cs127**, ProTracker module (`cs127_-_stars_4ch.mod`, 4 channels,
   4:21, 125 BPM, genre "Demo Style"). Source: The Mod Archive, module 201917,
@@ -48,3 +48,33 @@ alternative so the scroller has a dependency-free, reproducible soundtrack.
 When audio support is compiled in, libopenmpt/SDL2 play the module and its RMS
 energy drives wire brightness. Without audio dependencies, the renderer falls
 back to deterministic BPM timing.
+
+
+## Downloaded variety pack (2026-10-24)
+
+The following original files are bundled unmodified. All four source pages label
+them CC0. Titles and creator credits also appear in the demo ticker.
+
+| Preset | Track / artist | Style | Tempo |
+|---|---|---|---|
+| `edm` | [Melodic EDM / Fupi](https://opengameart.org/content/melodic-edm-loops) | Melodic dance loop | 140 BPM, published |
+| `dnb` | [Black Diamond / Joth](https://opengameart.org/content/black-diamond) | Drum and bass | 143 BPM, published |
+| `jazz` | [Moil / Ruskerdax](https://opengameart.org/content/moil) | Dark jazz | Automatic/fallback |
+| `ambient` | [Synthwave 15k / The Cynic Project](https://opengameart.org/content/calm-ambient-2-synthwave-15k) | Ambient synth | Free-time |
+
+The Cynic Project credit includes cynicmusic.com and pixelsphere.org as requested
+on the source page. The MP3s require the optional libsndfile backend; the EDM WAV
+also works through the standard SDL decoder. No re-encoding or trimming was applied.
+
+`additional_music.json` records exact source/download URLs, authors, licence URLs,
+file sizes and pinned SHA-256 checksums. Verify the actual files or re-fetch missing
+ones using:
+
+```sh
+python3 demos/wireframe/assets/music/fetch_additional_music.py --verify-only
+python3 demos/wireframe/assets/music/fetch_additional_music.py
+./build/hold_infinity --music-preset new --beat-source hybrid
+./build/hold_infinity --music-preset jazz --beat-source audio
+```
+
+A changed upstream checksum stops the fetch rather than silently replacing a track.

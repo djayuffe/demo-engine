@@ -33,7 +33,7 @@ Driver uniform lookups drop from 1,800 to 45 for 90 glass frames, 2,430 to 54 fo
 
 Chamber and ray-lab A/B captures are pixel-identical. Continuous glass scores 54.03 dB PSNR / 0.999412 SSIM. Printed layers score 39.19 dB / 0.985584: constant folding changes floating-point rounding at grazing Fresnel crossings, which can change individual stochastic paths. The geometry and optical model are unchanged; the comparison is intentionally not advertised as bit-identical for these paths. The benchmark checks both signal level and structural similarity, allowing the measured stochastic sensitivity while rejecting larger image changes.
 
-All 12 optimized scenes rendered on the actual GPU. State 127, combining all instrument switches, also passed. Headless tests cover specialization of all 128 masks and cache invalidation of every ray-solve input, alongside the original geometry/sync suites. The strict-warning build passes. Windows timer entry points are included, but this pass was executed on macOS only.
+All 30 optimized scenes rendered on the actual GPU. State 127, combining all instrument switches, also passed. Headless tests cover specialization of all 128 masks and cache invalidation of every ray-solve input, alongside the geometry/sync suites. The strict-warning build passes. Windows timer entry points are included, but this pass was executed on macOS only.
 
 ## Reproduce
 

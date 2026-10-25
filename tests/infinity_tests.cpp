@@ -9,9 +9,11 @@
 #include "SequentialRays.hpp"
 #include "WorldSheets.hpp"
 #include "RenderCorrections.hpp"
+#include "Composition.hpp"
 #include "Optimize.hpp"
 #include "Shaders.hpp"
 #include "Dodecahedron.hpp"
+#include "../demos/cosmic/CosmicShaders.hpp"
 #include <cmath>
 #include <cstdio>
 #include <limits>
@@ -20,6 +22,46 @@ void require(bool ok, const char* message) {
   if (!ok) throw std::runtime_error(message);
 }
 int main() {
+  const std::string blackHoleShader = cosmic_gpu::blackHoleFragment;
+  require(blackHoleShader.find("* stepSize / max(radius * radius * radius") != std::string::npos,
+          "black-hole curvature is no longer integrated per travelled distance");
+  require(blackHoleShader.find("uCam * vec3(0.0, 0.0, 5.2) + uEye") != std::string::npos,
+          "black-hole world-space parallax transform regressed");
+  require(blackHoleShader.find("vec3 starLayer") != std::string::npos &&
+              blackHoleShader.find("verticalDensity") != std::string::npos,
+          "black-hole subpixel stars or volumetric disk detail missing");
+  require(blackHoleShader.find("mix(pos, nextPos, crossing)") != std::string::npos,
+          "black-hole disk crossing is no longer interpolated within the ray step");
+  const std::string blackHoleParticles = cosmic_gpu::blackHoleParticleVertex;
+  require(cosmic_gpu::blackHoleParticleCount == 131072 && blackHoleParticles.find("gl_VertexID") != std::string::npos,
+          "black-hole GPU particle density or zero-upload generation regressed");
+  require(blackHoleParticles.find("inversesqrt(birthRadius * birthRadius * birthRadius)") != std::string::npos &&
+              blackHoleParticles.find("inwardDrift") != std::string::npos,
+          "black-hole accretion particles lost Kepler motion or radial infall");
+  require(blackHoleParticles.find("pow(age, 1.42)") != std::string::npos &&
+              blackHoleParticles.find("helixAngle") != std::string::npos,
+          "black-hole jet particles lost ballistic or magnetic motion");
+  require(blackHoleParticles.find("depth > centerDepth") != std::string::npos,
+          "black-hole particles no longer respect event-horizon occultation");
+  for (int scene = 0; scene < infinity_sync::sceneCount; ++scene) {
+    const auto frozenA = infinity_composition::shot(scene, 2, 0, true),
+               frozenB = infinity_composition::shot(scene, 100, 1.5f, true);
+    require(frozenA.yaw == frozenB.yaw && frozenA.pitch == frozenB.pitch && frozenA.eyeX == frozenB.eyeX &&
+                frozenA.eyeY == frozenB.eyeY && frozenA.dolly == frozenB.dolly,
+            "frozen composition responds to clock or audio");
+    const auto a = infinity_composition::shot(scene, 17.25, 1.2f, false);
+    const auto loop = infinity_composition::shot(scene, 145.25, 1.2f, false);
+    require(std::abs(a.yaw) <= .11f && std::abs(a.pitch) <= .06f && std::abs(a.eyeX) <= .07f &&
+                std::abs(a.eyeY) <= .05f && a.dolly >= .95f && a.dolly <= 1.05f,
+            "cinematic camera escaped its composition bounds");
+    require(std::abs(a.yaw - loop.yaw) < 1e-6f && std::abs(a.pitch - loop.pitch) < 1e-6f &&
+                std::abs(a.eyeX - loop.eyeX) < 1e-6f && std::abs(a.eyeY - loop.eyeY) < 1e-6f &&
+                std::abs(a.dolly - loop.dolly) < 1e-6f,
+            "cinematic camera phrase does not loop continuously");
+  }
+  const auto invalidShot = infinity_composition::shot(-9, NAN, INFINITY, false);
+  require(std::isfinite(invalidShot.yaw) && std::isfinite(invalidShot.pitch) && std::isfinite(invalidShot.dolly),
+          "invalid camera input escaped containment");
   {
     infinity_motion::Bands whole, split;
     const auto expected = whole.update(1, .5f, .25f, .3);
@@ -220,9 +262,16 @@ int main() {
   using namespace infinity_sync;
   require(sample(31.999, 0, false, 0, 0, 0).scene == 0, "scene changes before boundary");
   require(sample(32, 0, false, 0, 0, 0).scene == 1, "bar-boundary cut missing");
-  require(sample(beatsPerScene * sceneCount, 0, false, 0, 0, 0).scene == 0, "show does not wrap");
-  for (int scene = 12; scene < sceneCount; ++scene)
-    require(sample(double(scene) * beatsPerScene + 1, 0, false, 0, 0, 0).scene == scene, "new scene not directed");
+  require(sample(beatsPerScene * automaticSceneCount, 0, false, 0, 0, 0).scene == 0, "show does not wrap");
+  for (int slot = 12; slot < automaticSceneCount; ++slot) {
+    const int scene = sample(double(slot) * beatsPerScene + 1, 0, false, 0, 0, 0).scene;
+    require(scene == automaticScene(slot), "new scene not directed");
+    require(scene != skippedScene, "three-view scene returned to automatic playback");
+  }
+  require(adjacentScene(24, 1) == 26 && adjacentScene(26, -1) == 24,
+          "manual navigation does not skip the retired three-view scene");
+  require(sample(0, 0, false, 0, 0, 0, skippedScene).scene == skippedScene,
+          "explicit archival scene selection no longer works");
   const auto heptagon = infinity_worlds::heptagon();
   require(std::abs(heptagon[0] * heptagon[0] - heptagon[1] * heptagon[1] - 1) < 1e-5,
           "Poincare mirrors not orthogonal to boundary");
@@ -357,6 +406,20 @@ int main() {
   require(stateForScene(4) == 0 && stateForScene(5) == 5 && stateForScene(7) == 69 && stateForScene(8) == 45,
           "preset states changed");
   require(stateForScene(9, 127) == 127, "optical override dropped");
+  require(defaultPixelCeiling(false) == 400000 && defaultPixelCeiling(true) == 2000000,
+          "platform pixel ceilings changed");
+  require(maximumRenderScale(false) == 1.0 && maximumRenderScale(true) == 1.5, "platform supersample limits changed");
+  require(fitPixelBudget(1280, 720, 1000000) == RenderSize{1280, 720}, "native target was downscaled");
+  const auto fitted = fitPixelBudget(1920, 1080, 900000);
+  require(fitted.width * fitted.height <= 900000, "fitted target exceeds pixel ceiling");
+  require(std::abs(double(fitted.width) / fitted.height - 16.0 / 9.0) < .003, "fitted target changed aspect ratio");
+  require(fitPixelBudget(0, -4, 0) == RenderSize{1, 1}, "invalid framebuffer size was not contained");
+  const auto supersampled = fitPixelBudget(1280, 720, 4000000, 1.5);
+  require(supersampled == RenderSize{1920, 1080}, "Metal supersample ceiling was not honored");
+  require(fitPixelBudget(1280, 720, 4000000, 5.0) == RenderSize{2560, 1440},
+          "unsafe supersample request was not bounded");
+  require(fitPixelBudget(1280, 720, 4000000, NAN) == RenderSize{1280, 720},
+          "invalid supersample scale was not contained");
   RaySolveKey key{1.5f, .65f, 46, 1};
   require(key == RaySolveKey{1.5f, .65f, 46, 1}, "identical GPU field not reused");
   require(!(key == RaySolveKey{1.6f, .65f, 46, 1}) && !(key == RaySolveKey{1.5f, .66f, 46, 1}) &&

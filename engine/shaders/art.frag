@@ -4,10 +4,9 @@ out vec4 FragColor;
 uniform vec2 uResolution;
 uniform float uTime;
 uniform float uMusicLevel;
-// Tempo in beats per minute. The synthetic beat pulse below is synced to this
-// so the FX pulse at, e.g., --bpm 100 actually pulses at 100 BPM (100/60 Hz)
-// instead of a hard-coded 3.2 Hz (192 BPM) that only matches 192 BPM.
+// Kept for custom shader compatibility; standard effects use the shared beat envelope.
 uniform float uBpm;
+uniform float uBeat;
 // 1.0 when a logo backdrop is in uScene (logo mode): skip the procedural
 // background and reduce the scene gain so the logo isn't washed out.
 uniform float uHasLogo;
@@ -68,7 +67,7 @@ float glimmerField(vec2 p){
 // a logo card covers the screen. uResolution is the art target's size (only its aspect is used).
 void main(){
   vec2 p=(uv*2.-1.)*vec2(uResolution.x/max(uResolution.y,1.),1.);
-  float beat=pow(.5+.5*sin(6.2831853*uTime*uBpm/60.0),14.0);
+  float beat=uBeat;
   beat=min(1.,beat+uPulse);
   float mlev=uMusicLevel;
   float hasLogo=max(step(.5,uHasLogo)*clamp(uLogoVis,0.,1.),1.0-clamp(uFxAmount,0.,1.));

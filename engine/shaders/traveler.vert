@@ -4,6 +4,7 @@ layout(location=1) in float aPath;     // 0..1 lane index (normalized)
 uniform mat4 uMVP;
 uniform float uTime;
 uniform float uSpeed;
+uniform float uBeat;
 
 out float vGlow;
 out float vPath;
@@ -22,10 +23,10 @@ void main(){
   float a=uTime*(0.6+p*0.3)+phase;
   float c=cos(a),s=sin(a);
   mat3 rot=mat3(c,-s,0, s,c,0, 0,0,1);
-  vec3 pos=center+rot*(aPos*0.12);
+  vec3 pos=center+rot*(aPos*(0.12*(1.+.15*uBeat)));
   vec4 mvp=uMVP*vec4(pos,1.0);
   gl_Position=mvp;
   // glow strongest when the traveler is near the screen center (z~0 in view)
-  vGlow=1.0-abs(center.z)*0.25;
+  vGlow=(1.0-abs(center.z)*0.25)*(1.+.35*uBeat);
   vPath=p;
 }

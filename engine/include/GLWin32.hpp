@@ -45,6 +45,9 @@ typedef ptrdiff_t GLintptr;
 #ifndef GL_DYNAMIC_DRAW
 #define GL_DYNAMIC_DRAW 0x88E8
 #endif
+#ifndef GL_STREAM_DRAW
+#define GL_STREAM_DRAW 0x88E0
+#endif
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
@@ -68,6 +71,12 @@ typedef ptrdiff_t GLintptr;
 #endif
 #ifndef GL_VERTEX_SHADER
 #define GL_VERTEX_SHADER 0x8B31
+#endif
+#ifndef GL_TESS_CONTROL_SHADER
+#define GL_TESS_CONTROL_SHADER 0x8E88
+#define GL_TESS_EVALUATION_SHADER 0x8E87
+#define GL_PATCHES 0x000E
+#define GL_PATCH_VERTICES 0x8E72
 #endif
 #ifndef GL_FRAGMENT_SHADER
 #define GL_FRAGMENT_SHADER 0x8B30
@@ -147,6 +156,7 @@ typedef unsigned long long GLuint64;
   X(void,    glDeleteRenderbuffers,     (GLsizei n, const GLuint* renderbuffers)) \
   X(void,    glDeleteShader,            (GLuint shader)) \
   X(void,    glDeleteVertexArrays,      (GLsizei n, const GLuint* arrays)) \
+  X(void,    glDrawElementsInstanced,   (GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount)) \
   X(void,    glDrawArraysInstanced,     (GLenum mode, GLint first, GLsizei count, GLsizei instancecount)) \
   X(void,    glEnableVertexAttribArray, (GLuint index)) \
   X(void,    glFramebufferRenderbuffer, (GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)) \
@@ -161,11 +171,12 @@ typedef unsigned long long GLuint64;
   X(void,    glGetShaderInfoLog,        (GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* infoLog)) \
   X(void,    glGetShaderiv,             (GLuint shader, GLenum pname, GLint* params)) \
   X(GLint,   glGetUniformLocation,      (GLuint program, const GLchar* name)) \
-  X(GLuint,  glGetUniformBlockIndex, (GLuint program,const GLchar* name)) \
-  X(void, glUniformBlockBinding, (GLuint program,GLuint index,GLuint binding)) \
-  X(void, glGetActiveUniformBlockiv, (GLuint program,GLuint index,GLenum pname,GLint* params)) \
-  X(void, glBindBufferBase, (GLenum target,GLuint index,GLuint buffer)) \
+  X(GLuint,  glGetUniformBlockIndex,    (GLuint program, const GLchar* name)) \
+  X(void,    glUniformBlockBinding,    (GLuint program, GLuint index, GLuint binding)) \
+  X(void,    glGetActiveUniformBlockiv, (GLuint program, GLuint index, GLenum pname, GLint* params)) \
+  X(void,    glBindBufferBase,         (GLenum target, GLuint index, GLuint buffer)) \
   X(void,    glLinkProgram,             (GLuint program)) \
+  X(void,    glPatchParameteri,         (GLenum pname, GLint value)) \
   X(void,    glRenderbufferStorage,     (GLenum target, GLenum internalformat, GLsizei width, GLsizei height)) \
   X(void,    glShaderSource,            (GLuint shader, GLsizei count, const GLchar* const* string, const GLint* length)) \
   X(void,    glUniform1f,               (GLint location, GLfloat v0)) \

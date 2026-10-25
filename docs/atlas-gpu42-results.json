@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-25",
+  "device": "Apple M1 Pro",
+  "api": "OpenGL 4.1 Metal 91.7",
+  "phase": "After integrating origin/main 89670c9",
+  "pixel_budget": 120000,
+  "frames_per_run": 60,
+  "timed_samples": 50,
+  "repeats": 1,
+  "notes": "Isolated cache comparisons retain the same BVH and shading. Timing variation is material and some cached runs are slower; no universal FPS gain is claimed. The slower instanced edge backend is opt-in.",
+  "results": [
+    {
+      "scene": 17,
+      "repeat": 0,
+      "mode": "reference",
+      "samples": 50,
+      "avg_ms": 1.215,
+      "p95_ms": 1.643,
+      "ray_solves": 0,
+      "uniform_lookups": 126,
+      "comparison": "atlas-cache"
+    },
+    {
+      "scene": 17,
+      "repeat": 0,
+      "mode": "optimized",
+      "samples": 50,
+      "avg_ms": 1.62,
+      "p95_ms": 2.7,
+      "ray_solves": 0,
+      "uniform_lookups": 126,
+      "comparison": "atlas-cache",
+      "image_ssim": 1.0,
+      "image_psnr_db": 95.387407
+    },
+    {
+      "scene": 20,
+      "repeat": 0,
+      "mode": "reference",
+      "samples": 50,
+      "avg_ms": 0.809,
+      "p95_ms": 1.478,
+      "ray_solves": 0,
+      "uniform_lookups": 125,
+      "comparison": "atlas-cache"
+    },
+    {
+      "scene": 20,
+      "repeat": 0,
+      "mode": "optimized",
+      "samples": 50,
+      "avg_ms": 0.841,
+      "p95_ms": 1.39,
+      "ray_solves": 0,
+      "uniform_lookups": 125,
+      "comparison": "atlas-cache",
+      "image_ssim": 0.999994,
+      "image_psnr_db": 77.645046
+    },
+    {
+      "scene": 30,
+      "repeat": 0,
+      "mode": "reference",
+      "samples": 50,
+      "avg_ms": 0.966,
+      "p95_ms": 1.707,
+      "ray_solves": 0,
+      "uniform_lookups": 1446,
+      "comparison": "full"
+    },
+    {
+      "scene": 30,
+      "repeat": 0,
+      "mode": "optimized",
+      "samples": 50,
+      "avg_ms": 1.057,
+      "p95_ms": 1.887,
+      "ray_solves": 0,
+      "uniform_lookups": 125,
+      "comparison": "full",
+      "image_ssim": 0.999999,
+      "image_psnr_db": 89.737107
+    }
+  ],
+  "edge_image_comparison": {
+    "psnr_db": 72.912396,
+    "scope": "Merged celestial background and instanced hypercube edges"
+  }
+}

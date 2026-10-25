@@ -501,3 +501,83 @@ bool applyRecipe(Mesh3& m, const EffectRecipe& r, const EffectContext& base, con
   }
   return true;
 }
+
+bool gpuDeformationSupported(int id) {
+  switch (id) {
+  case 1: case 2: case 4: case 6: case 12: case 13: case 15: case 19:
+  case 22: case 23: case 31: case 32: case 33: case 34: case 35: case 48:
+  case 52: case 53: case 54: case 58: case 61: case 62: case 63:
+    return true;
+  default: return false;
+  }
+}
+
+bool applyRecipeGpu(Mesh3& m, const EffectRecipe& r, const EffectContext& base,
+                    GpuDeformation& deferred, const Mesh3* secondary) {
+  deferred = {};
+  const int count = std::clamp(r.stageCount, 0, 6);
+  if (!count || !gpuDeformationSupported(r.stages[count - 1].effect))
+    return applyRecipe(m, r, base, secondary);
+  const auto& stage = r.stages[count - 1];
+  EffectContext c = base;
+  c.time = base.time * stage.timeScale + stage.timeOffset;
+  c.amount = std::clamp(base.amount * stage.amount, -4.f, 4.f);
+  c.seed = base.seed + seedFromFloat(stage.seedOffset);
+  if (!std::isfinite(c.time) || c.time < 0 || c.time > 1e8f || !std::isfinite(c.amount) ||
+      !std::isfinite(c.bass) || stage.useSecondary)
+    return applyRecipe(m, r, base, secondary);
+  EffectRecipe prefix = r;
+  prefix.stageCount = count - 1;
+  if (!applyRecipe(m, prefix, base, secondary)) return false;
+  if (m.v.empty() || m.e.empty() || m.e.size() > kEdgeBudget)
+    return applyEffect(m, stage.effect, c, secondary);
+  const V3 C = center(m);
+  float originRadius = 0, localRadius = 0;
+  for (auto p : m.v) {
+    originRadius = std::max(originRadius, vlen(p));
+    localRadius = std::max(localRadius, vlen(vsub(p, C)));
+  }
+  float scale = 1, offset = 0;
+  int instances = 1;
+  const float A = c.amount, a = std::abs(A), t = c.time;
+  bool centered = true;
+  switch (stage.effect) {
+  case 31: case 32: case 33: case 34: case 52: case 53: {
+    centered = false;
+    const int id = stage.effect;
+    const int wanted = id == 31 || id == 33 ? 4 : id == 32 ? 5 : id == 34 ? 6 : id == 52 ? 1 : 2;
+    instances = 1 + copiesThatFit(m, wanted);
+    float bound = originRadius;
+    for (int k = 0; k < instances; ++k) {
+      float copyRadius = originRadius;
+      if (id == 31 && k) copyRadius = originRadius * (1 - .08f * k) + .08f * k;
+      if (id == 32 && k) copyRadius = originRadius * .35f + 1.8f;
+      if (id == 34 && k) copyRadius = originRadius * (1 - .09f * k) + float(k) * std::sqrt(.0224f);
+      if (id == 52) copyRadius = originRadius + (k ? .16f : .08f) * a;
+      if (id == 53 && k) copyRadius = originRadius * (k == 1 ? 1.01f : .99f) + .04f * a;
+      bound = std::max(bound, copyRadius);
+    }
+    offset = bound - originRadius;
+    break;
+  }
+  case 4: scale = std::abs(1 + A * .18f * std::sin(t * 2)); break;
+  case 19: scale = 1 + a * .2f; break;
+  case 22: scale = std::max(.02f, 1 - .35f * a); break;
+  case 54: scale = std::abs(1 + A * .35f * c.bass); break;
+  case 58: scale = std::abs(1 + A * .3f * c.bass * std::sin(t * 2)); break;
+  case 6: centered = false; offset = a * .12f * std::sqrt(3.f); break;
+  case 23: centered = false; offset = a * .22f * std::sqrt(3.f); break;
+  case 13: centered = false; offset = a * std::hypot(.3f, .2f); break;
+  case 35: centered = false; offset = a * .18f * std::sqrt(2.f); break;
+  case 48: centered = false; offset = a * std::hypot(.35f, .22f); break;
+  case 61: centered = false; offset = a * .24f * std::sqrt(3.f); break;
+  case 62: centered = false; offset = a * .32f * std::sqrt(3.f); break;
+  case 63: centered = false; offset = a * .2f * std::sqrt(3.f); break;
+  case 15: centered = false; break;
+  default: break;
+  }
+  const float radius = centered ? vlen(C) + localRadius * scale : originRadius + offset;
+  if (!std::isfinite(radius)) return applyEffect(m, stage.effect, c, secondary);
+  deferred = {stage.effect, c, C, std::max(.1f, radius + 1e-5f), originRadius, instances};
+  return true;
+}

@@ -12,9 +12,12 @@
 //   };
 //   int main(int argc,char**argv){ MyDemo d; return de::run(d,argc,argv); }
 #include "Audio.hpp"
+#include "BeatResponse.hpp"
 #include "Geometry.hpp"
+#include "Effects.hpp"
 #include "Timeline.hpp"
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 struct GLFWwindow;
@@ -49,11 +52,13 @@ struct Config {
 // Everything the engine knows about the current frame.
 struct FrameInfo {
   double time=0;          // show time in seconds: music clock when music plays, wall clock otherwise
+  double effectTime=0;    // continuous beat-driven animation clock (half a second per beat)
+  rhythm::Drive beat;     // shared pulse/flash envelope, independent of sustained music level
   double dt=0;            // seconds since the previous frame
   int width=0, height=0;  // framebuffer size in pixels
   int frame=0;            // frames rendered so far
   double bpm=132.0;
-  SyncState sync;         // beat/bar position; sync.pulse is already max(beat pulse, music level)
+  SyncState sync;         // beat/bar position; sync.pulse is the shared decaying beat envelope
   MusicState music;       // real band energies when music is active; music.track = playlist index
   std::string musicPath;  // file of the track playing now (changes as the playlist advances; use it for credits)
 };
@@ -72,10 +77,15 @@ private:
 // What a demo hands back each frame.
 struct Frame {
   Mesh3 mesh;                  // the wire mesh to draw this frame; empty = keep showing the previous one
+  std::shared_ptr<const Mesh3> retainedMesh; // optional immutable geometry, preferred over mesh; avoids frame copies
   uint64_t revision=0;         // 0 = always re-upload; otherwise only upload when it changes
   int sceneIndex=0;            // reserved: the logo card is chosen by time (Renderer::drawBackground), not by scene
   float scale=1.f;             // extra scale on top of the engine's auto-fit
   float lineWidth=1.f;
+  // GPU displacement: y += amplitude * sin(x * frequency + time * speed + phase).
+  // Keep the base mesh/revision stable to animate without CPU vertex uploads.
+  float gpuWave[4]={0,3,1,0};
+  GpuDeformation gpuEffect;
   bool travelers=true;         // draw the octahedra weaving through the mesh
   // Experimental renderer features (see ARCHITECTURE.md). All default to off.
   float modelTransform[9]={1,0,0,0,1,0,0,0,1};   // row-major 3x3 applied to the model before the camera (shears)

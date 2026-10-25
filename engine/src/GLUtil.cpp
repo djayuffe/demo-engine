@@ -81,22 +81,28 @@ unsigned linkProgram(const std::string& vs, const std::string& fs, std::string& 
   return linkProgram(vs, std::string(), fs, err);
 }
 unsigned linkProgram(const std::string& vs, const std::string& gs, const std::string& fs, std::string& err) {
-  GLuint v = 0, f = 0, g = 0;
-  if (!shader(v, GL_VERTEX_SHADER, vs, err) || !shader(f, GL_FRAGMENT_SHADER, fs, err) ||
-      (!gs.empty() && !shader(g, GL_GEOMETRY_SHADER, gs, err))) {
-    if (v) glDeleteShader(v);
-    if (f) glDeleteShader(f);
-    if (g) glDeleteShader(g);
+  return linkProgram(vs, {}, {}, gs, fs, err);
+}
+unsigned linkProgram(const std::string& vs, const std::string& tcs, const std::string& tes,
+                     const std::string& gs, const std::string& fs, std::string& err) {
+  if (tcs.empty() != tes.empty()) {
+    err = "Both tessellation stages are required";
     return 0;
   }
+  const GLenum types[] = {GL_VERTEX_SHADER, GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER,
+                          GL_GEOMETRY_SHADER, GL_FRAGMENT_SHADER};
+  const std::string* sources[] = {&vs, &tcs, &tes, &gs, &fs};
+  GLuint stages[5] = {};
+  for (int i = 0; i < 5; ++i) {
+    if (!sources[i]->empty() && !shader(stages[i], types[i], *sources[i], err)) {
+      for (auto stage : stages) if (stage) glDeleteShader(stage);
+      return 0;
+    }
+  }
   GLuint p = glCreateProgram();
-  glAttachShader(p, v);
-  if (g) glAttachShader(p, g);
-  glAttachShader(p, f);
+  for (auto stage : stages) if (stage) glAttachShader(p, stage);
   glLinkProgram(p);
-  glDeleteShader(v);
-  glDeleteShader(f);
-  if (g) glDeleteShader(g);
+  for (auto stage : stages) if (stage) glDeleteShader(stage);
   GLint ok = 0;
   glGetProgramiv(p, GL_LINK_STATUS, &ok);
   if (!ok) {

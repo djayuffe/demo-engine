@@ -1,3 +1,63 @@
+# Atlas geometry cache and Lorentz gallery — 2026-10-25
+
+- Integrate the incoming Metal, cosmic, audio and scene-composition updates; preserve scene indices 0–29 and the three-view playback skip.
+- Append scene 30: a compact H³ mirror gallery using exact geodesic-plane intersections, Lorentz reflections and intrinsic H² wall markings.
+- Share immutable Atlas geometry through a checked 5,376-byte GPU uniform block and move hypercube corner projection into the vertex stage.
+- Add isolated cache benchmarks and an opt-in instanced edge-raster backend; retain the normal backend by default after measured geometry-stage overhead on M1 Pro.
+- Freeze the cinematic camera as well as geometry/audio drive during Atlas pause and still mode; retain the upstream celestial background in both hypercube backends.
+
+# PurpleTwilight parametric point field — 2026-10-25
+
+- Add scene 26, a native OpenGL 4.1 port of the supplied four-lobe parametric point effect with spectral additive particles, moon companion, bouncing marker and star field.
+- Generate the 68,548-point base composition in the vertex shader from `gl_VertexID`, eliminating the browser source's per-frame CPU geometry upload while adding music-band and beat drive through the existing HDR bloom pipeline.
+- Use four Metal-tuned instanced phase echoes, procedural orbit guides and GPU-only ping-pong light persistence; the resulting 225,040 vertex samples plus temporal HDR, bloom and composition averaged 1.804 ms over a 600-frame M1 Pro run.
+- Record the supplied archive/file hashes and distinguish its actual “Quantum Fractal Explorer” content from the aviation-oriented archive filename.
+
+# Integrated rendering and playback polish — 2026-10-24
+
+- Pulled upstream df2ebdc: refined Atlas materials, breathing geometry, audio band smoothing and GPU highlight pyramid.
+- Combined highlight bloom with cubic reconstruction and shared beat exposure; stationary output dither smooths optical gradients while preserving black and paused frames.
+- Added responsive on-screen H controls, I playback/tempo status, J beat-source cycling, startup hints and transient playback feedback. Demo-specific shortcuts appear in the controls card.
+
+# Metal/OpenGL capability and realtime audit — 2026-10-24
+
+- Query live OpenGL 4.1 limits, clamp HDR targets safely and expose `--gpu-info`, `--tessellation N` and `--no-tessellation`.
+- Route compatible static wires through quad tessellation on Metal-backed OpenGL, bypassing geometry expansion; an isolated M1 Pro test reduced average GPU time from 1.953 ms to 1.650 ms.
+- Add non-blocking generic GPU timings, complete fallback sampler textures and unchanged GPU-font upload caching.
+- Move fixed filter math out of the SDL callback, use independent relaxed telemetry atomics, and add CMake switches for audio and optional codecs.
+
+# Diverse music pack and audio attacks — 2026-10-24
+
+- Fetch four unmodified CC0 tracks: Fupi's Melodic EDM, Joth's Black Diamond, Ruskerdax's Moil and The Cynic Project's Synthwave 15k. Record source/licence URLs and pinned SHA-256 hashes, plus a reproducible fetch/verify script.
+- Add edm/dnb/jazz/ambient/new presets, expand the shared catalog to eight tracks and show creator credits in both demos.
+- Apply published catalog BPM to rhythmic PCM tracks and confidence-gated load-time tempo analysis to unknown PCM; leave the curated ambient track free-time.
+- Detect actual audio attacks with an adaptive novelty threshold, refractory interval and time-based release. Add hybrid/audio/clock beat sources while preserving deterministic fixed-step captures.
+- Test tempo estimation across sample rates, silence/steady-tone rejection, onset release, source mixing and actual PCM onset/tempo publication.
+
+# Shared beat response and music controls — 2026-10-24
+
+- Drive geometry, recipes, lighting, backgrounds, travellers, post effects and optical composition from a shared beat clock and phase-aligned pulse/flash envelopes.
+- Add pulse/flash strength, decay, subdivisions and attack offsets, with E/F toggles; retain Atlas reduced-motion flash suppression.
+- Add bundled music presets, sorted folder playlists, deterministic shuffle, list-only mode, volume and pause/resume controls; expand Infinity's default playlist to four tracks.
+- Support optional libsndfile decoding for compressed audio, track live module tempo changes, and correct stereo/device-rate band analysis.
+- Add dummy-device audio tests and rhythm/playlist validation; run GPU scene checks at maximum pulse and flash strengths.
+
+# GPU recipe offload and instanced geometry — 2026-10-23
+
+- Offload 17 supported final recipe deformations and six copy/echo effects to indexed GPU processing; preserve CPU prefixes, edge budgets, seed/time transforms and a CPU reference switch.
+- Retain immutable meshes by shared ownership; animate Hello with its GPU model matrix and keep Ripple geometry resident without frame copies.
+- Reuse unchanged vertex buffers as well as indices, and report CPU work, upload bytes and deferred geometry counters with `--stats`.
+- Rasterize Infinity's traffic field with GPU splats instead of per-frame 64 KB image uploads; retain CPU interaction planning and pixel comparison validation.
+- Add real-GPU numerical validation and reproducible alternating-order CPU/GPU benchmarks. Document measured CPU reductions, transfer savings, and mixed traffic GPU timings.
+
+# GPU geometry and HDR improvements — 2026-10-23
+
+- Add adaptive OpenGL 4.1 quad-ribbon tessellation and GPU wave displacement, demonstrated by the cached ripple torus; retain the original pipeline for undeformed meshes and shader fallback.
+- Reuse unchanged mesh index buffers and clip near-plane crossings before wide-line expansion.
+- Remove per-frame bloom texture-size queries, stop small pyramids at 1 by 1, and protect half-float bloom and ACES inputs.
+- Reconstruct reduced-resolution Infinity output with four-sample cubic B-spline upscaling while retaining direct native-resolution sampling.
+- Add `tools/gpu_smoke.py` for post/bypass rendering and all 26 finite-HDR scene checks; document usage and limitations in `docs/GPU_RENDERING.md`.
+
 # Hold Infinity 3.0 hyperbolic world-sheet studies — 2026-10-22
 
 - Add four original GPU effects inspired by the supplied QRI essay: harmonic chrysanthemum, heptagonal Poincaré gates, saddled world sheets and branching crystal garden.

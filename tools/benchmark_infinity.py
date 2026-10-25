@@ -24,7 +24,7 @@ def main():
     scenes=[int(s) for s in a.scenes.split(',')]
     count=scene_count(Path(a.binary).resolve())
     if any(s<0 or s>=count for s in scenes):ap.error(f'Scenes must be 0..{count-1}')
-    if a.atlas_cache_only and any(s<16 for s in scenes):ap.error(f'Cache-only comparison requires Atlas scenes 16..{count-1}')
+    if a.atlas_cache_only and any(s not in set(range(16,24))|{25,30} for s in scenes):ap.error('Cache-only comparison requires Atlas scenes 16..23, 25 or 30')
     root=Path(a.out).resolve();root.mkdir(parents=True,exist_ok=True);binary=Path(a.binary).resolve()
     if not shutil.which("ffmpeg"):print("FFmpeg unavailable: GPU timings only; image checks skipped",flush=True)
     rows=[]

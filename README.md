@@ -1,6 +1,6 @@
 # Hold Infinity on Demo Engine
 
-The default demo now ports **Hold Infinity**, supplied as `hold_infinity_by_purpletwilight21858029.zip`: mirrored dodecahedral chambers, hyperbolic honeycombs, spectral GRIN glass and a GPU gradient-index ray lab. Its 27 optical and Atlas scenes follow the soundtrack's beats, bars and frequency bands. The earlier effects are bypassed in this show. Normal playback adapts each scene’s resolution to GPU load; fixed-budget captures and still accumulation remain available.
+The default demo now ports **Hold Infinity**, supplied as `hold_infinity_by_purpletwilight21858029.zip`: mirrored dodecahedral chambers, hyperbolic honeycombs, spectral GRIN glass, a GPU gradient-index ray lab and the supplied parametric point-field study. Its 31 optical, Atlas, cosmic and point-field scenes follow the soundtrack's beats, bars and frequency bands. The earlier effects are bypassed in this show. Normal playback adapts each scene’s resolution to GPU load; fixed-budget captures and still accumulation remain available.
 
 ```sh
 make run
@@ -9,7 +9,7 @@ make run
 
 [Controls, scene list, optical parameters and tests](demos/infinity/README.md) · [GPU optimization measurements](demos/infinity/GPU_PERFORMANCE.md) · [Source attribution](demos/infinity/SOURCE.md). `make run-wireframe` launches the previous demo.
 
-The integrated [DMT Atlas](demos/atlas/README.md) adds a Lorentz mirror gallery, exact 4D sections, six-plane hypercubes, seeded radial and folded fields, an accelerated H³ sphere renderer, iris portals, event glyphs, face emergence and three simultaneous viewpoints.
+The integrated [DMT Atlas](demos/atlas/README.md) adds a Lorentz mirror gallery, exact 4D sections, six-plane hypercubes, seeded radial and folded fields, an accelerated H³ sphere renderer, iris portals and event glyphs over a beat-reactive celestial background. The former three-view scene is skipped by playback.
 
 ![The first sixteen native optical scenes](docs/infinity-contact.jpg)
 
@@ -31,6 +31,15 @@ Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.6.0.
 
 Docs: [ARCHITECTURE.md](ARCHITECTURE.md) | [docs/WRITING_A_DEMO.md](docs/WRITING_A_DEMO.md) | [CHANGELOG.md](CHANGELOG.md)
 
+Eight bundled tracks now span tracker/chiptune, melodic EDM, drum and bass, dark jazz and ambient synth.
+
+Beat and music controls: [shared pulse/flash timing, playlists, presets and codecs](docs/MUSIC_AND_BEATS.md).
+
+```sh
+./build/hold_infinity --music-preset new --shuffle-seed 42 --beat-source hybrid
+./build/impossible_wireframe --music-dir ~/Music/Demos --bpm 128 --beat-division 2
+```
+
 ## Background styles
 
 `--background-style auto|classic|synthwave|nebula|mandala|blackhole|hyperspace|fractal` picks the procedural background (key **V** cycles it live, **B** turns it off, **L** the logo cards). `auto` hands the choice to a director that listens to the music: it cuts on bar lines, reacts to drops and breakdowns with an early cut and a shockwave, and picks worlds that suit the energy (calm: nebula/black hole; peak: hyperspace/synthwave), sometimes with a sparser composition. `--fixed-step 0.0333` gives a deterministic clock for reproducible captures. `classic` is the slowly cross-fading generative blend; the others are single scenes: a striped-sun synthwave horizon with a neon grid, a parallax self-shadowed nebula with shooting stars, and a folded orbit-trap crystal mandala, and a relativistic black hole: ray-marched Schwarzschild lensing of a galaxy sky, a Doppler-beamed turbulent accretion disk, photon ring and polar jets, and a hyperspace warp tunnel with depth-shell star streaks you steer with the mouse, and a ray-marched fly-through of an infinite, twisting Menger-sponge cathedral lit by travelling light orbs. A styled background keeps its own palette (the post hue-drift grade is held back) and the final output is dithered to avoid banding.
@@ -49,6 +58,43 @@ brew install cmake glfw sdl2 libopenmpt   # macOS; SDL2 + libopenmpt are optiona
 make run-hello                            # the minimal demo
 make run                                  # the native optical and Atlas demo
 ```
+
+### Start every version
+
+Run these from the repository root after `make`. Each `make run-*` command also
+builds first, so it is safe to use directly after cloning.
+
+```sh
+make run                  # Hold Infinity: optical 0-15, GPU Atlas 16-25, point field 26
+make run-atlas            # Hold Infinity opened directly on GPU Atlas scene 16
+make run-aviation         # supplied parametric 3D point effect, native GPU scene 26
+make run-mobius           # supplied 4D Möbius universe, native GPU scene 24
+make run-quantum          # supplied quantum twist lattice, native GPU scene 27
+make run-black-hole       # ray-lensed black hole + 131K GPU physics particles, scene 28
+make run-hyperfractal     # supplied quantum hyperfractal, native GPU scene 29
+make run-wireframe        # Impossible Wireframe show
+make run-hello            # minimal engine example
+make run-ripple           # adaptive GPU-tessellation example
+make run-atlas-reference  # CPU Atlas four-panel image -> build/atlas-reference.ppm
+make run-atlas-advanced   # CPU Atlas advanced image -> build/atlas-advanced.ppm
+```
+
+Any live Atlas scene can be selected directly:
+
+```sh
+./build/hold_infinity --infinity-scene 16  # first Atlas scene
+./build/hold_infinity --infinity-scene 25  # archived three-view study (explicit launch only)
+./build/hold_infinity --infinity-scene 26  # spectral parametric point field
+./build/hold_infinity --infinity-scene 21 --atlas-reduced-motion
+```
+
+Press **Left/Right** to change scenes, **P** to pause Atlas motion and **Q** or
+**Escape** to quit. Full Atlas controls and the scene matrix are in
+[`demos/atlas/README.md`](demos/atlas/README.md).
+
+GPU geometry: [adaptive tessellation, 30 native scenes, instanced copies, HDR and validation](docs/GPU_RENDERING.md).
+On Metal-backed OpenGL, the engine automatically bypasses geometry-shader expansion
+for compatible wires; use `--gpu-info` to inspect the selected path and live limits.
 
 ## What the engine provides
 | Feature | What you get | Where |
@@ -71,17 +117,18 @@ make run                                  # the native optical and Atlas demo
 A complete demo:
 ```cpp
 #include "Engine.hpp"
-#include <cmath>
 
 struct MyDemo : de::Demo {
+  const std::shared_ptr<const Mesh3> base = std::make_shared<const Mesh3>(geo::torus(96, 32, 1.f, .35f));
   de::Config config() const override {
     de::Config c; c.title = "My Demo"; c.version = "1.0"; c.binaryName = "ripple_demo";
     c.fxAmount = 0.4f;                                         // dial the post look down so the torus stays readable
     return c;
   }
   bool update(const de::FrameInfo& f, const de::Input& in, de::Frame& out) override {
-    out.mesh = geo::torus(48, 16, 1.f, .35f);                 // any wire mesh you like
-    for (auto& p : out.mesh.v) p.y += .2f * std::sin(p.x * 3.f + float(f.time));
+    out.retainedMesh = base;
+    out.revision = 1;                                      // upload the static mesh once
+    out.gpuWave[0] = .2f;                                  // vertex shader animates the ripple
     out.scale = 1.f + .1f * f.sync.pulse;                      // pulse on the beat
     out.ticker = "MY DEMO  -  a torus that ripples";
     return !in.pressed(de::Key::Q);                            // Q ends the demo
@@ -97,6 +144,8 @@ This exact code is `demos/ripple/main.cpp`. Register a demo with one line in `CM
 | [`demos/hello`](demos/hello/main.cpp) | `hello_demo` | The minimum: a tumbling cube-in-cube with the ticker, FX off. About 40 lines |
 | [`demos/ripple`](demos/ripple/main.cpp) | `ripple_demo` | The README example above, compiled as a real demo so the docs cannot drift |
 | [`demos/wireframe`](demos/wireframe/README.md) | `impossible_wireframe` | The flagship: 57 mathematical objects, effect recipes, logo show, art background. Uses almost every engine feature, including the golden glimmer orbit clouds ported from uber256-lab |
+| [`demos/infinity`](demos/infinity/README.md) | `hold_infinity` | Native optical scenes 0-15, GPU Atlas studies, Möbius universe, spectral point field and quantum twist lattice |
+| [`demos/atlas`](demos/atlas/README.md) | `atlas_render`, `atlas_advanced` | Standalone CPU reference renderers that write PPM images |
 
 ![Hello demo](docs/hello-demo.jpg)
 
@@ -107,9 +156,11 @@ simplest path is just:
 ```sh
 make            # configure (if needed) + build (Release, parallel)
 make test       # build + run the geometry/scroller tests
-make run        # build + launch the wireframe demo (default music, 132 bpm)
+make run        # build + launch Hold Infinity (optical + Atlas show)
+make run-atlas  # launch directly into the live GPU Atlas
 make run-hello  # launch the minimal hello demo
-make run-pulse  # wireframe demo with the CC0 Wireframe Pulse track
+make run-ripple # launch the adaptive tessellation demo
+make run-pulse  # Hold Infinity with the CC0 Wireframe Pulse track
 make diag       # dump the resolved toolchain (SDK, GLFW, SDL2, openmpt)
 make clean      # remove the build/ directory
 make reconfigure# wipe build/ and reconfigure (recover from a stale cache)
@@ -182,3 +233,12 @@ If OpenGL/GLFW are absent, CMake still builds `iw_geometry` and `geometry_tests`
 - Mesh colours and per-edge attributes.
 - Multiple meshes and instancing per frame.
 - A scripting layer for scene lists.
+
+### On-screen controls
+
+Press **H** for a responsive controls card, including the current demo’s scene controls.
+**I** shows playback, track credits, tempo source, beat settings and display resolution.
+**J** cycles hybrid → audio → clock beat response. Playback, volume and beat switches
+show brief confirmation cards; a startup hint fades away after seven seconds.
+Use `--hud` or `--help-overlay` to open a card at launch, and `--no-hints` to hide
+the startup hint. Automated frame captures stay clear unless a card is explicitly requested.

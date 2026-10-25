@@ -1,6 +1,6 @@
 # Hold Infinity — native music-directed optical demo
 
-`make run` now launches this demo. It renders the supplied optical code and four original geometry studies and eleven Atlas scenes directly through OpenGL 4.1, without the old wireframe recipes, travellers or logo cards. `make run-wireframe` opens the previous show.
+`make run` now launches this demo. It renders the supplied optical code, four original geometry studies, ten Atlas scenes and a native GPU parametric point field directly through OpenGL 4.1, without the old wireframe recipes, travellers or logo cards. `make run-wireframe` opens the previous show.
 
 ```sh
 make
@@ -40,9 +40,13 @@ Drag to orbit. Left/right select scenes; Space returns to the automatic show; Q 
 | 21 | Euclidean/H³ iris portal |
 | 22 | Euclidean ornament |
 | 23 | Causal event volume and procedural glyphs |
-| 24 | Filigree face emergence |
-| 25 | Three independent H³ viewpoints |
-| 26 | Lorentz mirror gallery, geodesic walls and reflected rays |
+| 24 | Four-dimensional Möbius universe |
+| 25 | Archived three-view H³ study (skipped by automatic and keyboard playback) |
+| 26 | Spectral parametric point field, moon companion and bouncing marker |
+| 27 | Majorana quantum twist lattice |
+| 28 | Fractal black hole, photon ring and accretion disk |
+| 29 | Quantum hyperfractal and projected 4D scaffold |
+| 30 | Lorentz mirror gallery, geodesic walls and reflected rays |
 
 ## Music direction
 
@@ -66,7 +70,7 @@ A scene lasts 32 beats (eight bars). The cut fades through black at the bar boun
 
 For example, `--instrument-state 13` uses hyperbolic, curved, spectral glass in air. `--grin-curvature F` sets the ray-lab gradient in [0,1]; otherwise it breathes with the clock and bass.
 
-The GPU pixel budget defaults to 400,000, with a third of that for the costly spectral instrument. Use `--infinity-pixels N` to choose 10,000–4,000,000. Intermediate targets retain floating point precision and bloom mipmaps; the final image upscales with linear filtering. The ray lab retains the original 512-step, checkpoint-then-fill RK4 integration and 182-row float state texture, including all seven spectral wavelengths.
+The adaptive GPU pixel ceiling defaults to 2,000,000 on Metal-backed OpenGL and 400,000 on other drivers, with a third of that for the costly spectral instrument. Metal can spend that budget on up to 1.5× linear supersampling; a nine-tap resolve preserves subpixel geometry on the display. Use `--infinity-pixels N` to choose 10,000–4,000,000. Intermediate targets retain floating point precision and bloom mipmaps; undersized targets use cubic reconstruction plus bounded, neighborhood-clamped detail recovery. The ray lab retains the original 512-step, checkpoint-then-fill RK4 integration and 182-row float state texture, including all seven spectral wavelengths.
 
 Moving glass uses two stochastic samples per frame. `--still` fixes automatic camera motion and accumulates up to 400 samples; dragging, resizing, or changing scenes clears accumulation to avoid ghosting. The full numerical ray integrator remains enabled. Resolution is capped rather than silently reducing bounce/step accuracy. Large budgets can be expensive, especially with horizon and printed layers enabled together.
 
@@ -77,7 +81,7 @@ ctest --test-dir build --output-on-failure
 python3 tools/smoke_infinity.py
 ```
 
-Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 27 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
+Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, the scene-25 playback skip, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 30 directly addressable scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the 29-scene automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
 
 [Source attribution, original archive hash and port boundaries](SOURCE.md).
 
@@ -88,7 +92,7 @@ The 1.1 renderer uses specialized optical kernels, cached immutable uniforms, ac
 
 ## Adaptive GPU budget (1.2)
 
-Normal playback now adjusts each scene's rendering resolution from completed GPU timer queries, targeting 16.67 ms of GPU work by default. It changes the pixel count, not the optical model, ray steps, bounce count or wavelength count. The ceiling remains 400,000 pixels (one third for glass); the lower bound is 25% of that scene's ceiling, or half its linear resolution. A scene's learned quality is retained separately from the other scenes.
+Normal playback now adjusts each scene's rendering resolution from completed GPU timer queries, targeting 16.67 ms of GPU work by default. It changes the pixel count, not the optical model, ray steps, bounce count or wavelength count. The platform ceiling is 2,000,000 pixels on Metal and 400,000 elsewhere (one third for glass); the lower bound is 25% of that scene's ceiling. A scene's learned quality is retained separately from the other scenes.
 
 Eight readings establish the timing estimate. A smoothed measurement, a dead band around the target, and a 30-frame cooldown prevent repeated resize chatter. Busy queries are never waited on. Without `--gpu-profile`, the feedback path stores only the latest reading and prints no timing statistics.
 
@@ -100,7 +104,7 @@ Eight readings establish the timing estimate. A smoothed measurement, a dead ban
 
 `--infinity-fps N` accepts 24–144 and sets a GPU-time target, not a hard frame-rate cap or guarantee. Explicit `--infinity-pixels N` pins the budget, making existing captures and benchmarks reproducible; put `--infinity-adaptive` after it to use that value as an adaptive ceiling. Reference mode and `--still` always bypass adaptation. Stationary accumulation therefore still reaches 400 samples without being reset by quality changes.
 
-On the development M1 Pro, a 160-frame printed-layer run reduced its pixel fraction to 0.8 and then 0.64, reporting a 17.44 ms mean GPU time across the run. This includes the higher-cost settling frames and is not an A/B speedup claim. Tests cover budget limits, recovery with headroom, stale/invalid query rejection and near-target stability. Actual GPU checks verify pinned budgets, stationary convergence, quiet ordinary playback and all 12 scenes.
+On the development M1 Pro, a 160-frame printed-layer run reduced its pixel fraction to 0.8 and then 0.64, reporting a 17.44 ms mean GPU time across the run. This includes the higher-cost settling frames and is not an A/B speedup claim. Tests cover budget limits, recovery with headroom, stale/invalid query rejection and near-target stability. Actual GPU checks verify pinned budgets, stationary convergence, quiet ordinary playback and all 30 scenes.
 
 
 ## Contrast and glare
@@ -140,7 +144,7 @@ Three additive HDR ribbon layers separate the narrow hot core, coloured inner gl
 
 ## Translational parallax (1.7)
 
-All twelve scenes now translate the camera origin in addition to orbiting it. Moving the pointer shifts the eye along camera-local right/up axes, smoothly and independently of frame rate. A small 64-beat horizontal/depth dolly and vertical figure-eight make parallax visible during unattended playback. Near geometry shifts more than distant geometry through the actual perspective projection; no flat image displacement is applied.
+All 31 scenes now translate the camera origin in addition to orbiting it. Moving the pointer shifts the eye along camera-local right/up axes, smoothly and independently of frame rate. A small 64-beat horizontal/depth dolly and vertical figure-eight make parallax visible during unattended playback. Near geometry shifts more than distant geometry through the actual perspective projection; no flat image displacement is applied.
 
 Chamber and refractive scenes trace from the translated world-space origin. Dimensional lights subtract the same camera-local offset before perspective projection. Mouse drag still orbits. Leaving the window smoothly recenters the pointer contribution. `--still` disables pointer translation and automatic dolly to preserve accumulation. `--infinity-eye X Y` pins a normalized eye offset in [-1,1] and disables automatic dolly, useful for reproducible left/right comparisons; combine with `--still` for stationary glass accumulation.
 
@@ -226,11 +230,44 @@ Headless checks verify disk-circle orthogonality, three-polygon vertex angles, d
 
 ## DMT Atlas integration
 
-Scenes 16–26 port the supplied v0.3 Atlas archive and extend its concrete rendering roadmap. See the [feature matrix, controls, geometry conventions, validation and research boundaries](../atlas/README.md). P pauses Atlas animation; `--atlas-reduced-motion`, `--atlas-exposure` and `--atlas-flash-gain` control the new effects. Original source bytes and hashes are preserved separately from the production derivatives.
+Scenes 16–23 port the supplied v0.3 Atlas archive into live playback and extend its concrete rendering roadmap. Their objects now sit over a parallax star field, folded nebula veil and beat-propagated spectral wave. The figurative face-emergence scene and three-view scene are removed from live playback; scene 25 remains directly addressable for archival comparison. See the [feature matrix, controls, geometry conventions, validation and research boundaries](../atlas/README.md). P pauses Atlas animation; `--atlas-reduced-motion`, `--atlas-exposure` and `--atlas-flash-gain` control the Atlas effects. Original source bytes and hashes are preserved separately from the production derivatives.
+
+## Möbius universe and quantum lattice
+
+Scene 24 replaces the retired face effect with the supplied four-dimensional Möbius
+universe. A 320 × 80 procedural grid emits 153,600 triangle vertices for the double-loop
+strip, including its fourth-coordinate height, analytic normals, animated micro-displacement
+and parameter-space woven metal/Fresnel detail. A second procedural draw adds 55,296 singularity, horizon, star,
+debris and surface-flow particles. The full scene uses GPU temporal persistence and bloom;
+an M1 Pro measured 4.639 ms average and 6.446 ms p95 at the 400,000-pixel budget.
+
+Scene 27 ports the supplied advanced quantum-fractal point equation as a volumetric field,
+then adds paired twist braids, eight alternating orbital nodes and a temperature-varied star
+shell. Metal-backed OpenGL uses six delayed instances for 610,304 vertex invocations each
+frame. Bass changes volume, mid energy winds the braids, treble activates the star shell and
+beat attacks travel through the node pairs. An M1 Pro measured 4.913 ms average and 7.039 ms
+p95 at the same budget. Both scenes generate all geometry from `gl_VertexID`, with zero
+streaming geometry uploads. [Port boundaries and source hashes](../cosmic/SOURCE.md).
+
+Scene 28 is a bounded gravitational ray field derived from the supplied advanced fractal
+black-hole study. Ninety-six adaptive fragment steps integrate curvature per travelled
+distance around a dark event horizon. Exact segment/plane crossings and a thin volumetric
+layer form the tilted accretion disk, with orbital Doppler color, spiral density, absorption,
+polar jets, caustic photon rings and a two-layer filtered starfield. World-space camera
+translation supplies real parallax. Bass energizes the disk, mid energy changes its spiral
+turbulence, treble wakes distant stars and lens arcs, and beat attacks strike the photon
+ring. [Low-level findings, limits and measurements](BLACK_HOLE_AUDIT.md).
+
+Scene 29 moves the supplied hyperfractal's four-component probabilistic recurrence entirely
+onto the GPU. Each of 65,536 seeds executes 28 deterministic sine/product iterations per
+phase layer; Metal runs six layers plus a 16,384-point projected tesseract and star shell,
+for 417,792 vertex invocations with zero streaming geometry uploads. The fourth coordinate
+controls perspective and hue while music changes branch balance, rotation and emission. An
+M1 Pro measured 5.155 ms average and 7.271 ms p95 at the same pixel budget.
 
 ## Rendering refinement (4.1)
 
-All 27 scenes share a half-resolution RGBA16F highlight pyramid: soft-knee extraction, weighted downsampling, GPU mip generation and explicit-LOD composition. Bloom adds a restrained halo without raising black input. `--no-optical-bloom` disables this pass for A/B measurements. GPU timing includes the new passes, so the existing adaptive pixel governor accounts for their cost.
+All 31 scenes share a half-resolution RGBA16F highlight pyramid: soft-knee extraction, weighted downsampling, GPU mip generation and explicit-LOD composition. Bloom adds a restrained halo without raising black input. `--no-optical-bloom` disables this pass for A/B measurements. GPU timing includes the new passes, so the existing adaptive pixel governor accounts for their cost.
 
 Audio bands use frame-independent exponential attack/release smoothing. Beat attacks retain their phase-locked clock; smooth envelopes supply the sustained motion. Atlas motion now handles backward seeks, pause/resume and a consistent 12% reduced-motion rate. Sphere radii and 4D section extents breathe geometrically, with conservative hierarchy padding for the maximum radius.
 
@@ -238,6 +275,46 @@ The H³ renderer uses finite point-light geodesics for occlusion and local-rest-
 
 `--infinity-orbit YAW PITCH` sets a reproducible initial view in radians (yaw ±π, pitch ±1.2). This is useful for inspecting actual relief and comparing landscape, portrait and grazing-angle renders. All changes remain within OpenGL 4.1; no compute-shader support is required.
 
-## GPU geometry (4.2)
+## Parametric point field (4.2)
 
-The Atlas geometry cache and vertex-stage hypercube projection reduce repeated per-pixel work. `--atlas-uncached` provides an isolated comparison; `--atlas-edge-raster` opts into the experimental instanced geometry-shader backend. Scene 26 adds exact geodesic planes and Lorentz reflections. See the [implementation details and measured limitations](../atlas/README.md#42-gpu-geometry-and-3d-expansion). The public show now contains 27 scenes.
+Scene 26 ports the supplied browser experiment's four phase-shifted parametric lobes,
+spectral point colour, moon-like companion and falling marker, then adds six orbital light
+guides, a three-dimensional temperature-varied star shell and a spiral dust volume. The
+103,044-point base composition is synthesized from `gl_VertexID`; no position buffer is
+rebuilt or uploaded per frame. On Metal-backed OpenGL, six instanced phase echoes produce
+477,464 vertex invocations without a geometry shader; other drivers use two echoes by
+default.
+
+Analytic parametric derivatives give the central field a stable curved normal, including a
+bounded fallback at its singular poles. Per-particle micro-sphere shading separates crystal,
+translucent membrane, cratered stone, hot ember, brushed orbital metal, stellar and dust
+materials. Depth fog, Fresnel edges, caustics, anisotropic highlights and star flares provide
+spatial cues without textures. Two slow narrative envelopes move the palette between cool
+wonder and warm tension while the faster audio envelopes retain precise musical response:
+bass breathes the shell and dust, mid energy twists the echoes and orbit guides, treble wakes
+the stars, and beat attacks send a brief warm highlight through the field.
+
+A GPU ping-pong pass rotates, expands and decays prior HDR light for curved,
+resolution-independent chromatic persistence. It bounds retained radiance before the shared
+highlight pyramid, keeping long trails finite while preserving bright detail.
+
+Mouse orbit, translated parallax, adaptive resolution, fixed-step capture and finite-HDR
+validation work through the existing native host. A 360-frame, 400,000-pixel M1 Pro run at
+an oblique orbit measured 5.856 ms average and 7.410 ms p95 GPU time for the denser field,
+material shading, temporal pass, bloom and final composition. [Port boundary and source
+hashes](../aviation/SOURCE.md).
+
+## Cinematic composition and flow (4.4)
+
+The 3D renderers now share a bounded 128-flow-unit camera phrase instead of maintaining unrelated sine motions. Integer harmonics keep position and velocity continuous at the phrase boundary; a golden-angle scene offset gives each composition a distinct starting view. Orbit, camera-local parallax and a restrained dolly move together, while manual pointer motion remains additive. Still mode freezes the entire phrase deterministically.
+
+The flow stays within tested yaw, pitch, eye-offset and distance limits and sanitizes non-finite clock/audio input. World sheets, dimensional ray ribbons, all Atlas scenes and the imported cosmic scenes use the same director. The HDR compositor adds a subtle elliptical focus falloff and luminance-dependent cool-shadow/warm-highlight separation while preserving exact black input. Möbius stars, debris and surface-flow particles increase to 55,296; the quantum and hyperfractal backgrounds each gain 4,096 additional depth objects. On the M1 Pro, representative 2-million-pixel scenes remained between 10.188 and 12.820 ms average in 90-frame runs.
+## Shared beat and music controls
+
+All scenes use the engine’s shared beat pulse and exposure-flash envelopes. Use `--pulse-amount`, `--flash-amount`, `--beat-division`, `--beat-decay` and `--beat-offset`; E/F toggle pulse/flash. Music presets, folder playlists, shuffle, pause and volume are described in [Music and beats](../../docs/MUSIC_AND_BEATS.md). The default playlist now includes Silicon Dancer and Wireframe Pulse as well as the original two tracks. Atlas reduced-motion and pause modes suppress the new composition flash.
+
+The CC0 variety pack adds melodic EDM, drum and bass, dark jazz and ambient synth. Use `--music-preset new`, or select `edm`, `dnb`, `jazz` or `ambient`. The default hybrid beat source combines the tempo grid with real musical attacks; `--beat-source audio` follows attacks alone. See [music provenance](../wireframe/assets/music/README.md) for original sources and checksum verification.
+
+## GPU geometry (4.3)
+
+The Atlas geometry cache and vertex-stage hypercube projection reduce repeated per-pixel work. `--atlas-uncached` provides an isolated comparison; `--atlas-edge-raster` opts into the experimental instanced geometry-shader backend. Scene 30 adds exact geodesic planes and Lorentz reflections. See the [implementation details and measured limitations](../atlas/README.md#43-gpu-geometry-and-3d-expansion). The public show now contains 31 scenes.

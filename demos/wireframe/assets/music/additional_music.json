@@ -1,0 +1,65 @@
+{
+  "fetched": "2026-10-24",
+  "tracks": [
+    {
+      "id": "edm",
+      "filename": "fupi_melodic_edm.wav",
+      "title": "Melodic EDM",
+      "artist": "Fupi",
+      "genre": "melodic EDM",
+      "bpm": 140,
+      "source": "https://opengameart.org/content/melodic-edm-loops",
+      "url": "https://opengameart.org/sites/default/files/melodicedm.wav",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sha256": "4a27cb0dbf827583594f33eb33d9ae7c3b271cac890ca13353261391bf64a041",
+      "bytes": 1212898,
+      "modified": false
+    },
+    {
+      "id": "dnb",
+      "filename": "joth_black_diamond.mp3",
+      "title": "Black Diamond",
+      "artist": "Joth",
+      "genre": "drum and bass",
+      "bpm": 143,
+      "source": "https://opengameart.org/content/black-diamond",
+      "url": "https://opengameart.org/sites/default/files/Black%20Diamond.mp3",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sha256": "9fd1c9a97740411e7dcaebdc9af17ab017cf070a82089a48503765a24b7bedf4",
+      "bytes": 4033222,
+      "modified": false
+    },
+    {
+      "id": "jazz",
+      "filename": "ruskerdax_moil.mp3",
+      "title": "Moil",
+      "artist": "Ruskerdax",
+      "genre": "dark jazz",
+      "bpm": 0,
+      "source": "https://opengameart.org/content/moil",
+      "url": "https://opengameart.org/sites/default/files/ruskerdax_-_moil.mp3",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sha256": "d496edafbca02a2a84ae1150e11b2e4d46b8a15e2ee081a676d1ae3ce996dc25",
+      "bytes": 7403151,
+      "modified": false
+    },
+    {
+      "id": "ambient",
+      "filename": "cynicmusic_synthwave_15k.mp3",
+      "title": "Synthwave 15k",
+      "artist": "The Cynic Project / cynicmusic",
+      "genre": "ambient synth",
+      "bpm": 0,
+      "source": "https://opengameart.org/content/calm-ambient-2-synthwave-15k",
+      "url": "https://opengameart.org/sites/default/files/002_Synthwave_15k.mp3",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sha256": "8795429283315a6fd3249ea09a940158960ff7c40643a95fc3f7455f29db275f",
+      "bytes": 8328872,
+      "modified": false
+    }
+  ]
+}

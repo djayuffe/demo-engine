@@ -1,6 +1,8 @@
 #pragma once
 #include "BackgroundStyle.hpp"
 #include "Geometry.hpp"
+#include "Effects.hpp"
+#include "BeatResponse.hpp"
 #include "SpecialFx.hpp"
 #include "Bloom.hpp"
 #include "ArtPass.hpp"
@@ -12,12 +14,38 @@
 struct GLFWwindow;
 class Renderer {
 public:
+  struct UploadStats {
+    size_t vertices=0, indices=0, bytes=0;
+    size_t textUpdates=0, textBytes=0;
+  };
+  struct GpuInfo {
+    std::string vendor, renderer, version, shadingLanguage;
+    int maxTextureSize=0, maxRenderbufferSize=0, maxViewportWidth=0, maxViewportHeight=0;
+    int maxTessellationLevel=0, maxTextureUnits=0;
+    bool metalBacked=false;
+  };
+  struct GpuTiming {
+    size_t samples=0;
+    double totalMs=0, peakMs=0;
+    double averageMs() const { return samples ? totalMs / double(samples) : 0; }
+  };
+  const UploadStats& uploadStats() const { return uploadStats_; }
+  const GpuInfo& gpuInfo() const { return gpuInfo_; }
+  std::string gpuDescription(bool detailed=false) const;
+  // -1 selects the driver-aware default, 0 disables tessellation, and 1..64 caps adaptive segments.
+  void setTessellationLimit(int segments) { requestedTessellationLimit_ = std::clamp(segments, -1, 64); }
+  int tessellationLimit() const { return tessellationLimit_; }
+  bool tessellationAvailable() const { return tessProgram_ != 0; }
+  void setGpuTiming(bool enabled) { gpuTimingEnabled_ = enabled; }
+  const GpuTiming& gpuTiming() const { return gpuTiming_; }
   bool init(GLFWwindow* w, const std::string& shaderDir = "shaders");
   bool upload(const Mesh3& m);
   bool draw(float time, int width, int height, float aspect, int sceneIndex = 0, float scale = 1.f,
             float lineWidth = 1.f, float musicLevel = 0.f);
   // Fullscreen beat-synced text marquee (scene name + provenance).
   bool drawScroller(float time, float beatPhase, int width, int height, const char* text, float musicLevel = 0.f);
+  // Static, responsive control/status card, rendered with the resident GPU font.
+  bool drawOverlay(int width, int height, const std::string& text, float opacity = 1.f);
   // Logo background: load the UBER_*_1920x1080.jpg cards from a directory.
   bool loadLogos(const std::string& dir);
   // Runtime switches: the logo cards and the procedural background can each be turned off, leaving the
@@ -78,6 +106,9 @@ public:
   // Wire look: 0 = the default electric palette, 1 = golden glimmer (no depth test, so orbit clouds
   // accumulate light additively; gold twinkle in wire.frag; gold cross glints in post.frag).
   void setWireStyle(int s) { wireStyle_ = std::clamp(s, 0, 1); }
+  void setBeatDrive(const rhythm::Drive& beat) { beat_ = beat; }
+  void setGpuWave(const float wave[4]) { std::copy(wave, wave + 4, gpuWave_); }
+  void setGpuEffect(const GpuDeformation& effect) { gpuEffect_ = effect; }
   // Model-space transform applied to the wireframe and travelers before the camera: a row-major 3x3
   // (identity by default). The noncommutative-camera effect drives it with products of shears.
   void setModelTransform(const float m3[9]) { std::copy(m3, m3 + 9, modelShear_); }
@@ -93,6 +124,19 @@ public:
   const std::string& error() const { return error_; }
 
 private:
+  bool drawText(float time, float phase, int width, int height, const char* text, float music,
+                bool panel, float opacity);
+  int uScPanel_ = -1;
+  UploadStats uploadStats_;
+  GpuInfo gpuInfo_;
+  rhythm::Drive beat_;
+  int uPostBeatDrive_=-1, uTravelerBeat_=-1;
+  void bindWireProgram();
+  void drawWireMesh();
+  void beginGpuTimer();
+  void endGpuTimer();
+  unsigned tessProgram_ = 0, activeWireProgram_ = 0;
+  int requestedTessellationLimit_ = -1, tessellationLimit_ = 0;
   float setWireWidth(float lineWidth, float music) const;   // returns the effective width in pixels
   void cameraMvp(float t, float aspect, float scale, float musicLevel, float* M) const;
   bool createGl(const std::string& shaderDir);
@@ -102,11 +146,18 @@ private:
   bool initBackground(const std::string& shaderDir);
   bool initTravelers(const std::string& shaderDir);
   unsigned vao_ = 0, vbo_ = 0, ebo_ = 0, program_ = 0, postProgram_ = 0, postVao_ = 0, postVbo_ = 0, hdrFbo_ = 0,
-           hdrTex_ = 0, depthRbo_ = 0, scrollerProgram_ = 0, scrollerVao_ = 0, scrollerVbo_ = 0, bgProgram_ = 0,
+           hdrTex_ = 0, depthRbo_ = 0, blackTex_ = 0, scrollerProgram_ = 0, scrollerVao_ = 0, scrollerVbo_ = 0, bgProgram_ = 0,
            bgVao_ = 0, bgVbo_ = 0, bgTexA_ = 0, bgTexB_ = 0, travelerProgram_ = 0, travelerVao_ = 0, travelerVbo_ = 0,
            travelerEbo_ = 0;
   int edgeCount_ = 0, hdrW_ = 0, hdrH_ = 0;
   size_t vboCapacity_ = 0, eboCapacity_ = 0;
+  std::vector<Edge> uploadedEdges_;
+  std::vector<V3> uploadedVertices_;
+  GpuDeformation gpuEffect_;
+  int uGpuEffect_=-1, uGpuCenter_=-1, uGpuSeed_=-1;
+  void submitGpuEffect();
+  float gpuWave_[4] = {0, 3, 1, 0};
+  int uGpuWave_ = -1;
   int uMVP_ = -1, uTime_ = -1, uColor_ = -1, uGain_ = -1, uMusicLevel_ = -1, uPostScene_ = -1, uPostTime_ = -1,
       uPostResolution_ = -1, uPostMusic_ = -1, uPostBpm_ = -1, uPostBypass_ = -1, uPostHasLogo_ = -1,
       uPostLogoVis_ = -1, uPostFx_ = -1;
@@ -114,6 +165,7 @@ private:
       uScCodes_ = -1, uScCount_ = -1, uScOpacity_ = -1;
   unsigned scrollerFontTex_ = 0, scrollerCodesTex_ = 0;
   int scrollerCodesTexW_ = 0;
+  std::vector<unsigned char> scrollerCodesCache_;
   int travelerEdgeCount_ = 0;
   int uBgMix_ = -1, uBgZoom_ = -1, uBgAspect_ = -1, uBgTexAspect_ = -1, uBgOp_ = -1, uBgTime_ = -1, uBgMusic_ = -1,
       uBgTexA_ = -1, uBgTexB_ = -1;
@@ -141,12 +193,17 @@ private:
   SpecialFx fx_;
   Bloom bloom_;
   bool wideWires_ = false;
-  int uViewport_ = -1, uWidthPx_ = -1;
+  int uViewport_ = -1, uWidthPx_ = -1, uTessMax_ = -1;
   LookFx lookFx_;
   LookFx::Amounts look_;
   bool lookOk_ = false;
   int uPostBloom_ = -1;
   bool bloomOk_ = false;
+  struct TimerSlot { unsigned id=0; bool pending=false; };
+  TimerSlot timer_[8]{};
+  int timerCursor_=0, timerWarmup_=0;
+  bool gpuTimingEnabled_=false, gpuTimerActive_=false;
+  GpuTiming gpuTiming_;
   float modelShear_[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   float temporalAmt_ = 0.f, memoryAmt_ = 0.f;
   std::string error_;

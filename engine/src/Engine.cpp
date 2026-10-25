@@ -16,6 +16,7 @@
 #include "AdaptiveRes.hpp"
 #include "Director.hpp"
 #include "ShowOptions.hpp"
+#include "MusicOptions.hpp"
 #include "BackgroundStyle.hpp"
 #include "RenderScale.hpp"
 #include "Renderer.hpp"
@@ -101,15 +102,19 @@ int run(Demo& demo, int argc, char** argv) {
   double bpm = cfg.defaultBpm;
   bool bpmGiven = false;
   std::vector<fs::path> musicPaths;
+  musicopt::Options musicOptions;
   fs::path logoOverride;
   showopt::ShowOptions so;   // backgrounds, depth, gloss, pointer, clock, music start
   so.startTrack = std::max(0, cfg.defaultTrack);
+  bool hud = false, helpOverlay = false, hints = true;
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
   bool noTicker = false, noPost = false, silent = false;
   double quality = 1.0;
   bool qualityGiven = false;
   int winW = 0, winH = 0;
   bool fullscreen = false;
+  int tessellationLimit = -1;
+  bool gpuInfo = false;
   std::string screenshotPath;
   int maxFrames = 0;
   bool vsync = true, showStats = false;
@@ -118,7 +123,25 @@ int run(Demo& demo, int argc, char** argv) {
                  "%s %s\n"
                  "Usage: %s [options]\n"
                  "  --bpm N         Tempo (default: the module's own tempo, else %g)\n"
-                 "  --music PATH    Module or WAV to play; repeat for a playlist\n"
+                 "  --music PATH    Music file; repeat for a playlist (tracker/WAV, optional FLAC/OGG/MP3)\n"
+                 "  --music-preset P stars|rendezvous|silicon|pulse|edm|dnb|jazz|ambient|new|all\n"
+                 "  --music-dir DIR Add supported files from a folder, sorted by name\n"
+                 "  --shuffle       Shuffle playlist (reproducible default seed 0)\n"
+                 "  --shuffle-seed N Shuffle with unsigned 32-bit seed N\n"
+                 "  --volume F      Output volume 0..2 (default 1; [ / ] adjust)\n"
+                 "  --music-paused  Start playback paused (U toggles)\n"
+                 "  --list-music    Print the resolved playlist without opening a window\n"
+                 "  --beat-source S hybrid|audio|clock (default hybrid; actual musical attacks)\n"
+                 "  --pulse-amount F Beat pulse strength 0..2 (default 1; E toggles)\n"
+                 "  --flash-amount F Beat flash strength 0..2 (default .65; F toggles)\n"
+                 "  --beat-division N Pulses per beat: 1, 2 or 4 (default 1)\n"
+                 "  --beat-decay F  Pulse decay 2..30 (default 9)\n"
+                 "  --beat-offset S Beat attack offset in seconds -2..2 (default 0)\n"
+                 "  --no-flash      Disable beat exposure flashes\n"
+                 "  --no-pulse      Disable beat pulse modulation\n"
+                 "  --hud           Show playback, beat and rendering status (I toggles)\n"
+                 "  --help-overlay  Show the on-screen controls (H toggles)\n"
+                 "  --no-hints      Hide the brief startup controls hint\n"
                  "  --silent        Disable audio playback; use the BPM clock\n"
                  "  --no-ticker     Start with the text ticker off (toggle with T)\n"
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
@@ -135,6 +158,9 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --no-depth      Start with the depth-mote layer off (toggle with D)\n"
                  "  --no-logo       Start with the logo cards off (toggle with L)\n"
                  "  --quality F     Render the HDR target at F of screen resolution (0.25-1.0)\n"
+                 "  --tessellation N Adaptive wire segments 1..64; 0 disables (default: driver-aware)\n"
+                 "  --no-tessellation Disable tessellated wire ribbons\n"
+                 "  --gpu-info      Print detailed OpenGL/Metal capabilities\n"
                  "  --logos DIR     Directory of *_1920x1080.jpg logo cards\n"
                  "  --window WxH    Initial window size (320x200 .. 3840x2160, default 1440x900)\n"
                  "  --fullscreen    Full-screen on the primary monitor (overrides --window)\n"
@@ -145,7 +171,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --version       Print version and exit\n"
                  "  -h, --help      Show this help\n"
                  "%s"
-                 "Keys: T ticker, B background, V background style, D depth layer, O gloss, F1-F12 background objects, G effects parallax, K background parallax, S next track, C capture PNG, H key list, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
+                 "Keys: E beat pulse, F beat flash, U music pause, [/] volume, T ticker, B background, V background style, D depth layer, O gloss, F1-F12 background objects, G effects parallax, K background parallax, S next track, C capture PNG, H controls, I status, J beat source, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
                  cfg.title.c_str(), cfg.version.c_str(), cfg.binaryName.c_str(), cfg.defaultBpm, demo.usage().c_str());
   };
   for (int i = 1; i < argc; i++) {
@@ -160,6 +186,12 @@ int run(Demo& demo, int argc, char** argv) {
       }
       if (pr == showopt::Result::Ok) continue;
     }
+    {
+      std::string error;
+      const auto parsed = musicopt::parse(i, argc, argv, musicOptions, error);
+      if (parsed == showopt::Result::Error) { std::fprintf(stderr, "%s\n", error.c_str()); return 2; }
+      if (parsed == showopt::Result::Ok) continue;
+    }
     if (arg == "--bpm" && i + 1 < argc) {
       double v = 0;
       if (!showopt::number(argv[++i], v)) {
@@ -168,8 +200,9 @@ int run(Demo& demo, int argc, char** argv) {
       }
       bpm = std::max(1.0, v);
       bpmGiven = true;
-    } else if (arg == "--music" && i + 1 < argc)
-      musicPaths.push_back(argv[++i]); // repeat for a playlist
+    } else if (arg == "--hud") hud = true;
+    else if (arg == "--help-overlay") helpOverlay = true;
+    else if (arg == "--no-hints") hints = false;
     else if (arg == "--no-ticker" || arg == "--no-scroller")
       noTicker = true;
     else if (arg == "--no-post")
@@ -183,7 +216,19 @@ int run(Demo& demo, int argc, char** argv) {
       }
       quality = std::clamp(v, 0.25, 1.0);
       qualityGiven = true;
-    } else if (arg == "--logos" && i + 1 < argc)
+    } else if (arg == "--tessellation" && i + 1 < argc) {
+      char* end = nullptr;
+      const long value = std::strtol(argv[++i], &end, 10);
+      if (!end || *end || value < 0 || value > 64) {
+        std::fprintf(stderr, "--tessellation: expected an integer in 0..64\n");
+        return 2;
+      }
+      tessellationLimit = int(value);
+    } else if (arg == "--no-tessellation")
+      tessellationLimit = 0;
+    else if (arg == "--gpu-info")
+      gpuInfo = true;
+    else if (arg == "--logos" && i + 1 < argc)
       logoOverride = argv[++i];
     else if (arg == "--window" && i + 1 < argc) {
       std::string werr;
@@ -220,16 +265,43 @@ int run(Demo& demo, int argc, char** argv) {
 
   const fs::path exe = executablePath();
   const fs::path exeDir = exe.has_parent_path() ? exe.parent_path() : fs::path();
-  if (!silent && musicPaths.empty()) {
-    for (auto& m : cfg.musicFiles) {
-      for (auto& c : assetCandidates(m, exeDir)) {
-        std::error_code ec;
-        if (fs::exists(c, ec)) {
-          musicPaths.push_back(c);
-          break;
-        }
+  musicPaths = musicOptions.files;
+  for (auto& path : musicPaths) {
+    for (const auto& candidate : assetCandidates(path.string(), exeDir)) {
+      std::error_code error;
+      if (fs::is_regular_file(candidate, error)) { path = candidate; break; }
+    }
+  }
+  for (const auto& directory : musicOptions.directories) {
+    std::error_code error;
+    fs::directory_iterator it(directory, error), end;
+    if (error) { std::fprintf(stderr, "music folder: %s\n", error.message().c_str()); return 2; }
+    std::vector<fs::path> found;
+    for (; it != end && !error; it.increment(error)) {
+      if (it->is_regular_file(error) && musicopt::supported(it->path())) found.push_back(it->path());
+    }
+    if (error) { std::fprintf(stderr, "music folder: %s\n", error.message().c_str()); return 2; }
+    std::sort(found.begin(), found.end());
+    musicPaths.insert(musicPaths.end(), found.begin(), found.end());
+  }
+  if (musicOptions.explicitSelection && musicPaths.empty()) {
+    std::fprintf(stderr, "No supported music files selected\n"); return 2;
+  }
+  if (!musicOptions.explicitSelection && (!silent || musicOptions.list)) {
+    for (const auto& name : cfg.musicFiles) {
+      for (const auto& candidate : assetCandidates(name, exeDir)) {
+        std::error_code error;
+        if (fs::is_regular_file(candidate, error)) { musicPaths.push_back(candidate); break; }
       }
     }
+  }
+  if (musicOptions.explicitSelection && !so.trackGiven) so.startTrack = 0;
+  if (musicOptions.shuffle) musicopt::shuffle(musicPaths, musicOptions.seed);
+  if (musicOptions.list) {
+    for (size_t i = 0; i < musicPaths.size(); ++i)
+      std::printf("music %zu/%zu: %s\n", i + 1, musicPaths.size(), musicPaths[i].string().c_str());
+    std::printf("Additional PCM formats: %s\n", AudioPlayer::extendedFormats() ? "libsndfile enabled" : "unavailable (optional libsndfile)");
+    return 0;
   }
 
   if (!glfwInit()) {
@@ -278,14 +350,17 @@ int run(Demo& demo, int argc, char** argv) {
 #if defined(IW_HAS_AUDIO)
   if (!silent && SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) std::fprintf(stderr, "SDL audio init failed: %s\n", SDL_GetError());
 #endif
+  audio.setVolume(musicOptions.volume);
+  audio.setPaused(musicOptions.paused);
   if (so.startTrack > 0) audio.startAt(so.startTrack);
   if (!silent && !musicPaths.empty() && audio.open(musicPaths)) {
     // Lock the visuals to the selected starting module unless --bpm was given.
     const int startingTrack = so.startTrack % audio.trackCount();
     if (!bpmGiven && audio.nativeBpm(startingTrack) > 0) bpm = audio.nativeBpm(startingTrack);
     for (int i = 0; i < audio.trackCount(); ++i)
-      std::fprintf(stdout, "music %d/%d: %s (%.0f BPM)\n", i + 1, audio.trackCount(),
-                   audio.trackPath(i).string().c_str(), audio.nativeBpm(i) > 0 ? audio.nativeBpm(i) : bpm);
+      std::fprintf(stdout, "music %d/%d: %s (%.1f BPM, %s)\n", i + 1, audio.trackCount(),
+                   audio.trackPath(i).string().c_str(), audio.nativeBpm(i) > 0 ? audio.nativeBpm(i) : bpm,
+                   audio.tempoSource(i));
   }
 
   std::string shaderDir = cfg.shaderDir.empty() ? "shaders" : cfg.shaderDir;
@@ -304,12 +379,15 @@ int run(Demo& demo, int argc, char** argv) {
     glfwTerminate();
   };
   Renderer r;
+  r.setTessellationLimit(tessellationLimit);
   if (!r.init(w, shaderDir)) {
     std::fprintf(stderr, "Renderer init failed: %s\n", r.error().c_str());
     cleanup(nullptr);
     return 3;
   }
+  std::fprintf(stdout, "GPU: %s\n", r.gpuDescription(gpuInfo).c_str());
   r.setRenderScale(float(quality));
+  r.setGpuTiming(showStats);
   // Default: cap the HDR target to a pixel budget (Retina/4K); an explicit --quality means "exactly this".
   r.setMaxHdrPixels(qualityGiven ? 0.0 : rscale::kDefaultBudget);
   r.setPostEnabled(!noPost);
@@ -353,7 +431,7 @@ int run(Demo& demo, int argc, char** argv) {
   RunInfo ri;
   ri.bpm = bpm;
   ri.executableDir = exeDir.string();
-  ri.musicPath = audio.state().active ? audio.trackPath(0).string() : std::string();
+  ri.musicPath = audio.state().active ? audio.trackPath(so.startTrack % audio.trackCount()).string() : std::string();
   int lastTrack = -1;
   if (!demo.init(ri)) {
     std::fprintf(stderr, "demo init failed\n");
@@ -362,13 +440,21 @@ int run(Demo& demo, int argc, char** argv) {
   }
 
   Timeline timeline(bpm);
+  float savedFlash = so.rhythm.flash > 0 ? so.rhythm.flash : .65f;
+  float savedPulse = so.rhythm.pulse > 0 ? so.rhythm.pulse : 1.f;
   Input input;
   Frame frame;
   uint64_t lastRevision = 0;
   bool haveUpload = false;
   float lastRadius = .1f;
+  double cpuTotalMs = 0, cpuPeakMs = 0;
+  size_t cpuFrames = 0, gpuEffectFrames = 0, gpuEffectVertices = 0;
+  size_t onsetFrames=0;float onsetPeak=0;
   bool tickerOn = !noTicker, shotTaken = false;
   int frameCount = 0;
+  double toastUntil = -1;
+  std::string toast;
+  const double uiStart = glfwGetTime();
   double lastNow = so.fixedStep > 0 ? 1.0 - so.fixedStep : glfwGetTime();
   int exitCode = 0;
   while (!glfwWindowShouldClose(w) && !g_shutdown.load()) {
@@ -381,15 +467,17 @@ int run(Demo& demo, int argc, char** argv) {
     const double now = so.fixedStep > 0 ? 1.0 + frameCount * so.fixedStep : glfwGetTime();
     const MusicState music = audio.state();
     const double showTime = (music.active && so.fixedStep <= 0) ? music.seconds : now;
-    // A new playlist track: lock to its tempo without a jump in the beat count.
-    if (music.active && music.track >= 0 && music.track != lastTrack) {
-      lastTrack = music.track;
-      if (!bpmGiven && audio.nativeBpm(lastTrack) > 0) {
-        bpm = audio.nativeBpm(lastTrack);
+    // Tempo changes preserve beat position, including changes within a tracker module.
+    if (music.active && !bpmGiven) {
+      const double native = music.nativeBpm > 0 ? music.nativeBpm : audio.nativeBpm(std::max(0, music.track));
+      if (native > 0 && std::abs(native - bpm) > .001) {
+        bpm = native;
         timeline.retempo(showTime, bpm);
       }
-      std::fprintf(stdout, "music: now playing %s (%.0f BPM)\n", audio.trackPath(lastTrack).filename().string().c_str(),
-                   bpm);
+    }
+    if (music.active && music.track >= 0 && music.track != lastTrack) {
+      lastTrack = music.track;
+      std::fprintf(stdout, "music: now playing %s (%.0f BPM)\n", audio.trackPath(lastTrack).filename().string().c_str(), bpm);
     }
     FrameInfo fi;
     fi.time = showTime;
@@ -404,7 +492,17 @@ int run(Demo& demo, int argc, char** argv) {
     fi.bpm = bpm;
     fi.music = music;
     fi.sync = timeline.sample(fi.time);
-    fi.sync.pulse = std::max(fi.sync.pulse, music.level);
+    fi.effectTime = fi.sync.beat * .5;
+    fi.beat = rhythm::sample(fi.sync.beat, bpm, music.active, music.bass, so.rhythm);
+    // Fixed-step captures use only the deterministic grid, never live callback timing.
+    if (so.fixedStep<=0) {
+      fi.beat=rhythm::withAudio(fi.beat,music.active,music.onset,music.tempoConfidence,so.rhythm);
+      if(music.active && so.rhythm.source!=rhythm::Source::Clock) {
+        if(music.onset>.1f)++onsetFrames;
+        onsetPeak=std::max(onsetPeak,music.onset);
+      }
+    }
+    fi.sync.pulse = fi.beat.pulse;
     int W, H;
     glfwGetFramebufferSize(w, &W, &H);
     if (W <= 0 || H <= 0) {
@@ -414,6 +512,36 @@ int run(Demo& demo, int argc, char** argv) {
     fi.width = W;
     fi.height = H;
     input.poll(w);
+    const double uiNow = glfwGetTime();
+    const auto notify = [&](const std::string& message) { toast = message; toastUntil = uiNow + 2.5; };
+    if (input.pressed(GLFW_KEY_I)) hud = !hud;
+    if (input.pressed(GLFW_KEY_J)) {
+      so.rhythm.source = so.rhythm.source == rhythm::Source::Hybrid ? rhythm::Source::Audio :
+                         so.rhythm.source == rhythm::Source::Audio ? rhythm::Source::Clock : rhythm::Source::Hybrid;
+      notify(std::string("BEAT SOURCE / ") + rhythm::name(so.rhythm.source));
+    }
+    if (input.pressed(Key::U)) {
+      audio.setPaused(!audio.paused());
+      notify(audio.paused() ? "PLAYBACK PAUSED / U TO RESUME" : "PLAYBACK RESUMED");
+      std::printf("music: %s\n", audio.paused() ? "paused" : "resumed");
+    }
+    if (input.pressed(91) || input.pressed(93)) {
+      audio.setVolume(audio.volume() + (input.pressed(93) ? .1f : -.1f));
+      notify("VOLUME / " + std::to_string(int(std::lround(audio.volume() * 100))) + "%");
+      std::printf("music volume: %.1f\n", audio.volume());
+    }
+    if (input.pressed(Key::F)) {
+      if (so.rhythm.flash > 0) { savedFlash = so.rhythm.flash; so.rhythm.flash = 0; }
+      else so.rhythm.flash = savedFlash;
+      notify(so.rhythm.flash > 0 ? "BEAT FLASH ON" : "BEAT FLASH OFF");
+      std::printf("beat flash: %.2f\n", so.rhythm.flash);
+    }
+    if (input.pressed(Key::E)) {
+      if (so.rhythm.pulse > 0) { savedPulse = so.rhythm.pulse; so.rhythm.pulse = 0; }
+      else so.rhythm.pulse = savedPulse;
+      notify(so.rhythm.pulse > 0 ? "BEAT PULSE ON" : "BEAT PULSE OFF");
+      std::printf("beat pulse: %.2f\n", so.rhythm.pulse);
+    }
     if (input.pressed(Key::T)) tickerOn = !tickerOn;
     if (input.pressed(Key::B)) {
       r.setShowBackground(!r.showBackground());
@@ -451,13 +579,17 @@ int run(Demo& demo, int argc, char** argv) {
     if (input.pressed(Key::S)) {   // swap music: next track of the playlist (Shift+S: previous)
       const bool back = input.down(340) || input.down(344);   // GLFW_KEY_LEFT_SHIFT / RIGHT_SHIFT
       audio.skip(back ? -1 : 1);
+      notify(back ? "PREVIOUS TRACK" : "NEXT TRACK");
       std::fprintf(stdout, "music: %s track\n", back ? "previous" : "next");
     }
     if (input.pressed(Key::C)) captureNow = true;
-    if (input.pressed(Key::H))
+    if (input.pressed(Key::H)) {
+      helpOverlay = !helpOverlay;
       std::fprintf(stdout,
                    "keys: B background  V style  D depth  O gloss  G fx parallax  K bg parallax  S next track (Shift: previous)  L logos  T ticker  C capture PNG  H help  Esc quit\n"
+                   "      E pulse  F flash  U pause  [/] volume  J beat source  I status\n"
                    "      mouse = steer depth, click = shockwave\n");
+    }
     if (input.pressed(Key::K)) {
       so.bgParallax = bgstyle::nextGain(so.bgParallax);
       std::fprintf(stdout, "background parallax: %.1f\n", so.bgParallax);
@@ -506,15 +638,18 @@ int run(Demo& demo, int argc, char** argv) {
     const auto cpuStart = std::chrono::steady_clock::now();
     if (!demo.update(fi, input, frame)) break;
 
+    const Mesh3& renderMesh = frame.retainedMesh ? *frame.retainedMesh : frame.mesh;
+
     // Mesh upload: skipped only when the demo promises it is unchanged (revision != 0).
     // An empty mesh keeps the previous one on screen (e.g. a scene still building on a worker thread).
-    if (!cfg.customRendering && !frame.mesh.e.empty() && (!haveUpload || frame.revision == 0 || frame.revision != lastRevision)) {
+    if (!cfg.customRendering && !renderMesh.e.empty() && (!haveUpload || frame.revision == 0 || frame.revision != lastRevision)) {
       // A mesh the GPU cannot take (non-finite, out-of-range or self edges) is skipped, not fatal: the
       // previous mesh stays on screen and the problem is reported once.
-      if (r.upload(frame.mesh)) {
+      if (r.upload(renderMesh)) {
         lastRevision = frame.revision;
         haveUpload = true;
-        lastRadius = std::max(.1f, geo::stats(frame.mesh).radius);
+        lastRadius = std::max(.1f, frame.gpuEffect.effect ? frame.gpuEffect.baseRadius
+                                                       : geo::stats(renderMesh).radius);
       } else {
         static bool reported = false;
         if (!reported) {
@@ -528,20 +663,34 @@ int run(Demo& demo, int argc, char** argv) {
       static int statFrames = 0;
       const double cpuMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - cpuStart).count();
+      cpuTotalMs += cpuMs;
+      cpuPeakMs = std::max(cpuPeakMs, cpuMs);
+      ++cpuFrames;
+      if (frame.gpuEffect.effect) {
+        ++gpuEffectFrames;
+        gpuEffectVertices += renderMesh.v.size() * size_t(std::max(1, frame.gpuEffect.instances));
+      }
       cpuSum += cpuMs;
       cpuMax = std::max(cpuMax, cpuMs);
       ++statFrames;
       if (statT0 < 0) statT0 = now;
       if (showStats && now - statT0 >= 5.0) {
         std::fprintf(stdout, "stats: %.1f fps, CPU %.2f ms/frame avg, %.2f max, %zu edges\n",
-                     statFrames / (now - statT0), cpuSum / statFrames, cpuMax, frame.mesh.e.size());
+                     statFrames / (now - statT0), cpuSum / statFrames, cpuMax, renderMesh.e.size());
         cpuSum = cpuMax = 0;
         statFrames = 0;
         statT0 = now;
       }
     }
-    const float scale = std::min(1.48f, 1.92f / lastRadius) * frame.scale;
+    const float radius = frame.gpuEffect.effect && std::isfinite(frame.gpuEffect.radius)
+                             ? std::max(.1f, frame.gpuEffect.radius) : lastRadius;
+    frame.gpuWave[0] *= .65f + .35f * fi.beat.pulse;
+    const float scale = std::min(1.48f, 1.92f / (radius + std::abs(frame.gpuWave[0]))) * frame.scale *
+                        (1.f + .025f * fi.beat.pulse);
+    r.setBeatDrive(fi.beat);
     r.setWireStyle(frame.wireStyle);
+    r.setGpuWave(frame.gpuWave);
+    r.setGpuEffect(frame.gpuEffect);
     r.setModelTransform(frame.modelTransform);
     r.setTemporalRefraction(frame.temporalRefraction);
     r.setMemory(frame.memory);
@@ -556,16 +705,54 @@ int run(Demo& demo, int argc, char** argv) {
       }
     } else {
       // 1) wireframe (+ logo backdrop) into the HDR target, 2) travellers, 3) post pass, 4) ticker.
-      if (!r.draw(float(fi.time), W, H, float(W) / float(H), frame.sceneIndex, scale, frame.lineWidth, music.level)) {
+      if (!r.draw(float(fi.effectTime), W, H, float(W) / float(H), frame.sceneIndex, scale, frame.lineWidth, music.level)) {
         std::fprintf(stderr, "Renderer draw failed: %s\n", r.error().c_str());
         exitCode = 6;
         break;
       }
-      if (frame.travelers) r.drawTravelers(float(fi.time), W, H, float(W) / float(H), scale, music.level);
-      r.finishLogoFrame(float(fi.time), W, H, frame.sceneIndex, music.level, float(bpm));
+      if (frame.travelers) r.drawTravelers(float(fi.effectTime), W, H, float(W) / float(H), scale, music.level);
+      r.finishLogoFrame(float(fi.effectTime), W, H, frame.sceneIndex, music.level, float(bpm));
     }
     if (tickerOn && !frame.ticker.empty())
-      r.drawScroller(float(fi.time), fi.sync.beatPhase, W, H, frame.ticker.c_str(), music.level);
+      r.drawScroller(float(fi.effectTime), fi.sync.beatPhase, W, H, frame.ticker.c_str(), music.level);
+
+    // UI uses wall time, so it remains responsive while the music/show clock is paused.
+    if (helpOverlay) {
+      std::string controls = "CONTROLS / H TO CLOSE\n"
+          "I STATUS   J BEAT SOURCE   ESC QUIT\n"
+          "U PAUSE MUSIC   S NEXT   SHIFT+S PREVIOUS\n"
+          "[ / ] VOLUME   E PULSE   F FLASH\n"
+          "T TICKER   C SAVE PNG";
+      if (!cfg.customRendering) controls +=
+          "\nB BACKGROUND   V STYLE   D DEPTH   O GLOSS\n"
+          "G / K PARALLAX   L LOGOS   F1-F12 OBJECTS\n"
+          "MOUSE STEERS / CLICK SHOCKWAVE";
+      const std::string usage = demo.usage();
+      const auto keys = usage.find("Keys:");
+      if (keys != std::string::npos) controls += "\n\n" + usage.substr(keys);
+      r.drawOverlay(W, H, controls);
+    } else if (hud) {
+      char status[384];
+      const int seconds = int(std::fmod(std::max(0.0, music.seconds), 360000.0));
+      std::snprintf(status, sizeof status,
+          "PLAYBACK / %s   %02d:%02d\nTRACK %d/%d   VOLUME %d%%\n"
+          "%.1f BPM / %s / %s\nPULSE %.2f   FLASH %.2f   GRID 1/%d\n"
+          "%dx%d / %s\nI HIDE STATUS   H CONTROLS",
+          !music.active ? "SILENT CLOCK" : music.paused ? "PAUSED" : "PLAYING", seconds/60, seconds%60,
+          music.active ? music.track+1 : 0, audio.trackCount(), int(std::lround(audio.volume()*100)),
+          bpm, so.fixedStep > 0 || !music.active ? "clock" : rhythm::name(so.rhythm.source), bpmGiven ? "manual tempo" :
+          music.active ? audio.tempoSource(std::max(0,music.track)) : "fallback tempo",
+          so.rhythm.pulse, so.rhythm.flash, so.rhythm.division, W, H,
+          cfg.customRendering ? "OPTICAL HDR" : "WIREFRAME HDR");
+      std::string text(status);
+      if (music.active) text += "\n\n" + musiccat::credit(fi.musicPath);
+      r.drawOverlay(W, H, text);
+    } else if (uiNow < toastUntil) {
+      r.drawOverlay(W, H, toast, float(std::min(1.0, (toastUntil-uiNow)*3)));
+    } else if (hints && maxFrames == 0 && screenshotPath.empty() && so.fixedStep <= 0 && uiNow-uiStart < 7) {
+      r.drawOverlay(W, H, "H CONTROLS / I PLAYBACK STATUS\nS NEXT TRACK / U PAUSE / J BEAT SOURCE",
+                    float(std::clamp(7-(uiNow-uiStart),0.0,1.0)));
+    }
 
     // --screenshot: taken after the ticker so it is included. With --frames N on the Nth frame.
     if (!screenshotPath.empty() && !shotTaken && (maxFrames <= 0 || frameCount + 1 >= maxFrames)) {
@@ -593,6 +780,19 @@ int run(Demo& demo, int argc, char** argv) {
     glfwSwapBuffers(w);
     glfwPollEvents();
     if (input.down(Key::Escape) || glfwGetKey(w, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(w, 1);
+  }
+  if (showStats && cpuFrames) {
+    const auto& uploads = r.uploadStats();
+    std::printf("CPU work: frames=%zu avg=%.6f ms max=%.6f ms gpu-effect-frames=%zu gpu-effect-vertices=%zu\n",
+                cpuFrames, cpuTotalMs / double(cpuFrames), cpuPeakMs, gpuEffectFrames, gpuEffectVertices);
+    std::printf("Mesh uploads: vertices=%zu indices=%zu bytes=%zu; text=%zu updates/%zu bytes\n",
+                uploads.vertices, uploads.indices, uploads.bytes, uploads.textUpdates, uploads.textBytes);
+    const auto& gpu = r.gpuTiming();
+    if (gpu.samples)
+      std::printf("GPU work: samples=%zu avg=%.3f ms max=%.3f ms\n",
+                  gpu.samples, gpu.averageMs(), gpu.peakMs);
+    std::printf("Beat integration: source=%s onset-frames=%zu peak=%.3f bpm=%.2f\n",
+                so.fixedStep>0?"clock (fixed-step)":rhythm::name(so.rhythm.source),onsetFrames,onsetPeak,bpm);
   }
   cleanup(&r);
   return exitCode;

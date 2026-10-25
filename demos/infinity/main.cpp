@@ -1,16 +1,19 @@
 // Native OpenGL port of the user-supplied Hold Infinity optical renderers.
 #include "Engine.hpp"
+#include "MusicCatalog.hpp"
 #include "GLUtil.hpp"
 #include "Shaders.hpp"
 #include "Dodecahedron.hpp"
 #include "Sync.hpp"
 #include "Optimize.hpp"
+#include "Composition.hpp"
 #include "DimensionalRays.hpp"
 #include "RenderCorrections.hpp"
 #include "Parallax.hpp"
 #include "OpticalMath.hpp"
 #include "MatrixLife.hpp"
 #include "AntTraffic.hpp"
+#include "AntShader.hpp"
 #include "BouncingBall.hpp"
 #include "BallShader.hpp"
 #include "GpuTimer.hpp"
@@ -20,6 +23,8 @@
 #include "OpticalPost.hpp"
 #include "../atlas/AtlasShaders.hpp"
 #include "../atlas/HyperLines.hpp"
+#include "../aviation/AviationShader.hpp"
+#include "../cosmic/CosmicShaders.hpp"
 #include "Slice.hpp"
 #include "HyperAtlas.hpp"
 #include "GpuGeometry.hpp"
@@ -59,10 +64,15 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "ATLAS / MULTI-CHART IRIS PORTAL",
                                  "ATLAS / EUCLIDEAN ORNAMENT",
                                  "ATLAS / CAUSAL EVENT VOLUME",
-                                 "ATLAS / FILIGREE FACE EMERGENCE",
+                                 "FOUR-DIMENSIONAL MOBIUS UNIVERSE",
                                  "ATLAS / THREE HYPERBOLIC VIEWPOINTS",
+                                 "SPECTRAL PARAMETRIC POINT FIELD",
+                                 "MAJORANA QUANTUM TWIST LATTICE",
+                                 "FRACTAL BLACK HOLE / PHOTON RING",
+                                 "QUANTUM HYPERFRACTAL / 4D SCAFFOLD",
                                  "ATLAS / LORENTZ MIRROR GALLERY"};
 static_assert(std::size(names) == infinity_sync::sceneCount);
+
 struct Target {
   Target() = default;
   Target(const Target&) = delete;
@@ -145,25 +155,30 @@ class Infinity final : public de::Demo {
   std::array<GLuint, 128> specialized_{};
   std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniforms_;
   InfinityGpuTimer timer_;
-  bool profile_ = false, reference_ = false, adaptive_ = true, opticalBloom_ = true;
+  bool profile_ = false, reference_ = false, adaptive_ = true, opticalBloom_ = true, pixelsExplicit_ = false;
   GLuint bloomExtract_ = 0;
   infinity_motion::Bands bandMotion_;
   infinity_motion::Clock atlasMotion_;
   size_t bloomBuilds_ = 0;
   double targetMs_ = 1000.0 / 60.0;
+  double maxRenderScale_ = 1.0;
   std::array<infinity_opt::SceneQuality, infinity_sync::sceneCount> quality_;
   infinity_opt::RaySolveKey solved_;
   size_t integrations_ = 0, uniformLookups_ = 0, submitFrames_ = 0, mipBuilds_ = 0;
 
   GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
+  GLuint aviation_ = 0, aviationTemporal_ = 0;
+  int aviationLayers_ = 2;
+  GLuint mobiusSurface_ = 0, mobiusPoints_ = 0, quantum_ = 0, blackHole_ = 0, blackHoleParticles_ = 0, hyper_ = 0;
+  int quantumLayers_ = 2, hyperLayers_ = 2;
   std::array<GLuint, 2> sequential_{};
   std::array<GLuint, 4> worlds_{};
   GLuint worldReference_ = 0;
   std::array<GLuint, dmt::gpu::modes> atlasPrograms_{};
-  GLuint atlasReference_ = 0, atlasTemporal_ = 0, hyperLines_ = 0;
-  std::array<Target, 2> atlasHistory_;
-  int atlasHistoryIndex_ = 0;
-  bool atlasHistoryValid_ = false;
+  GLuint atlasReference_ = 0, atlasTemporal_ = 0, hyperLines_ = 0, hyperBackground_ = 0;
+  std::array<Target, 2> temporalHistory_;
+  int temporalHistoryIndex_ = 0;
+  bool temporalHistoryValid_ = false;
   dmt::atlas::Atlas atlasGeometry_;
   GLuint atlasBuffer_ = 0;
   bool atlasEdgeRaster_ = false, atlasUncached_ = false, atlasReduced_ = false, atlasPaused_ = false,
@@ -180,7 +195,9 @@ class Infinity final : public de::Demo {
   bool still_ = false, dragging_ = false, viewDirty_ = false;
   double mouseX_ = 0, mouseY_ = 0;
   float yawOffset_ = 0, pitchOffset_ = 0, grinCurvature_ = -1;
-  GLuint antTexture_ = 0;
+  GLuint antTexture_ = 0, antFbo_ = 0, antProgram_ = 0;
+  bool validateAnts_ = false, cpuAnts_ = false;
+  size_t antUploads_ = 0, antSplats_ = 0;
   infinity_ants::Traffic traffic_;
   infinity_ball::World ballWorld_;
   infinity_ants::Traffic::Image antImage_;
@@ -188,10 +205,15 @@ class Infinity final : public de::Demo {
   float pointerX_ = 0, pointerY_ = 0;
   bool fixedEye_ = false;
   infinity_parallax::Eye eye_, atlasEye_;
+  infinity_composition::Shot atlasShot_;
   void origin(GLuint p, const Camera& c, float x, float y, float z) {
     three(p, "uRo", x + c.m[0] * eye_.x + c.m[3] * eye_.y + c.m[6] * eye_.z,
           y + c.m[1] * eye_.x + c.m[4] * eye_.y + c.m[7] * eye_.z,
           z + c.m[2] * eye_.x + c.m[5] * eye_.y + c.m[8] * eye_.z);
+  }
+  infinity_composition::Shot cinematicShot() const {
+    if (atlasScene(cue_.scene) && atlasPaused_) return atlasShot_;
+    return infinity_composition::shot(cue_.scene, cue_.flow, cue_.energy, still_);
   }
   std::string error_;
   GLint loc(GLuint p, const char* n) {
@@ -244,6 +266,52 @@ class Infinity final : public de::Demo {
     one(p, "uSinD", scene == 1 ? 1.f : .894427191f);
     one(p, "uT", kleinT);
   }
+  void renderTraffic() {
+    if (reference_ || cpuAnts_) {
+      traffic_.raster(frame_.sync.beat, antImage_);
+      glActiveTexture(GL_TEXTURE2);
+      glBindTexture(GL_TEXTURE_2D, antTexture_);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 64, 64, GL_RGBA, GL_FLOAT, antImage_.data());
+      ++antUploads_;
+      return;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, antFbo_);
+    glViewport(0, 0, 64, 64);
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(antProgram_);
+    float ants[64], flashes[16];
+    for (int i = 0; i < infinity_ants::Traffic::count; ++i) {
+      const auto& a = traffic_.ants[size_t(i)];
+      ants[i * 4] = float(a.x);
+      ants[i * 4 + 1] = float(a.y);
+      ants[i * 4 + 2] = float(a.dx);
+      ants[i * 4 + 3] = float(a.dy);
+      flashes[i] = a.flash;
+    }
+    double phase = std::isfinite(frame_.sync.beat) ? std::fmod(std::clamp(frame_.sync.beat, 0.0, 1e9), .5) * 2.0 : 0;
+    glUniform4fv(loc(antProgram_, "uAnts"), 16, ants);
+    glUniform4fv(loc(antProgram_, "uFlash"), 4, flashes);
+    one(antProgram_, "uPhase", float(phase * phase * (3 - 2 * phase)));
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, infinity_ants::Traffic::count * 9);
+    glDisable(GL_BLEND);
+    ++antSplats_;
+    if (validateAnts_) {
+      traffic_.raster(frame_.sync.beat, antImage_);
+      infinity_ants::Traffic::Image actual;
+      glReadPixels(0, 0, 64, 64, GL_RGBA, GL_FLOAT, actual.data());
+      float maximum = 0;
+      for (size_t i = 0; i < actual.size(); ++i) {
+        if (!std::isfinite(actual[i])) throw std::runtime_error("Non-finite GPU traffic");
+        maximum = std::max(maximum, std::abs(actual[i] - antImage_[i]));
+      }
+      if (maximum > .003f) throw std::runtime_error("GPU traffic mismatch: " + std::to_string(maximum));
+      if (antSplats_ == 1) std::printf("GPU traffic validation: CPU raster agreement passed\n");
+    }
+  }
   void chamber(int scene, int w, int h, const Camera& cam) {
     image_.bind();
     glDisable(GL_BLEND);
@@ -251,10 +319,11 @@ class Infinity final : public de::Demo {
     auto p = chamber_[scene];
     if (reference_) faceUniforms(p, scene);
     view(p, cam, scene == 0 ? 6.4f : 0.f, scene == 0 ? 30.f : 78.f, w, h);
-    traffic_.raster(frame_.sync.beat, antImage_);
+    renderTraffic();
+    image_.bind();
+    glUseProgram(p);
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, antTexture_);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 64, 64, GL_RGBA, GL_FLOAT, antImage_.data());
     sampler(p, "uAntField", 2);
     glActiveTexture(GL_TEXTURE0);
     const auto flatBall = ballWorld_.sample(scene == 1 ? ballWorld_.cube : ballWorld_.flat, frame_.sync.beat);
@@ -264,7 +333,7 @@ class Infinity final : public de::Demo {
     glUniform4f(loc(p, "uBallH"), float(hyperBall.p[0]), float(hyperBall.p[1]), float(hyperBall.p[2]),
                 float(hyperBall.p[3]));
     one(p, "uBallImpact", float(scene == 1 || scene == 2 ? flatBall.flash : hyperBall.flash));
-    one(p, "uTime", float(frame_.time));
+    one(p, "uTime", float(frame_.effectTime));
     one(p, "uFlow", float(cue_.flow));
     one(p, "uEnergy", cue_.energy);
     one(p, "uMirror", .86f);
@@ -272,7 +341,7 @@ class Infinity final : public de::Demo {
     one(p, "uGlow", 1.25f + .30f * cue_.bass + .32f * cue_.strike);
     one(p, "uFX", scene == 0 ? 1.6f : .8f);
     float pulses[24];
-    infinity_sync::pulses(frame_.sync.beat, cue_.bass, pulses);
+    infinity_sync::pulses(frame_.beat.position, cue_.bass, pulses);
     glUniform4fv(loc(p, "uPulse"), 6, pulses);
     const float cameraFlow = still_ ? 0.f : float(cue_.flow);
     if (scene == 1 || scene == 2)
@@ -452,12 +521,12 @@ class Infinity final : public de::Demo {
     sampler(rays_, "uState", 0);
     common(rays_, aspect, k, count, nw);
     two(rays_, "uRes", float(w), float(h));
-    one(rays_, "uBeat", float(std::fmod(std::max(0.0, frame_.sync.beat), 16.0)));
+    one(rays_, "uBeat", float(std::fmod(std::max(0.0, frame_.beat.position), 16.0)));
     one(rays_, "uPulse", cue_.strike);
     one(rays_, "uBass", cue_.bass);
-    three(rays_, "uEye", eye_.x, eye_.y, eye_.z);
-    const auto rayCamera =
-        camera(yawOffset_ + (still_ ? 0.f : 0.18f * std::sin(float(cue_.flow) * 0.08f)), pitchOffset_ + 0.12f);
+    const auto shot = cinematicShot();
+    three(rays_, "uEye", eye_.x + shot.eyeX, eye_.y + shot.eyeY, eye_.z);
+    const auto rayCamera = camera(yawOffset_ + shot.yaw, pitchOffset_ + 0.12f + shot.pitch);
     glUniformMatrix3fv(loc(rays_, "uCam"), 1, GL_FALSE, rayCamera.m);
     float turns[12];
     for (int sheet = 0; sheet < 3; ++sheet) {
@@ -479,7 +548,7 @@ class Infinity final : public de::Demo {
   }
 
   void atlas(int scene, int w, int h) {
-    const int mode = scene - 16;
+    const int mode = scene == 30 ? 10 : scene - 16;
     const bool edgeRaster = mode == 1 && atlasEdgeRaster_ && !reference_ && !atlasUncached_ && hyperLines_;
     const auto p = edgeRaster ? hyperLines_ : (reference_ ? atlasReference_ : atlasPrograms_[size_t(mode)]);
     output_.bind();
@@ -494,8 +563,9 @@ class Infinity final : public de::Demo {
     one(p, "uBass", atlasPaused_ || atlasReduced_ ? 0.f : cue_.bass * atlasFlash_);
     one(p, "uExposure", atlasExposure_);
     integer(p, "uUseBvh", reference_ ? 0 : 1);
-    three(p, "uEye", atlasEye_.x, atlasEye_.y, atlasEye_.z);
-    const auto cam = camera(yawOffset_, pitchOffset_);
+    const auto shot = cinematicShot();
+    three(p, "uEye", atlasEye_.x + shot.eyeX, atlasEye_.y + shot.eyeY, atlasEye_.z);
+    const auto cam = camera(yawOffset_ + shot.yaw, pitchOffset_ + shot.pitch);
     glUniformMatrix3fv(loc(p, "uCam"), 1, GL_FALSE, cam.m);
     if (reference_) integer(p, "uMode", mode);
     if (mode == 0) {
@@ -518,14 +588,132 @@ class Infinity final : public de::Demo {
       glUniformMatrix4fv(loc(p, "uRotation"), 1, GL_FALSE, rotation);
     }
     if (edgeRaster) {
-      glClearColor(0, 0, 0, 0);
-      glClear(GL_COLOR_BUFFER_BIT);
+      glUseProgram(hyperBackground_);
+      two(hyperBackground_, "uRes", float(w), float(h));
+      three(hyperBackground_, "uEye", atlasEye_.x + shot.eyeX, atlasEye_.y + shot.eyeY, atlasEye_.z);
+      glUniformMatrix3fv(loc(hyperBackground_, "uCam"), 1, GL_FALSE, cam.m);
+      one(hyperBackground_, "uTime", float(time));
+      one(hyperBackground_, "uBreath", breath);
+      one(hyperBackground_, "uPulse", atlasPaused_ || atlasReduced_ ? 0.f : cue_.strike * atlasFlash_);
+      one(hyperBackground_, "uBass", atlasPaused_ || atlasReduced_ ? 0.f : cue_.bass * atlasFlash_);
+      one(hyperBackground_, "uExposure", atlasExposure_);
+      quad();
+      glUseProgram(p);
       glEnable(GL_BLEND);
       glBlendFunc(GL_ONE, GL_ONE);
       glDrawArraysInstanced(GL_POINTS, 0, 1, 32);
       glDisable(GL_BLEND);
     } else
       quad();
+  }
+  static bool atlasScene(int scene) { return (scene >= 16 && scene < 24) || scene == 25 || scene == 30; }
+  void aviation(int w, int h) {
+    output_.bind();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(aviation_);
+    two(aviation_, "uRes", float(w), float(h));
+    one(aviation_, "uTime", still_ ? 0.f : float(cue_.flow));
+    one(aviation_, "uPulse", still_ ? 0.f : cue_.strike);
+    one(aviation_, "uBass", cue_.bass);
+    one(aviation_, "uMid", cue_.mid);
+    one(aviation_, "uTreble", cue_.treble);
+    const auto shot = cinematicShot();
+    const auto cam = camera(yawOffset_ + .45f + shot.yaw, pitchOffset_ + .10f + shot.pitch);
+    glUniformMatrix3fv(loc(aviation_, "uCam"), 1, GL_FALSE, cam.m);
+    const float distance = 4.5f * shot.dolly;
+    const float eyeX = eye_.x + shot.eyeX, eyeY = eye_.y + shot.eyeY;
+    three(aviation_, "uEye", cam.back[0] * distance + cam.m[0] * eyeX + cam.m[3] * eyeY,
+          cam.back[1] * distance + cam.m[1] * eyeX + cam.m[4] * eyeY,
+          cam.back[2] * distance + cam.m[2] * eyeX + cam.m[5] * eyeY);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    // Metal handles vertex instancing efficiently and avoids its expensive geometry-shader path.
+    // Only the parametric field is echoed; companion/ring/star points are evaluated once.
+    glDrawArraysInstanced(GL_POINTS, 0, aviation_gpu::fieldPoints, aviationLayers_);
+    glDrawArrays(GL_POINTS, aviation_gpu::fieldPoints, aviation_gpu::pointCount - aviation_gpu::fieldPoints);
+    glDisable(GL_BLEND);
+    glDisable(GL_PROGRAM_POINT_SIZE);
+  }
+  void cosmicUniforms(GLuint program, int w, int h, const Camera& cam, float distance,
+                      const infinity_composition::Shot& shot) {
+    glUseProgram(program);
+    two(program, "uRes", float(w), float(h));
+    one(program, "uTime", still_ ? 0.f : float(cue_.flow));
+    one(program, "uPulse", still_ ? 0.f : cue_.strike);
+    one(program, "uBass", cue_.bass);
+    one(program, "uMid", cue_.mid);
+    one(program, "uTreble", cue_.treble);
+    glUniformMatrix3fv(loc(program, "uCam"), 1, GL_FALSE, cam.m);
+    distance *= shot.dolly;
+    const float eyeX = eye_.x + shot.eyeX, eyeY = eye_.y + shot.eyeY;
+    three(program, "uEye", cam.back[0] * distance + cam.m[0] * eyeX + cam.m[3] * eyeY,
+          cam.back[1] * distance + cam.m[1] * eyeX + cam.m[4] * eyeY,
+          cam.back[2] * distance + cam.m[2] * eyeX + cam.m[5] * eyeY);
+  }
+  void mobius(int w, int h) {
+    output_.bind();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    const auto shot = cinematicShot();
+    const auto cam = camera(yawOffset_ + .30f + shot.yaw, pitchOffset_ + .12f + shot.pitch);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    cosmicUniforms(mobiusSurface_, w, h, cam, 4.6f, shot);
+    glDrawArrays(GL_TRIANGLES, 0, cosmic_gpu::mobiusSurfaceVertices);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    cosmicUniforms(mobiusPoints_, w, h, cam, 4.6f, shot);
+    glDrawArrays(GL_POINTS, 0, cosmic_gpu::mobiusPointCount);
+    glDisable(GL_PROGRAM_POINT_SIZE);
+    glDisable(GL_BLEND);
+  }
+  void quantum(int w, int h) {
+    output_.bind();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    const auto shot = cinematicShot();
+    const auto cam = camera(yawOffset_ + .58f + shot.yaw, pitchOffset_ + .15f + shot.pitch);
+    cosmicUniforms(quantum_, w, h, cam, 4.8f, shot);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArraysInstanced(GL_POINTS, 0, cosmic_gpu::quantumFieldPoints, quantumLayers_);
+    glDrawArrays(GL_POINTS, cosmic_gpu::quantumFieldPoints,
+                 cosmic_gpu::quantumPointCount - cosmic_gpu::quantumFieldPoints);
+    glDisable(GL_BLEND);
+    glDisable(GL_PROGRAM_POINT_SIZE);
+  }
+  void blackHole(int w, int h) {
+    output_.bind();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    const auto shot = cinematicShot();
+    const auto cam = camera(yawOffset_ + shot.yaw, pitchOffset_ + shot.pitch);
+    cosmicUniforms(blackHole_, w, h, cam, 0.f, shot);
+    quad();
+    cosmicUniforms(blackHoleParticles_, w, h, cam, 5.2f, shot);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArrays(GL_POINTS, 0, cosmic_gpu::blackHoleParticleCount);
+    glDisable(GL_BLEND);
+    glDisable(GL_PROGRAM_POINT_SIZE);
+  }
+  void hyperfractal(int w, int h) {
+    output_.bind();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    const auto shot = cinematicShot();
+    const auto cam = camera(yawOffset_ + .46f + shot.yaw, pitchOffset_ + .16f + shot.pitch);
+    cosmicUniforms(hyper_, w, h, cam, 4.8f, shot);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArraysInstanced(GL_POINTS, 0, cosmic_gpu::hyperFieldPoints, hyperLayers_);
+    glDrawArrays(GL_POINTS, cosmic_gpu::hyperFieldPoints, cosmic_gpu::hyperPointCount - cosmic_gpu::hyperFieldPoints);
+    glDisable(GL_BLEND);
+    glDisable(GL_PROGRAM_POINT_SIZE);
   }
   void atlasConstants(GLuint p) {
     glUseProgram(p);
@@ -573,15 +761,16 @@ class Infinity final : public de::Demo {
     output_.bind();
     glUseProgram(p);
     two(p, "uRes", float(w), float(h));
-    one(p, "uBeat", float(std::fmod(std::max(0.0, frame_.sync.beat), 256.0)));
+    one(p, "uBeat", float(std::fmod(std::max(0.0, frame_.beat.position), 256.0)));
     one(p, "uPulse", cue_.strike);
     one(p, "uBass", cue_.bass);
-    three(p, "uEye", eye_.x, eye_.y, eye_.z);
     const float phase = still_ ? 0.f : float(cue_.flow);
     const float baseYaw = mode == 3 ? .6f : (mode == 2 ? .25f : 0.f);
     const float basePitch = mode == 3 ? .3f : .13f;
-    const auto cam = camera(yawOffset_ + baseYaw + .25f * std::sin(phase * .1f),
-                            pitchOffset_ + basePitch + .12f * std::sin(phase * .07f));
+    const auto shot = cinematicShot();
+    three(p, "uEye", eye_.x + shot.eyeX, eye_.y + shot.eyeY, eye_.z);
+    const auto cam = camera(yawOffset_ + baseYaw + .16f * std::sin(phase * .1f) + shot.yaw,
+                            pitchOffset_ + basePitch + .07f * std::sin(phase * .07f) + shot.pitch);
     glUniformMatrix3fv(loc(p, "uCam"), 1, GL_FALSE, cam.m);
     if (reference_) integer(p, "uMode", mode);
     quad();
@@ -592,13 +781,12 @@ public:
     de::Config c;
     c.title = "HOLD INFINITY / music-driven optical geometry";
     c.binaryName = "hold_infinity";
-    c.version = "4.2";
+    c.version = "4.3";
     c.customRendering = true;
     c.defaultTrack = 1;
     c.logoShow = false;
     c.fxAmount = 0;
-    c.musicFiles = {"demos/wireframe/assets/music/cs127_-_stars_4ch.mod",
-                    "demos/wireframe/assets/music/drozerix_-_digital_rendezvous.xm"};
+    c.musicFiles = musiccat::playlist();
     return c;
   }
   bool parseArg(const std::string& a, int& i, int argc, char** argv) override {
@@ -669,6 +857,14 @@ public:
     }
     if (a == "--validate-ray-state") {
       validateRays_ = true;
+      return true;
+    }
+    if (a == "--validate-ants") {
+      validateAnts_ = true;
+      return true;
+    }
+    if (a == "--cpu-ants") {
+      cpuAnts_ = true;
       return true;
     }
     if (a == "--gpu-profile") {
@@ -743,6 +939,7 @@ public:
         manual_ = n;
       else {
         pixels_ = n;
+        pixelsExplicit_ = true;
         adaptive_ = false;
       }
       return true;
@@ -752,13 +949,13 @@ public:
   std::string usage() const override {
     return "  --atlas-edge-raster Use experimental instanced hypercube edge quads\n"
            "  --atlas-uncached Disable immutable GPU geometry cache for isolated A/B timing\n"
-           "  --infinity-scene N  Hold one optical scene (0..26)\n"
+           "  --infinity-scene N  Hold one optical scene (0..30)\n"
            "  --no-optical-bloom Disable shared GPU highlight pyramid for A/B timing\n"
            "  --atlas-reduced-motion Slow new Atlas effects; suppress beat flashes\n"
            "  --atlas-paused     Freeze Atlas animation; P toggles pause\n"
            "  --atlas-exposure F Atlas exposure cap 0..2 (default 1)\n"
            "  --atlas-flash-gain F Atlas beat light gain 0..1 (default 1)\n"
-           "  --infinity-pixels N GPU budget (10000..4000000; default 400000)\n"
+           "  --infinity-pixels N GPU budget (10000..4000000; default 2000000 Metal, 400000 other)\n"
            "  --infinity-orbit Y P Fixed initial yaw/pitch in radians (yaw +/-pi, pitch +/-1.2)\n"
            "  --infinity-eye X Y  Fixed camera offset (-1..1); disables automatic dolly\n"
            "  --still             Fixed camera; accumulate up to 400 samples\n"
@@ -769,12 +966,15 @@ public:
            "  --infinity-adaptive Re-enable adaptation after an explicit pixel budget\n"
            "  --infinity-sequential-integrator Force sequential RK4 on all ray scenes\n"
            "  --infinity-raster-integrator Original raster RK4 for isolated GPU comparison\n"
+           "  --validate-ants Compare GPU traffic texture against CPU raster every frame\n"
+           "  --cpu-ants Use CPU traffic raster for isolated comparisons\n"
            "  --validate-output Check HDR target values for non-finite results\n"
            "  --validate-targets Test GPU target storage and failed-resize recovery\n"
            "  --validate-ray-state Compare every active float ray sample against raster RK4\n"
            "  --gpu-profile       Report non-blocking GPU timings and submission counts\n"
            "  --infinity-reference Original GPU workload for A/B comparisons\n"
-           "  Drag to orbit; Left/Right scenes; Space automatic show; Q quit.\n";
+           "Keys: Drag to orbit; Left/Right scenes; Space automatic show;\n"
+           "      P Atlas pause; Q quit.\n";
   }
   bool init(const de::RunInfo&) override {
     const char* sources[] = {CHAMBER_OBJECT, CHAMBER_CUBE, CHAMBER_FLAT, CHAMBER_HYPER};
@@ -835,12 +1035,39 @@ public:
     if (atlasEdgeRaster_ && !reference_ && !atlasUncached_) {
       const auto fragment = dmt::gpu::lineFragment();
       hyperLines_ = glutil::linkProgram(dmt::gpu::lineVertex, dmt::gpu::lineGeometry, fragment.c_str(), error_);
-      if (!hyperLines_) {
+      if (hyperLines_) {
+        const auto background = dmt::gpu::background();
+        hyperBackground_ = program(dmt::gpu::vertex, background.c_str());
+      }
+      if (!hyperLines_ || !hyperBackground_) {
+        if (hyperLines_) {
+          glDeleteProgram(hyperLines_);
+          hyperLines_ = 0;
+        }
+        if (hyperBackground_) {
+          glDeleteProgram(hyperBackground_);
+          hyperBackground_ = 0;
+        }
         std::fprintf(stderr, "Hypercube raster kernel unavailable, using ray-distance fallback: %s\n", error_.c_str());
         error_.clear();
       }
     }
     atlasTemporal_ = program(FULLSCREEN_VS, dmt::gpu::temporal);
+    aviation_ = glutil::linkProgram(aviation_gpu::vertex, aviation_gpu::fragment, error_);
+    aviationTemporal_ = program(FULLSCREEN_VS, aviation_gpu::temporal);
+    mobiusSurface_ = glutil::linkProgram(cosmic_gpu::mobiusSurfaceVertex, cosmic_gpu::mobiusSurfaceFragment, error_);
+    mobiusPoints_ = glutil::linkProgram(cosmic_gpu::mobiusPointVertex, cosmic_gpu::pointFragment, error_);
+    quantum_ = glutil::linkProgram(cosmic_gpu::quantumVertex, cosmic_gpu::pointFragment, error_);
+    blackHole_ = program(FULLSCREEN_VS, cosmic_gpu::blackHoleFragment);
+    blackHoleParticles_ = glutil::linkProgram(cosmic_gpu::blackHoleParticleVertex, cosmic_gpu::pointFragment, error_);
+    hyper_ = glutil::linkProgram(cosmic_gpu::hyperVertex, cosmic_gpu::pointFragment, error_);
+    const char* glVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+    const bool metalBacked = glVersion && std::string(glVersion).find("Metal") != std::string::npos;
+    aviationLayers_ = metalBacked ? 6 : 2;
+    quantumLayers_ = metalBacked ? 6 : 2;
+    hyperLayers_ = metalBacked ? 6 : 2;
+    if (!pixelsExplicit_) pixels_ = infinity_opt::defaultPixelCeiling(metalBacked);
+    maxRenderScale_ = infinity_opt::maximumRenderScale(metalBacked);
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
@@ -853,10 +1080,11 @@ public:
       std::fprintf(stderr, "Infinity shader failure: %s\n", error_.c_str());
       return false;
     }
-    if (!atlasTemporal_ ||
+    if (!atlasTemporal_ || !aviation_ || !aviationTemporal_ || !mobiusSurface_ || !mobiusPoints_ || !quantum_ ||
+        !blackHole_ || !blackHoleParticles_ || !hyper_ ||
         (reference_ ? !atlasReference_
                     : std::any_of(atlasPrograms_.begin(), atlasPrograms_.end(), [](GLuint p) { return !p; }))) {
-      std::fprintf(stderr, "Atlas shader failure: %s\n", error_.c_str());
+      std::fprintf(stderr, "Atlas/point-field shader failure: %s\n", error_.c_str());
       return false;
     }
     const auto polygon = infinity_worlds::heptagon();
@@ -905,7 +1133,25 @@ public:
         }
       }
     }
-    if (profile_) std::printf("GPU device: %s / %s\n", glGetString(GL_RENDERER), glGetString(GL_VERSION));
+    if (profile_) {
+      std::printf("GPU device: %s / %s\n", glGetString(GL_RENDERER), glGetString(GL_VERSION));
+      const int pointVertices =
+          aviation_gpu::fieldPoints * aviationLayers_ + (aviation_gpu::pointCount - aviation_gpu::fieldPoints);
+      std::printf("GPU point field: layers=%d vertices=%d geometry-uploads=0 temporal=gpu\n", aviationLayers_,
+                  pointVertices);
+      const int quantumVertices = cosmic_gpu::quantumFieldPoints * quantumLayers_ +
+                                  (cosmic_gpu::quantumPointCount - cosmic_gpu::quantumFieldPoints);
+      std::printf("GPU Mobius universe: surface=%d particles=%d geometry-uploads=0\n",
+                  cosmic_gpu::mobiusSurfaceVertices, cosmic_gpu::mobiusPointCount);
+      std::printf("GPU quantum lattice: layers=%d vertices=%d geometry-uploads=0\n", quantumLayers_, quantumVertices);
+      const int hyperVertices =
+          cosmic_gpu::hyperFieldPoints * hyperLayers_ + (cosmic_gpu::hyperPointCount - cosmic_gpu::hyperFieldPoints);
+      std::printf(
+          "GPU black hole: ray-steps=96 particles=%d kepler-disk=1 helical-jets=1 geometry-uploads=0 temporal=gpu\n",
+          cosmic_gpu::blackHoleParticleCount);
+      std::printf("GPU hyperfractal: layers=%d vertices=%d iterations=28 geometry-uploads=0\n", hyperLayers_,
+                  hyperVertices);
+    }
     glGenTextures(1, &antTexture_);
     glBindTexture(GL_TEXTURE_2D, antTexture_);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 64, 64, 0, GL_RGBA, GL_FLOAT, nullptr);
@@ -914,6 +1160,18 @@ public:
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glGenFramebuffers(1, &antFbo_);
+    glBindFramebuffer(GL_FRAMEBUFFER, antFbo_);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, antTexture_, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      error_ = "Traffic framebuffer incomplete";
+      return false;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (!reference_ && !cpuAnts_) {
+      antProgram_ = program(infinity_ants::vertex, infinity_ants::fragment);
+      if (!antProgram_) return false;
+    }
     timer_.init(profile_ || (adaptive_ && !still_ && !reference_), profile_);
     glutil::setupFullscreenVao(vao_, vbo_);
     if (validateTargets_) {
@@ -955,7 +1213,7 @@ public:
       const bool pauseKey = glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS;
       if (pauseKey && !atlasPauseKey_) {
         atlasPaused_ = !atlasPaused_;
-        if (atlasPaused_ && cue_.scene >= 16) manual_ = cue_.scene;
+        if (atlasPaused_ && atlasScene(cue_.scene)) manual_ = cue_.scene;
       }
       atlasPauseKey_ = pauseKey;
       double x = 0, y = 0;
@@ -984,8 +1242,8 @@ public:
     if (!atlasPaused_)
       atlasEye_ = atlasReduced_ ? infinity_parallax::eye(f.sync.beat, pointerX_, pointerY_, true) : eye_;
     int current = infinity_sync::sample(f.sync.beat, 0, false, 0, 0, 0, manual_).scene;
-    if (in.pressed(de::Key::Right)) manual_ = (current + 1) % infinity_sync::sceneCount;
-    if (in.pressed(de::Key::Left)) manual_ = (current + infinity_sync::sceneCount - 1) % infinity_sync::sceneCount;
+    if (in.pressed(de::Key::Right)) manual_ = infinity_sync::adjacentScene(current, 1);
+    if (in.pressed(de::Key::Left)) manual_ = infinity_sync::adjacentScene(current, -1);
     if (in.pressed(de::Key::Space)) manual_ = -1;
     cue_ = infinity_sync::sample(f.sync.beat, f.sync.pulse, f.music.active, f.music.bass, f.music.mid, f.music.treble,
                                  manual_);
@@ -993,20 +1251,26 @@ public:
     cue_.bass = bands[0];
     cue_.mid = bands[1];
     cue_.treble = bands[2];
+    cue_.beat = f.beat.pulse;
+    cue_.strike = f.beat.pulse * f.beat.accent;
+    cue_.flutter = std::exp(-f.beat.phase * 12.f) * std::min(1.f, f.beat.pulse);
+    cue_.flow = f.effectTime;
+    if (!f.music.active) cue_.bass = f.beat.pulse;
+    cue_.energy = std::clamp(.15f + .55f * cue_.bass + .25f * cue_.mid + .2f * cue_.beat, 0.f, 1.5f);
+    if (!atlasPaused_ && atlasScene(cue_.scene)) atlasShot_ = cinematicShot();
     if (cue_.scene != announced_) {
       std::fprintf(stdout, "infinity scene %02d: %s / beat %.2f\n", cue_.scene, names[cue_.scene], f.sync.beat);
       announced_ = cue_.scene;
     }
     out.travelers = false;
     out.ticker = std::string(names[cue_.scene]) +
-                 (cue_.scene < 12   ? "  /  HOLD INFINITY BY PURPLETWILIGHT  /  "
-                  : cue_.scene < 16 ? "  /  QRI ESSAY INSPIRED GEOMETRY STUDIES  /  "
-                                    : "  /  DMT ATLAS / GEOMETRY STUDIES  /  ") +
-                 (f.musicPath.empty()                              ? "BPM CLOCK"
-                  : f.musicPath.find("cs127") != std::string::npos ? "STARS (4CH) BY CS127 / CC BY 4.0"
-                  : f.musicPath.find("drozerix_-_digital_rendezvous") != std::string::npos
-                      ? "DIGITAL RENDEZVOUS BY DROZERIX / PUBLIC DOMAIN"
-                      : f.musicPath);
+                 (cue_.scene < 12    ? "  /  HOLD INFINITY BY PURPLETWILIGHT  /  "
+                  : cue_.scene < 16  ? "  /  QRI ESSAY INSPIRED GEOMETRY STUDIES  /  "
+                  : cue_.scene < 24  ? "  /  DMT ATLAS / GEOMETRY STUDIES  /  "
+                  : cue_.scene == 24 ? "  /  PURPLETWILIGHT MOBIUS SPACETIME STUDY  /  "
+                  : cue_.scene == 25 ? "  /  DMT ATLAS / GEOMETRY STUDIES  /  "
+                                     : "  /  PURPLETWILIGHT PARAMETRIC 3D STUDY  /  ") +
+                 (f.musicPath.empty() ? "BPM CLOCK" : musiccat::credit(f.musicPath));
     return !in.pressed(de::Key::Q);
   }
   bool draw(const de::FrameInfo& f, std::string& error) override {
@@ -1024,8 +1288,8 @@ public:
                     targetMs_);
       budget = std::max(1, int(float(budget) * q.fraction()));
     }
-    double scale = std::min(1.0, std::sqrt(double(budget) / (double(f.width) * f.height)));
-    int w = std::max(1, int(f.width * scale)), h = std::max(1, int(f.height * scale));
+    const auto renderSize = infinity_opt::fitPixelBudget(f.width, f.height, budget, maxRenderScale_);
+    int w = renderSize.width, h = renderSize.height;
     bool resized = image_.w != w || image_.h != h;
     if ((cue_.scene < 10 && !image_.resize(w, h, GL_RGBA16F, true, error)) ||
         !output_.resize(w, h, GL_RGBA16F, false, error))
@@ -1033,7 +1297,9 @@ public:
     timer_.begin(cue_.scene, f.frame);
     ++submitFrames_;
     float motion = still_ ? 0.f : float(cue_.flow);
-    Camera cam = camera(.6f + motion * .09f + yawOffset_, .22f + .1f * std::sin(motion * .07f) + pitchOffset_);
+    const auto shot = cinematicShot();
+    Camera cam = camera(.6f + .18f * std::sin(motion * .055f) + shot.yaw + yawOffset_,
+                        .22f + .07f * std::sin(motion * .07f) + shot.pitch + pitchOffset_);
     if (cue_.scene < 4)
       chamber(cue_.scene, w, h, cam);
     else if (cue_.scene < 10)
@@ -1042,8 +1308,18 @@ public:
       grin(cue_.scene, w, h);
     else if (cue_.scene < 16)
       worldSheet(cue_.scene, w, h);
-    else
+    else if (atlasScene(cue_.scene))
       atlas(cue_.scene, w, h);
+    else if (cue_.scene == 24)
+      mobius(w, h);
+    else if (cue_.scene == 26)
+      aviation(w, h);
+    else if (cue_.scene == 27)
+      quantum(w, h);
+    else if (cue_.scene == 28)
+      blackHole(w, h);
+    else
+      hyperfractal(w, h);
     if (validateOutput_ && !outputChecked_[size_t(cue_.scene)]) {
       std::vector<float> values(size_t(w * h * 4));
       output_.bind();
@@ -1059,39 +1335,43 @@ public:
     }
     const Target* presented = &output_;
     if (cue_.scene >= 16) {
-      bool reset = !atlasHistoryValid_ || previous_ != cue_.scene || viewDirty_ || atlasPaused_ || still_;
-      for (auto& history : atlasHistory_) {
+      const bool atlas = atlasScene(cue_.scene);
+      bool reset = !temporalHistoryValid_ || previous_ != cue_.scene || viewDirty_ || still_ || (atlas && atlasPaused_);
+      for (auto& history : temporalHistory_) {
         reset = reset || history.w != w || history.h != h;
         if (!history.resize(w, h, GL_RGBA16F, false, error)) {
           timer_.end();
           return false;
         }
       }
-      auto& destination = atlasHistory_[size_t(atlasHistoryIndex_)];
-      auto& history = atlasHistory_[size_t(1 - atlasHistoryIndex_)];
+      auto& destination = temporalHistory_[size_t(temporalHistoryIndex_)];
+      auto& history = temporalHistory_[size_t(1 - temporalHistoryIndex_)];
+      const auto temporal = atlas ? atlasTemporal_ : aviationTemporal_;
       destination.bind();
-      glUseProgram(atlasTemporal_);
+      glUseProgram(temporal);
       output_.sample(0);
       history.sample(1);
-      integer(atlasTemporal_, "uCurrent", 0);
-      integer(atlasTemporal_, "uHistory", 1);
-      two(atlasTemporal_, "uTexel", 1.f / float(w), 1.f / float(h));
-      one(atlasTemporal_, "uWeight", reset ? 0.f : float(std::exp(-std::max(0.0, double(f.dt)) * 16.0)));
+      integer(temporal, "uCurrent", 0);
+      integer(temporal, "uHistory", 1);
+      two(temporal, "uTexel", 1.f / float(w), 1.f / float(h));
+      one(temporal, "uWeight", reset ? 0.f : float(std::exp(-std::max(0.0, double(f.dt)) * (atlas ? 16.0 : 4.2))));
+      one(temporal, "uPulse", cue_.strike);
+      one(temporal, "uTime", float(cue_.flow));
       quad();
       if (validateOutput_) {
         std::vector<float> values(size_t(w * h * 4));
         glReadPixels(0, 0, w, h, GL_RGBA, GL_FLOAT, values.data());
         if (std::any_of(values.begin(), values.end(), [](float x) { return !std::isfinite(x); })) {
-          error = "Non-finite Atlas temporal output";
+          error = "Non-finite temporal output";
           timer_.end();
           return false;
         }
       }
       presented = &destination;
-      atlasHistoryIndex_ = 1 - atlasHistoryIndex_;
-      atlasHistoryValid_ = true;
+      temporalHistoryIndex_ = 1 - temporalHistoryIndex_;
+      temporalHistoryValid_ = true;
     } else
-      atlasHistoryValid_ = false;
+      temporalHistoryValid_ = false;
     if (opticalBloom_) {
       if (!bloom_.resize(std::max(1, w / 2), std::max(1, h / 2), GL_RGBA16F, true, error)) {
         timer_.end();
@@ -1114,11 +1394,15 @@ public:
     sampler(compose_, "uImg", 0);
     if (opticalBloom_) bloom_.sample(1);
     sampler(compose_, "uBloom", 1);
-    const bool frozen = cue_.scene >= 16 && (atlasPaused_ || still_);
-    const float breath = cue_.scene >= 16 ? infinity_motion::breath(still_ ? 0 : atlasMotion_.time()) : cue_.breath;
+    const bool frozen = atlasScene(cue_.scene) && (atlasPaused_ || still_);
+    const float breath =
+        atlasScene(cue_.scene) ? infinity_motion::breath(still_ ? 0 : atlasMotion_.time()) : cue_.breath;
     one(compose_, "uGlow",
         opticalBloom_ ? (cue_.scene < 12 ? .07f : .14f) * (frozen ? 1.f : (.94f + .12f * breath)) : 0.f);
     one(compose_, "uFade", cue_.fade);
+    const bool quiet = still_ || (atlasScene(cue_.scene) && (atlasPaused_ || atlasReduced_));
+    two(compose_, "uDrive", quiet ? 0.f : f.beat.pulse, quiet ? 0.f : f.beat.flash);
+    one(compose_, "uRenderScale", float(w) / float(std::max(1, f.width)));
     quad();
     timer_.end();
     previous_ = cue_.scene;
@@ -1135,11 +1419,19 @@ public:
       glDeleteProgram(hyperLines_);
       hyperLines_ = 0;
     }
+    if (hyperBackground_) {
+      glDeleteProgram(hyperBackground_);
+      hyperBackground_ = 0;
+    }
     if (atlasBuffer_) {
       glBindBufferBase(GL_UNIFORM_BUFFER, 3, 0);
       glDeleteBuffers(1, &atlasBuffer_);
       atlasBuffer_ = 0;
     }
+    if (antProgram_) glDeleteProgram(antProgram_);
+    if (antFbo_) glDeleteFramebuffers(1, &antFbo_);
+    antProgram_ = antFbo_ = 0;
+    if (profile_) std::printf("GPU traffic: splats=%zu cpu-texture-uploads=%zu\n", antSplats_, antUploads_);
     if (antTexture_) {
       glDeleteTextures(1, &antTexture_);
       antTexture_ = 0;
@@ -1165,7 +1457,39 @@ public:
       glDeleteProgram(atlasTemporal_);
       atlasTemporal_ = 0;
     }
-    for (auto& history : atlasHistory_) history.release();
+    if (aviation_) {
+      glDeleteProgram(aviation_);
+      aviation_ = 0;
+    }
+    if (aviationTemporal_) {
+      glDeleteProgram(aviationTemporal_);
+      aviationTemporal_ = 0;
+    }
+    if (mobiusSurface_) {
+      glDeleteProgram(mobiusSurface_);
+      mobiusSurface_ = 0;
+    }
+    if (mobiusPoints_) {
+      glDeleteProgram(mobiusPoints_);
+      mobiusPoints_ = 0;
+    }
+    if (quantum_) {
+      glDeleteProgram(quantum_);
+      quantum_ = 0;
+    }
+    if (blackHole_) {
+      glDeleteProgram(blackHole_);
+      blackHole_ = 0;
+    }
+    if (blackHoleParticles_) {
+      glDeleteProgram(blackHoleParticles_);
+      blackHoleParticles_ = 0;
+    }
+    if (hyper_) {
+      glDeleteProgram(hyper_);
+      hyper_ = 0;
+    }
+    for (auto& history : temporalHistory_) history.release();
     for (auto& p : worlds_)
       if (p) {
         glDeleteProgram(p);

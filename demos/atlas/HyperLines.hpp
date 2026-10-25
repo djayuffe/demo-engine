@@ -74,9 +74,21 @@ void main() {
 )GLSL";
 inline std::string lineFragment() {
   std::string source = fragment;
-  const auto begin = source.find("vec3 palette("), end = source.find("vec3 section(");
-  if (begin == std::string::npos || end == std::string::npos)
-    throw std::runtime_error("line shader helper contract changed");
+  std::string helpers;
+  for (const char* name : {"vec3 palette(", "float line(", "float segment("}) {
+    const auto begin = source.find(name);
+    if (begin == std::string::npos) throw std::runtime_error("line helper contract changed");
+    auto end = source.find('{', begin);
+    int depth = 1;
+    while (++end < source.size() && depth) {
+      if (source[end] == '{')
+        ++depth;
+      else if (source[end] == '}')
+        --depth;
+    }
+    if (depth) throw std::runtime_error("unbalanced line helper");
+    helpers += source.substr(begin, end - begin) + "\n";
+  }
   return std::string(R"GLSL(#version 410 core
 flat in vec3 vA, vB;
 flat in float vAxis;
@@ -85,7 +97,7 @@ uniform vec2 uRes;
 uniform vec3 uEye;
 uniform mat3 uCam;
 uniform float uTime, uExposure;
-)GLSL") + source.substr(begin, end - begin) +
+)GLSL") + helpers +
          R"GLSL(
 void main() {
   vec2 p = (gl_FragCoord.xy / uRes * 2 - 1) * vec2(uRes.x / uRes.y, 1);

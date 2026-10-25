@@ -24,3 +24,18 @@ After pulling `origin/main`, the strict-warning build and all seven CTest checks
 Reference-versus-specialized image checks for scenes 14, 18, 20, 23, 24 and 25 pass: the lowest finite PSNR is 90.29 dB and SSIM is 1.0 throughout. [Recorded measurements](../../docs/effects-gpu-results.json) include the new H³ shadow rays and HDR passes. Single-run GPU timing varies; some specialized paths were slower in this sample, so these results do not establish a uniform speedup.
 
 The extended control checks cover pause identity, portrait views, displaced eyes, fixed orbits, grazing-angle relief, reduced motion, exposure and original source hashes. New CPU invariants cover audio update subdivision, release envelopes, invalid inputs, pause/resume, backward seeks, reduced-motion rate, periodic breathing, breathing slice topology and padded animated sphere bounds.
+
+## Integrated 4.3 validation — 25 October 2026
+
+Integrated all 14 incoming commits through `89670c9`, preserving upstream Metal rendering, cosmic effects, audio and scene indices 0–29. The Lorentz gallery is appended at **30**. There are 31 registered scenes and 30 automatic slots; the existing three-view playback skip is retained.
+
+- Strict-warning Release build and all **9 CTest checks** pass.
+- All **31 scenes** render finite HDR output. Extended ray-state, target-lifetime, still-convergence and full-cycle checks pass.
+- Native GPU smoke checks cover post/bypass paths, hardware tessellation, GPU traffic texture validation and **1,380 GPU deformation cases** (maximum error `3.01003e-06`).
+- Atlas portrait, orbit, grazing-relief, pause identity, zero exposure, cache bypass and explicit instanced-edge controls pass. The optional backend compiles without fallback warnings.
+- Added checked std140 offsets/size, cached-radius error bounds, 4D projection bounds and geodesic-plane/reflection invariants. The Atlas suite passes AddressSanitizer and UndefinedBehaviorSanitizer.
+- Integration exposed cinematic camera drift under pause/still. The camera pose now freezes with the Atlas scene, with a regression check for clock/audio invariance.
+
+[Post-merge comparisons](../../docs/atlas-gpu42-results.json): the cached hypercube matches at 95.39 dB / SSIM 1.0, cached H³ at 77.65 dB / 0.999994, and the gallery reference at 89.74 dB / 0.999999. Both hypercube backends, including the incoming celestial background, match at 72.91 dB. All exceed the established 40 dB image threshold.
+
+These are short, single-run timing samples. Cached paths were sometimes slower in this pass; the work reduces repeated calculations and shares immutable data without establishing a blanket frame-rate gain. The geometry-shader edge backend was consistently slower in earlier paired M1 Pro samples and remains opt-in. Physical Windows/Linux execution was not tested here.

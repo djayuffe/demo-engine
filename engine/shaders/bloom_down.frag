@@ -4,7 +4,7 @@
 in vec2 uv;
 out vec4 FragColor;
 uniform sampler2D uSrc;
-uniform vec2 uTexel;   // 1/size of the SOURCE
+vec2 sourceTexel;   // computed on GPU; no per-frame texture-size driver queries
 uniform float uFirst;
 vec3 knee(vec3 c){
   float l=max(c.r,max(c.g,c.b));
@@ -12,11 +12,14 @@ vec3 knee(vec3 c){
   return c*(w*w*(3.-2.*w));
 }
 vec3 fetch(vec2 o){
-  vec3 c=texture(uSrc,uv+o*uTexel).rgb;
+  vec3 c=texture(uSrc,uv+o*sourceTexel).rgb;
+  // Leave headroom for additive pyramid reconstruction in half-float targets.
+  c=(any(isnan(c))||any(isinf(c)))?vec3(0.):clamp(c,0.,16376.);
   return uFirst>.5?knee(c):c;
 }
 float karis(vec3 c){return 1./(1.+dot(c,vec3(.2126,.7152,.0722)));}
 void main(){
+  sourceTexel=1./vec2(textureSize(uSrc,0));
   vec3 a=fetch(vec2(-2,2)),b=fetch(vec2(0,2)),c=fetch(vec2(2,2));
   vec3 d=fetch(vec2(-2,0)),e=fetch(vec2(0,0)),f=fetch(vec2(2,0));
   vec3 g=fetch(vec2(-2,-2)),h=fetch(vec2(0,-2)),i=fetch(vec2(2,-2));
