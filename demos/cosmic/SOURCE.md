@@ -14,7 +14,7 @@ The native scene ports the double-loop parametric Möbius equation, fourth-coord
 height term, animated displacement, singularity and horizon, star field, debris and
 surface-flow particles. The production renderer replaces Three.js geometry, random CPU
 buffers, remote modules and texture noise with deterministic OpenGL 4.1 shaders. Its
-98,304 surface vertices and 40,960 particles are generated from `gl_VertexID` with no
+153,600 surface vertices and 40,960 particles are generated from `gl_VertexID` with no
 per-frame geometry upload.
 
 Key source hashes:
@@ -34,7 +34,7 @@ It combines a 50,000-point parametric formula with unrelated thesis text and Web
 The native scene ports the identifiable point equation and spectral phase animation. It
 adds paired twist braids, eight orbital nodes, a star shell, beat response and bounded HDR
 persistence. The thesis text, GUI, Web3 request and CDN dependencies are not included.
-On Metal-backed OpenGL, four procedural phase layers produce 409,600 total vertex
+On Metal-backed OpenGL, six procedural phase layers produce 606,208 total vertex
 invocations without geometry buffers or CPU animation.
 
 Neither archive includes an explicit license. This provenance record and the derived-code

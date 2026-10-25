@@ -4,8 +4,8 @@
 // quantum-fractal browser studies. Geometry is generated from gl_VertexID so
 // animation never rebuilds or uploads vertex buffers.
 namespace cosmic_gpu {
-inline constexpr int mobiusU = 256;
-inline constexpr int mobiusV = 64;
+inline constexpr int mobiusU = 320;
+inline constexpr int mobiusV = 80;
 inline constexpr int mobiusSurfaceVertices = mobiusU * mobiusV * 6;
 inline constexpr int mobiusCorePoints = 8192;
 inline constexpr int mobiusHorizonPoints = 4096;
@@ -34,12 +34,13 @@ uniform float uTime, uPulse, uBass, uMid, uTreble;
 out vec3 vNormal;
 out vec3 vView;
 out vec3 vBase;
+out vec2 vParam;
 out float vFlow;
 out float vDepth;
 
 const float PI = 3.141592653589793;
-const int U_CELLS = 256;
-const int V_CELLS = 64;
+const int U_CELLS = 320;
+const int V_CELLS = 80;
 
 vec3 mobius(float u, float v, float time, float bass) {
   float twist = sin(u * 0.5) * 2.5;
@@ -81,6 +82,7 @@ void main() {
   float dimension = 0.5 + 0.5 * cos(u * 0.25 + v * PI);
   vBase = mix(vec3(0.025, 0.20, 0.58), vec3(0.76, 0.035, 0.34), dimension);
   vBase = mix(vBase, vec3(0.12, 0.86, 1.20), flow * (0.22 + 0.30 * uTreble));
+  vParam = vec2(u, v);
   vFlow = flow;
   vec3 view = transpose(uCam) * (p - uEye);
   float depth = -view.z;
@@ -96,6 +98,7 @@ inline constexpr const char* mobiusSurfaceFragment = R"COSMIC(#version 410 core
 in vec3 vNormal;
 in vec3 vView;
 in vec3 vBase;
+in vec2 vParam;
 in float vFlow;
 in float vDepth;
 out vec4 outColor;
@@ -113,11 +116,16 @@ void main() {
   float ndh = max(0.0, dot(n, h));
   float nv = abs(dot(n, v));
   float fresnel = pow(1.0 - nv, 3.0);
-  float metal = pow(ndh, 48.0) * (0.45 + 0.55 * ndl);
-  float weave = 0.5 + 0.5 * sin((gl_FragCoord.x + gl_FragCoord.y) * 0.18);
-  vec3 body = vBase * (0.12 + 0.34 * ndl + 0.18 * weave);
+  float longitudinal = 0.5 + 0.5 * sin(vParam.x * 56.0 + sin(vParam.y * 17.0) * 1.8);
+  float transverse = 0.5 + 0.5 * cos(vParam.y * 46.0 - vParam.x * 3.0);
+  float weave = mix(longitudinal, transverse, 0.34);
+  float filament = pow(max(longitudinal, transverse), 10.0);
+  float roughness = mix(30.0, 86.0, weave);
+  float metal = pow(ndh, roughness) * (0.45 + 0.55 * ndl);
+  vec3 body = vBase * (0.10 + 0.36 * ndl + 0.13 * weave + 0.08 * filament);
   vec3 edge = mix(vec3(0.04, 0.62, 1.35), vec3(1.35, 0.12, 0.48), vFlow);
-  vec3 emission = edge * (0.24 + 0.82 * fresnel + 0.42 * metal + 0.24 * uPulse + 0.12 * uTreble);
+  vec3 emission = edge * (0.22 + 0.82 * fresnel + 0.46 * metal + 0.10 * filament * uTreble +
+                          0.24 * uPulse + 0.12 * uTreble);
   float fog = smoothstep(5.0, 11.0, vDepth);
   vec3 color = mix(body + emission, vec3(0.012, 0.025, 0.09), fog * 0.45);
   outColor = vec4(color * (0.72 + 0.18 * uBass), 1.0);
@@ -216,14 +224,18 @@ void main() {
   float r2 = dot(p, p);
   if (r2 > 1.0) discard;
   float z = sqrt(max(0.0, 1.0 - r2));
+  float edgeWidth = max(fwidth(r2), 0.002);
   float halo = 1.0 - smoothstep(0.08, 1.0, r2);
   float core = 1.0 - smoothstep(0.0, 0.14, r2);
   float flare = pow(max(0.0, 1.0 - abs(p.x)), 18.0) + pow(max(0.0, 1.0 - abs(p.y)), 18.0);
   float spec = pow(max(0.0, dot(normalize(vec3(-0.4, 0.7, 0.65)), vec3(p, z))), 18.0);
+  float azimuth = atan(p.y, p.x);
+  float facets = 0.78 + 0.22 * cos(azimuth * (vKind < 1.5 ? 8.0 : 6.0));
+  float shell = 1.0 - smoothstep(edgeWidth * 2.0, edgeWidth * 7.0, abs(r2 - 0.68));
   float energy = vKind < 0.5 ? 0.28 * halo + 0.72 * spec + core :
-                 vKind < 1.5 ? 0.34 * halo + 0.42 * core + 0.30 * (1.0 - z) :
+                 vKind < 1.5 ? (0.34 * halo + 0.42 * core + 0.30 * (1.0 - z) + 0.13 * shell) * facets :
                  vKind < 2.5 ? 0.18 * halo + 0.86 * core + 0.12 * flare :
-                 vKind < 3.5 ? 0.42 * halo + 0.30 * spec :
+                 vKind < 3.5 ? (0.42 * halo + 0.30 * spec) * facets :
                  vKind < 4.5 ? 0.25 * halo + 0.74 * core : 0.10 * halo + 0.34 * core;
   float fog = smoothstep(6.0, 12.0, vDepth);
   vec3 color = mix(vColor, vec3(0.012, 0.025, 0.085), fog * 0.48);
@@ -403,7 +415,14 @@ void main() {
         float heat = clamp((4.15 - diskRadius) / 3.1, 0.0, 1.0);
         vec3 plasma = mix(vec3(0.85, 0.035, 0.008), vec3(1.75, 0.72, 0.16), heat);
         plasma = mix(plasma, vec3(0.48, 0.72, 1.55), pow(heat, 5.0) * 0.45);
-        float energy = radial * (0.025 + 0.28 * bands) * (0.55 + 0.45 * uBass + 0.25 * uPulse);
+        vec3 orbitalTangent = safeNormalize(cross(diskNormal, diskPosition), diskX);
+        float lineVelocity = clamp(dot(orbitalTangent, -dir), -1.0, 1.0);
+        float doppler = clamp(1.0 + lineVelocity * 0.46 / sqrt(max(diskRadius, 1.0)), 0.58, 1.48);
+        plasma = mix(plasma, lineVelocity > 0.0 ? vec3(0.50, 0.78, 1.65) : vec3(1.55, 0.13, 0.025),
+                     abs(lineVelocity) * 0.24);
+        float wisps = 0.72 + 0.28 * fbm(vec3(angle * 8.0, diskRadius * 12.0, uTime * 0.22));
+        float energy = radial * (0.025 + 0.28 * bands) * wisps * pow(doppler, 2.4) *
+                       (0.55 + 0.45 * uBass + 0.25 * uPulse);
         color += transmission * plasma * energy;
         transmission *= 0.90;
       }

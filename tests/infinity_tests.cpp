@@ -357,14 +357,22 @@ int main() {
   require(stateForScene(4) == 0 && stateForScene(5) == 5 && stateForScene(7) == 69 && stateForScene(8) == 45,
           "preset states changed");
   require(stateForScene(9, 127) == 127, "optical override dropped");
-  require(defaultPixelCeiling(false) == 400000 && defaultPixelCeiling(true) == 900000,
+  require(defaultPixelCeiling(false) == 400000 && defaultPixelCeiling(true) == 2000000,
           "platform pixel ceilings changed");
+  require(maximumRenderScale(false) == 1.0 && maximumRenderScale(true) == 1.5,
+          "platform supersample limits changed");
   require(fitPixelBudget(1280, 720, 1000000) == RenderSize{1280, 720}, "native target was downscaled");
   const auto fitted = fitPixelBudget(1920, 1080, 900000);
   require(fitted.width * fitted.height <= 900000, "fitted target exceeds pixel ceiling");
   require(std::abs(double(fitted.width) / fitted.height - 16.0 / 9.0) < .003,
           "fitted target changed aspect ratio");
   require(fitPixelBudget(0, -4, 0) == RenderSize{1, 1}, "invalid framebuffer size was not contained");
+  const auto supersampled = fitPixelBudget(1280, 720, 4000000, 1.5);
+  require(supersampled == RenderSize{1920, 1080}, "Metal supersample ceiling was not honored");
+  require(fitPixelBudget(1280, 720, 4000000, 5.0) == RenderSize{2560, 1440},
+          "unsafe supersample request was not bounded");
+  require(fitPixelBudget(1280, 720, 4000000, NAN) == RenderSize{1280, 720},
+          "invalid supersample scale was not contained");
   RaySolveKey key{1.5f, .65f, 46, 1};
   require(key == RaySolveKey{1.5f, .65f, 46, 1}, "identical GPU field not reused");
   require(!(key == RaySolveKey{1.6f, .65f, 46, 1}) && !(key == RaySolveKey{1.5f, .66f, 46, 1}) &&

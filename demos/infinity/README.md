@@ -69,7 +69,7 @@ A scene lasts 32 beats (eight bars). The cut fades through black at the bar boun
 
 For example, `--instrument-state 13` uses hyperbolic, curved, spectral glass in air. `--grin-curvature F` sets the ray-lab gradient in [0,1]; otherwise it breathes with the clock and bass.
 
-The adaptive GPU pixel ceiling defaults to 900,000 on Metal-backed OpenGL and 400,000 on other drivers, with a third of that for the costly spectral instrument. Use `--infinity-pixels N` to choose 10,000–4,000,000. Intermediate targets retain floating point precision and bloom mipmaps; the final image uses cubic reconstruction plus bounded, neighborhood-clamped detail recovery when it must upscale. The ray lab retains the original 512-step, checkpoint-then-fill RK4 integration and 182-row float state texture, including all seven spectral wavelengths.
+The adaptive GPU pixel ceiling defaults to 2,000,000 on Metal-backed OpenGL and 400,000 on other drivers, with a third of that for the costly spectral instrument. Metal can spend that budget on up to 1.5× linear supersampling; a nine-tap resolve preserves subpixel geometry on the display. Use `--infinity-pixels N` to choose 10,000–4,000,000. Intermediate targets retain floating point precision and bloom mipmaps; undersized targets use cubic reconstruction plus bounded, neighborhood-clamped detail recovery. The ray lab retains the original 512-step, checkpoint-then-fill RK4 integration and 182-row float state texture, including all seven spectral wavelengths.
 
 Moving glass uses two stochastic samples per frame. `--still` fixes automatic camera motion and accumulates up to 400 samples; dragging, resizing, or changing scenes clears accumulation to avoid ghosting. The full numerical ray integrator remains enabled. Resolution is capped rather than silently reducing bounce/step accuracy. Large budgets can be expensive, especially with horizon and printed layers enabled together.
 
@@ -91,7 +91,7 @@ The 1.1 renderer uses specialized optical kernels, cached immutable uniforms, ac
 
 ## Adaptive GPU budget (1.2)
 
-Normal playback now adjusts each scene's rendering resolution from completed GPU timer queries, targeting 16.67 ms of GPU work by default. It changes the pixel count, not the optical model, ray steps, bounce count or wavelength count. The platform ceiling is 900,000 pixels on Metal and 400,000 elsewhere (one third for glass); the lower bound is 25% of that scene's ceiling, or half its linear resolution. A scene's learned quality is retained separately from the other scenes.
+Normal playback now adjusts each scene's rendering resolution from completed GPU timer queries, targeting 16.67 ms of GPU work by default. It changes the pixel count, not the optical model, ray steps, bounce count or wavelength count. The platform ceiling is 2,000,000 pixels on Metal and 400,000 elsewhere (one third for glass); the lower bound is 25% of that scene's ceiling. A scene's learned quality is retained separately from the other scenes.
 
 Eight readings establish the timing estimate. A smoothed measurement, a dead band around the target, and a 30-frame cooldown prevent repeated resize chatter. Busy queries are never waited on. Without `--gpu-profile`, the feedback path stores only the latest reading and prints no timing statistics.
 
@@ -234,15 +234,15 @@ Scenes 16–23 and 25 port the supplied v0.3 Atlas archive and extend its concre
 ## Möbius universe and quantum lattice
 
 Scene 24 replaces the retired face effect with the supplied four-dimensional Möbius
-universe. A 256 × 64 procedural grid emits 98,304 triangle vertices for the double-loop
+universe. A 320 × 80 procedural grid emits 153,600 triangle vertices for the double-loop
 strip, including its fourth-coordinate height, analytic normals, animated micro-displacement
-and metallic Fresnel flow. A second procedural draw adds 40,960 singularity, horizon, star,
+and parameter-space woven metal/Fresnel detail. A second procedural draw adds 40,960 singularity, horizon, star,
 debris and surface-flow particles. The full scene uses GPU temporal persistence and bloom;
 an M1 Pro measured 4.639 ms average and 6.446 ms p95 at the 400,000-pixel budget.
 
 Scene 27 ports the supplied advanced quantum-fractal point equation as a volumetric field,
 then adds paired twist braids, eight alternating orbital nodes and a temperature-varied star
-shell. Metal-backed OpenGL uses four delayed instances for 409,600 vertex invocations each
+shell. Metal-backed OpenGL uses six delayed instances for 606,208 vertex invocations each
 frame. Bass changes volume, mid energy winds the braids, treble activates the star shell and
 beat attacks travel through the node pairs. An M1 Pro measured 4.913 ms average and 7.039 ms
 p95 at the same budget. Both scenes generate all geometry from `gl_VertexID`, with zero
@@ -257,8 +257,8 @@ An M1 Pro measured 5.663 ms average and 7.092 ms p95 at 400,000 pixels.
 
 Scene 29 moves the supplied hyperfractal's four-component probabilistic recurrence entirely
 onto the GPU. Each of 65,536 seeds executes 28 deterministic sine/product iterations per
-phase layer; Metal runs four layers plus a 16,384-point projected tesseract and star shell,
-for 282,624 vertex invocations with zero streaming geometry uploads. The fourth coordinate
+phase layer; Metal runs six layers plus a 16,384-point projected tesseract and star shell,
+for 413,696 vertex invocations with zero streaming geometry uploads. The fourth coordinate
 controls perspective and hue while music changes branch balance, rotation and emission. An
 M1 Pro measured 5.155 ms average and 7.271 ms p95 at the same pixel budget.
 
@@ -278,8 +278,8 @@ Scene 26 ports the supplied browser experiment's four phase-shifted parametric l
 spectral point colour, moon-like companion and falling marker, then adds six orbital light
 guides, a three-dimensional temperature-varied star shell and a spiral dust volume. The
 103,044-point base composition is synthesized from `gl_VertexID`; no position buffer is
-rebuilt or uploaded per frame. On Metal-backed OpenGL, four instanced phase echoes produce
-327,696 vertex invocations without a geometry shader; other drivers use two echoes by
+rebuilt or uploaded per frame. On Metal-backed OpenGL, six instanced phase echoes produce
+477,464 vertex invocations without a geometry shader; other drivers use two echoes by
 default.
 
 Analytic parametric derivatives give the central field a stable curved normal, including a

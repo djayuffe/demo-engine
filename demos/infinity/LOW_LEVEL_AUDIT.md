@@ -16,7 +16,7 @@ Scope: the Hold Infinity host, render targets, shader transformations, ray integ
 | Samplers | Fixed sampler units were resubmitted every frame | Assign once per optimized program; reference mode retains the comparison workload |
 | GPU timers | Two query polls per frame and state retained across reinitialization | One explicit frame poll; clear query/statistics state at init and end active queries at shutdown |
 | Regression tools | Ordinary smoke captures depended on live music/pointer state | Silent, centered-eye deterministic GPU checks plus an extended validation command |
-| Retina resolution | A fixed 400,000-pixel ceiling left Metal-backed output needlessly soft | Use a tested 900,000-pixel Metal ceiling with the existing per-scene adaptive fallback; retain 400,000 on other drivers |
+| Retina resolution | A fixed 400,000-pixel ceiling left Metal-backed output needlessly soft | Use a tested 2,000,000-pixel Metal ceiling, up to 1.5× linear supersampling and the existing per-scene adaptive fallback; retain 400,000 on other drivers |
 | Reconstruction | Cubic upscaling was stable but softened fine filaments | Add neighborhood-clamped local contrast recovery with no HDR overshoot or dark halos |
 | Cosmic shader math | View, half-vector and gravity directions assumed nonzero inputs | Use finite fallback directions for degenerate normalization paths |
 
@@ -33,7 +33,7 @@ Apple M1 Pro, OpenGL 4.1 Metal driver 91.7, 120 frames per run, first ten frames
 
 The monochrome result is a 22.1% reduction in measured GPU-query time on this Mac. These numbers include the entire timed drawing path, not only integration, and are not whole-application FPS. Spectral trials varied in both directions, so no spectral improvement is claimed. [Raw data and conditions](GPU_AUDIT_BENCHMARK.json).
 
-At the new 900,000-pixel Metal ceiling, a 90-frame deterministic run on the same M1 Pro measured the densest imported scenes at 1.354–5.244 ms mean and 1.606–6.297 ms p95. The black-hole ray field was the slowest of scenes 24 and 26–29 and remained comfortably below the 16.67 ms adaptive target. These measurements cover the full timed draw path and do not claim the same margin on other hardware.
+At the 2,000,000-pixel Metal ceiling, a 90-frame deterministic run on the same M1 Pro measured scenes 24 and 26–29 at 11.414–16.119 ms mean and 12.501–18.081 ms p95. The black-hole ray field was the slowest and automatically reduced its learned pixel fraction to 0.8 after crossing the 16.67 ms target; the other dense scenes retained supersampling. These measurements include the nine-tap resolve, six procedural depth layers, bloom and full timed draw path and do not claim the same margin on other hardware.
 
 ## Validation evidence
 
