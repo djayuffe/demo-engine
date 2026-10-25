@@ -41,7 +41,7 @@ Drag to orbit. Left/right select scenes; Space returns to the automatic show; Q 
 | 22 | Euclidean ornament |
 | 23 | Causal event volume and procedural glyphs |
 | 24 | Four-dimensional Möbius universe |
-| 25 | Three independent H³ viewpoints |
+| 25 | Archived three-view H³ study (skipped by automatic and keyboard playback) |
 | 26 | Spectral parametric point field, moon companion and bouncing marker |
 | 27 | Majorana quantum twist lattice |
 | 28 | Fractal black hole, photon ring and accretion disk |
@@ -80,7 +80,7 @@ ctest --test-dir build --output-on-failure
 python3 tools/smoke_infinity.py
 ```
 
-Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 30 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
+Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, the scene-25 playback skip, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 30 directly addressable scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the 29-scene automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
 
 [Source attribution, original archive hash and port boundaries](SOURCE.md).
 
@@ -229,7 +229,7 @@ Headless checks verify disk-circle orthogonality, three-polygon vertex angles, d
 
 ## DMT Atlas integration
 
-Scenes 16–23 and 25 port the supplied v0.3 Atlas archive and extend its concrete rendering roadmap. The figurative face-emergence scene was removed from live playback. See the [feature matrix, controls, geometry conventions, validation and research boundaries](../atlas/README.md). P pauses Atlas animation; `--atlas-reduced-motion`, `--atlas-exposure` and `--atlas-flash-gain` control the Atlas effects. Original source bytes and hashes are preserved separately from the production derivatives.
+Scenes 16–23 port the supplied v0.3 Atlas archive into live playback and extend its concrete rendering roadmap. Their objects now sit over a parallax star field, folded nebula veil and beat-propagated spectral wave. The figurative face-emergence scene and three-view scene are removed from live playback; scene 25 remains directly addressable for archival comparison. See the [feature matrix, controls, geometry conventions, validation and research boundaries](../atlas/README.md). P pauses Atlas animation; `--atlas-reduced-motion`, `--atlas-exposure` and `--atlas-flash-gain` control the Atlas effects. Original source bytes and hashes are preserved separately from the production derivatives.
 
 ## Möbius universe and quantum lattice
 

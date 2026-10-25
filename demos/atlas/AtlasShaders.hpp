@@ -17,6 +17,36 @@ const float PI = 3.14159265359;
 vec3 palette(float t) { return .5 + .5 * cos(6.2831853 * (t + vec3(0, .33, .67))); }
 mat2 rot(float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)); }
 float line(float d, float width, float aa) { return 1 - smoothstep(width, width + max(aa, .0001), abs(d)); }
+float hash21(vec2 p) {
+  vec3 q = fract(vec3(p.xyx) * .1031);
+  q += dot(q, q.yzx + 33.33);
+  return fract((q.x + q.y) * q.z);
+}
+vec3 starLayer(vec3 rd, float scale, float threshold) {
+  vec2 sphereUv = vec2(atan(rd.z, rd.x) / (2 * PI), asin(clamp(rd.y, -1, 1)) / PI);
+  vec2 cell = floor(sphereUv * scale), local = fract(sphereUv * scale) - .5;
+  vec2 center = vec2(hash21(cell + 19.7), hash21(cell + 47.1)) - .5;
+  center *= .62;
+  float seed = hash21(cell), radius = mix(.018, .052, hash21(cell + 83.2));
+  float star = (1 - smoothstep(radius, radius + .022, length(local - center))) * smoothstep(threshold, 1, seed);
+  float sparkle = .70 + .30 * sin(uTime * mix(1.2, 3.8, seed) + seed * 41);
+  vec3 temperature = mix(vec3(.25, .52, 1.25), vec3(1.30, .68, .30), hash21(cell + 121.9));
+  return temperature * star * sparkle;
+}
+vec3 atlasBackground(vec2 p, vec3 rd) {
+  vec3 direction = normalize(rd + uEye * .018);
+  vec3 stars = starLayer(direction, 260, .955) + starLayer(direction.yzx, 470, .980) * .72;
+  float longitude = atan(direction.z, direction.x), latitude = asin(clamp(direction.y, -1, 1));
+  float fold = sin(longitude * 3.0 + sin(latitude * 5.0 - uTime * .055) * 1.4);
+  float veil = exp(-pow(abs(latitude + .22 * fold), 2.0) * 19.0);
+  float filaments = .36 + .64 * pow(.5 + .5 * sin(longitude * 17.0 - latitude * 31.0 + uTime * .12), 6.0);
+  vec3 nebula = mix(vec3(.015, .055, .16), vec3(.16, .025, .24), .5 + .5 * fold) * veil * filaments;
+  float radius = length(p);
+  float beatWave = exp(-abs(radius - fract(uTime * .16) * 1.8) * 24.0) * uPulse;
+  vec3 wave = palette(.57 + radius * .08 + uTime * .006) * beatWave * .055;
+  float vignette = 1.0 - smoothstep(.72, 1.75, radius);
+  return (stars * (.24 + .26 * uBass) + nebula * (1.0 + .28 * uBreath) + wave) * (.34 + .66 * vignette);
+}
 float segment(vec3 ro, vec3 rd, vec3 a, vec3 b, out float depth) {
   vec3 v = b - a, w = ro - a;
   float vv = dot(v, v), dv = dot(rd, v), den = max(vv - dv * dv, 1e-8);
@@ -446,31 +476,31 @@ void main() {
   vec2 p = (vUv * 2 - 1) * vec2(uRes.x / uRes.y, 1);
   vec3 ro = uCam * (vec3(0, 0, 5) + uEye), rd = normalize(uCam * vec3(p, -2.1));
   vec3 rayDx = dFdx(rd), rayDy = dFdy(rd);
-  vec3 c = vec3(0);
+  vec3 c = atlasBackground(p, rd);
   if (uMode == 0)
-    c = section(ro, rd);
+    c += section(ro, rd);
   else if (uMode == 1)
-    c = hypercube(ro, rd);
+    c += hypercube(ro, rd);
   else if (uMode == 2 || uMode == 3 || uMode == 6)
-    c = reliefSurface(ro, rd, rayDx, rayDy);
+    c += reliefSurface(ro, rd, rayDx, rayDy);
   else if (uMode == 4)
-    c = h3(p, 0);
+    c += h3(p, 0);
   else if (uMode == 5) {
     float r = length(p), a = atan(p.y, p.x), aperture = .48 + .055 * sin(uTime * .7 + 7 * a);
     float f = smoothstep(aperture - .018, aperture + .018, r);
     vec3 outside = ornament(p, 2 / uRes.y);
-    c = f >= 1 ? outside : mix(h3(p, 0), outside, f);
+    c += f >= 1 ? outside : mix(h3(p, 0), outside, f);
     c += vec3(.05, .3, .5) * line(r - aperture, .003, 2 / uRes.y);
   } else if (uMode == 7)
-    c = events(ro, rd);
+    c += events(ro, rd);
   else if (uMode == 8)
-    c = emergence(ro, rd);
+    c += emergence(ro, rd);
   else {
     float pane = floor(vUv.x * 3);
     vec2 q = vec2((fract(vUv.x * 3) * 2 - 1) * uRes.x / uRes.y / 3, p.y);
-    c = h3(q, pane - 1);
+    vec3 panes = h3(q, pane - 1);
     float border = min(fract(vUv.x * 3), 1 - fract(vUv.x * 3));
-    c *= smoothstep(0, .015, border);
+    c += panes * smoothstep(0, .015, border);
   }
   outColor = vec4(max(c, vec3(0)) * uExposure, 1);
 }

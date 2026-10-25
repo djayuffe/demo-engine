@@ -9,7 +9,7 @@ make run
 
 [Controls, scene list, optical parameters and tests](demos/infinity/README.md) · [GPU optimization measurements](demos/infinity/GPU_PERFORMANCE.md) · [Source attribution](demos/infinity/SOURCE.md). `make run-wireframe` launches the previous demo.
 
-The integrated [DMT Atlas](demos/atlas/README.md) adds exact 4D sections, six-plane hypercubes, seeded radial and folded fields, an accelerated H³ sphere renderer, iris portals, event glyphs, face emergence and three simultaneous viewpoints.
+The integrated [DMT Atlas](demos/atlas/README.md) adds exact 4D sections, six-plane hypercubes, seeded radial and folded fields, an accelerated H³ sphere renderer, iris portals and event glyphs over a beat-reactive celestial background. The former three-view scene is skipped by playback.
 
 ![The first sixteen native optical scenes](docs/infinity-contact.jpg)
 
@@ -83,7 +83,7 @@ Any live Atlas scene can be selected directly:
 
 ```sh
 ./build/hold_infinity --infinity-scene 16  # first Atlas scene
-./build/hold_infinity --infinity-scene 25  # final Atlas scene
+./build/hold_infinity --infinity-scene 25  # archived three-view study (explicit launch only)
 ./build/hold_infinity --infinity-scene 26  # spectral parametric point field
 ./build/hold_infinity --infinity-scene 21 --atlas-reduced-motion
 ```

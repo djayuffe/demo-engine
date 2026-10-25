@@ -5,7 +5,20 @@
 
 namespace infinity_sync {
 inline constexpr int sceneCount = 30;
+inline constexpr int skippedScene = 25;
+inline constexpr int automaticSceneCount = sceneCount - 1;
 inline constexpr double beatsPerScene = 32.0;
+inline int automaticScene(int slot) {
+  slot %= automaticSceneCount;
+  if (slot < 0) slot += automaticSceneCount;
+  return slot >= skippedScene ? slot + 1 : slot;
+}
+inline int adjacentScene(int scene, int direction) {
+  do {
+    scene = (scene + (direction < 0 ? sceneCount - 1 : 1)) % sceneCount;
+  } while (scene == skippedScene);
+  return scene;
+}
 struct Cue {
   int scene = 0;
   float beat = 0, bass = 0, mid = 0, treble = 0, energy = 0, fade = 1;
@@ -16,7 +29,9 @@ inline Cue sample(double beat, float pulse, bool active, float bass, float mid, 
   beat = std::isfinite(beat) ? std::max(0.0, beat) : 0.0;
   auto unit = [](float x) { return std::isfinite(x) ? std::clamp(x, 0.f, 1.f) : 0.f; };
   Cue c;
-  c.scene = manual >= 0 ? manual % sceneCount : int(std::fmod(std::floor(beat / beatsPerScene), double(sceneCount)));
+  c.scene = manual >= 0 ? manual % sceneCount
+                        : automaticScene(int(std::fmod(std::floor(beat / beatsPerScene),
+                                                       double(automaticSceneCount))));
   // Phase-locked attack/decay follows the same continuous beat clock as packets.
   const float clockPulse = std::exp(-float(beat - std::floor(beat)) * 9.f);
   c.beat = clockPulse;

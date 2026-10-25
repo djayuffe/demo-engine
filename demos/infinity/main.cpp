@@ -1157,8 +1157,8 @@ public:
     if (!atlasPaused_)
       atlasEye_ = atlasReduced_ ? infinity_parallax::eye(f.sync.beat, pointerX_, pointerY_, true) : eye_;
     int current = infinity_sync::sample(f.sync.beat, 0, false, 0, 0, 0, manual_).scene;
-    if (in.pressed(de::Key::Right)) manual_ = (current + 1) % infinity_sync::sceneCount;
-    if (in.pressed(de::Key::Left)) manual_ = (current + infinity_sync::sceneCount - 1) % infinity_sync::sceneCount;
+    if (in.pressed(de::Key::Right)) manual_ = infinity_sync::adjacentScene(current, 1);
+    if (in.pressed(de::Key::Left)) manual_ = infinity_sync::adjacentScene(current, -1);
     if (in.pressed(de::Key::Space)) manual_ = -1;
     cue_ = infinity_sync::sample(f.sync.beat, f.sync.pulse, f.music.active, f.music.bass, f.music.mid, f.music.treble,
                                  manual_);

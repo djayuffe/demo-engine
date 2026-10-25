@@ -258,9 +258,16 @@ int main() {
   using namespace infinity_sync;
   require(sample(31.999, 0, false, 0, 0, 0).scene == 0, "scene changes before boundary");
   require(sample(32, 0, false, 0, 0, 0).scene == 1, "bar-boundary cut missing");
-  require(sample(beatsPerScene * sceneCount, 0, false, 0, 0, 0).scene == 0, "show does not wrap");
-  for (int scene = 12; scene < sceneCount; ++scene)
-    require(sample(double(scene) * beatsPerScene + 1, 0, false, 0, 0, 0).scene == scene, "new scene not directed");
+  require(sample(beatsPerScene * automaticSceneCount, 0, false, 0, 0, 0).scene == 0, "show does not wrap");
+  for (int slot = 12; slot < automaticSceneCount; ++slot) {
+    const int scene = sample(double(slot) * beatsPerScene + 1, 0, false, 0, 0, 0).scene;
+    require(scene == automaticScene(slot), "new scene not directed");
+    require(scene != skippedScene, "three-view scene returned to automatic playback");
+  }
+  require(adjacentScene(24, 1) == 26 && adjacentScene(26, -1) == 24,
+          "manual navigation does not skip the retired three-view scene");
+  require(sample(0, 0, false, 0, 0, 0, skippedScene).scene == skippedScene,
+          "explicit archival scene selection no longer works");
   const auto heptagon = infinity_worlds::heptagon();
   require(std::abs(heptagon[0] * heptagon[0] - heptagon[1] * heptagon[1] - 1) < 1e-5,
           "Poincare mirrors not orthogonal to boundary");

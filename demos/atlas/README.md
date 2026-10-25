@@ -1,6 +1,6 @@
 # DMT Atlas — native Demo Engine integration
 
-The user-supplied `dmt_atlas_v03_gap_closure.zip` is integrated into the live OpenGL 4.1 show. Its executable archive features remain available as CPU reference tools. Nine nonfigurative Atlas studies occupy scenes 16–23 and 25 of the 28-scene show; the former face-emergence slot at 24 was removed from live playback. These are procedural geometry studies, without claims about reproducing subjective perception.
+The user-supplied `dmt_atlas_v03_gap_closure.zip` is integrated into the live OpenGL 4.1 show. Its executable archive features remain available as CPU reference tools. Eight nonfigurative Atlas studies occupy scenes 16–23 in live playback. The former face-emergence slot at 24 and three-view scene at 25 are skipped; scene 25 remains available through explicit CLI selection for archival comparison. These are procedural geometry studies, without claims about reproducing subjective perception.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -28,7 +28,7 @@ Left/right select scenes; Space resumes the 32-beat automatic director. Drag to 
 | 22 | Source standalone Euclidean ornament mode |
 | 23 | Added authored event graph: 24 position/time nodes, four-unit durations, parent links, depth as a time axis and a 3–6-sided procedural glyph grammar |
 | 24 | Added face emergence: ellipsoid head, bilateral eye sockets, nose and mouth landmark fields, filigree and phrase-driven visibility |
-| 25 | Added three independent displaced H³ viewpoints, each with its own rays and occlusion |
+| 25 | Archived three independent displaced H³ viewpoints; skipped by automatic and keyboard playback |
 
 The palette, contrast, lighting and animation adapt the references to the existing music-directed show. CPU PPM output remains available for inspecting the original compositions.
 
@@ -44,7 +44,7 @@ The palette, contrast, lighting and animation adapt the references to the existi
 
 Sphere normals are tangent to the hyperboloid at the hit. Both the normal and viewing direction are transported to the hit point's local rest frame for lighting. This replaces the source renderer's approximate Poincaré-coordinate normal.
 
-All Atlas scenes render to RGBA16F. A separate two-target HDR history pass applies frame-time-dependent, neighborhood-clamped exponential filtering. It resets on scene changes, resize, orbit dragging, still mode and pause, and never samples uninitialized history. It is temporal smoothing, not motion-vector reprojection or an infinite-detail reconstruction. The existing final shoulder preserves saturated highlights below white. Source hierarchy seeds never depend on frame number or camera position.
+All Atlas scenes render to RGBA16F. Each scene now shares a procedural celestial background with two filtered star populations, temperature variation, parallax, a folded nebula veil and restrained beat-wave light. A separate two-target HDR history pass applies frame-time-dependent, neighborhood-clamped exponential filtering. It resets on scene changes, resize, orbit dragging, still mode and pause, and never samples uninitialized history. It is temporal smoothing, not motion-vector reprojection or an infinite-detail reconstruction. The existing final shoulder preserves saturated highlights below white. Source hierarchy seeds never depend on frame number or camera position.
 
 ## Reference tools
 
