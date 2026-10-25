@@ -19,6 +19,7 @@ Scope: the Hold Infinity host, render targets, shader transformations, ray integ
 | Retina resolution | A fixed 400,000-pixel ceiling left Metal-backed output needlessly soft | Use a tested 2,000,000-pixel Metal ceiling, up to 1.5× linear supersampling and the existing per-scene adaptive fallback; retain 400,000 on other drivers |
 | Reconstruction | Cubic upscaling was stable but softened fine filaments | Add neighborhood-clamped local contrast recovery with no HDR overshoot or dark halos |
 | Cosmic shader math | View, half-vector and gravity directions assumed nonzero inputs | Use finite fallback directions for degenerate normalization paths |
+| Camera direction | Each renderer used an unrelated oscillator, producing inconsistent pacing and framing | Share a bounded, periodic cinematic phrase across world sheets, rays, Atlas and cosmic scenes; test continuity and invalid input containment |
 
 The proposed per-point projection cache from an earlier pass remains discarded. Sequential RK4 is a different optimization: it reuses integration prefixes, not projected ribbon coordinates.
 

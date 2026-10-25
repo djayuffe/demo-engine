@@ -143,7 +143,7 @@ Three additive HDR ribbon layers separate the narrow hot core, coloured inner gl
 
 ## Translational parallax (1.7)
 
-All twelve scenes now translate the camera origin in addition to orbiting it. Moving the pointer shifts the eye along camera-local right/up axes, smoothly and independently of frame rate. A small 64-beat horizontal/depth dolly and vertical figure-eight make parallax visible during unattended playback. Near geometry shifts more than distant geometry through the actual perspective projection; no flat image displacement is applied.
+All 30 scenes now translate the camera origin in addition to orbiting it. Moving the pointer shifts the eye along camera-local right/up axes, smoothly and independently of frame rate. A small 64-beat horizontal/depth dolly and vertical figure-eight make parallax visible during unattended playback. Near geometry shifts more than distant geometry through the actual perspective projection; no flat image displacement is applied.
 
 Chamber and refractive scenes trace from the translated world-space origin. Dimensional lights subtract the same camera-local offset before perspective projection. Mouse drag still orbits. Leaving the window smoothly recenters the pointer contribution. `--still` disables pointer translation and automatic dolly to preserve accumulation. `--infinity-eye X Y` pins a normalized eye offset in [-1,1] and disables automatic dolly, useful for reproducible left/right comparisons; combine with `--still` for stationary glass accumulation.
 
@@ -236,13 +236,13 @@ Scenes 16–23 and 25 port the supplied v0.3 Atlas archive and extend its concre
 Scene 24 replaces the retired face effect with the supplied four-dimensional Möbius
 universe. A 320 × 80 procedural grid emits 153,600 triangle vertices for the double-loop
 strip, including its fourth-coordinate height, analytic normals, animated micro-displacement
-and parameter-space woven metal/Fresnel detail. A second procedural draw adds 40,960 singularity, horizon, star,
+and parameter-space woven metal/Fresnel detail. A second procedural draw adds 55,296 singularity, horizon, star,
 debris and surface-flow particles. The full scene uses GPU temporal persistence and bloom;
 an M1 Pro measured 4.639 ms average and 6.446 ms p95 at the 400,000-pixel budget.
 
 Scene 27 ports the supplied advanced quantum-fractal point equation as a volumetric field,
 then adds paired twist braids, eight alternating orbital nodes and a temperature-varied star
-shell. Metal-backed OpenGL uses six delayed instances for 606,208 vertex invocations each
+shell. Metal-backed OpenGL uses six delayed instances for 610,304 vertex invocations each
 frame. Bass changes volume, mid energy winds the braids, treble activates the star shell and
 beat attacks travel through the node pairs. An M1 Pro measured 4.913 ms average and 7.039 ms
 p95 at the same budget. Both scenes generate all geometry from `gl_VertexID`, with zero
@@ -258,7 +258,7 @@ An M1 Pro measured 5.663 ms average and 7.092 ms p95 at 400,000 pixels.
 Scene 29 moves the supplied hyperfractal's four-component probabilistic recurrence entirely
 onto the GPU. Each of 65,536 seeds executes 28 deterministic sine/product iterations per
 phase layer; Metal runs six layers plus a 16,384-point projected tesseract and star shell,
-for 413,696 vertex invocations with zero streaming geometry uploads. The fourth coordinate
+for 417,792 vertex invocations with zero streaming geometry uploads. The fourth coordinate
 controls perspective and hue while music changes branch balance, rotation and emission. An
 M1 Pro measured 5.155 ms average and 7.271 ms p95 at the same pixel budget.
 
@@ -300,6 +300,12 @@ validation work through the existing native host. A 360-frame, 400,000-pixel M1 
 an oblique orbit measured 5.856 ms average and 7.410 ms p95 GPU time for the denser field,
 material shading, temporal pass, bloom and final composition. [Port boundary and source
 hashes](../aviation/SOURCE.md).
+
+## Cinematic composition and flow (4.4)
+
+The 3D renderers now share a bounded 128-flow-unit camera phrase instead of maintaining unrelated sine motions. Integer harmonics keep position and velocity continuous at the phrase boundary; a golden-angle scene offset gives each composition a distinct starting view. Orbit, camera-local parallax and a restrained dolly move together, while manual pointer motion remains additive. Still mode freezes the entire phrase deterministically.
+
+The flow stays within tested yaw, pitch, eye-offset and distance limits and sanitizes non-finite clock/audio input. World sheets, dimensional ray ribbons, all Atlas scenes and the imported cosmic scenes use the same director. The HDR compositor adds a subtle elliptical focus falloff and luminance-dependent cool-shadow/warm-highlight separation while preserving exact black input. Möbius stars, debris and surface-flow particles increase to 55,296; the quantum and hyperfractal backgrounds each gain 4,096 additional depth objects. On the M1 Pro, representative 2-million-pixel scenes remained between 10.188 and 12.820 ms average in 90-frame runs.
 ## Shared beat and music controls
 
 All scenes use the engine’s shared beat pulse and exposure-flash envelopes. Use `--pulse-amount`, `--flash-amount`, `--beat-division`, `--beat-decay` and `--beat-offset`; E/F toggle pulse/flash. Music presets, folder playlists, shuffle, pause and volume are described in [Music and beats](../../docs/MUSIC_AND_BEATS.md). The default playlist now includes Silicon Dancer and Wireframe Pulse as well as the original two tracks. Atlas reduced-motion and pause modes suppress the new composition flash.

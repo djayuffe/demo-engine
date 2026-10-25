@@ -9,21 +9,21 @@ inline constexpr int mobiusV = 80;
 inline constexpr int mobiusSurfaceVertices = mobiusU * mobiusV * 6;
 inline constexpr int mobiusCorePoints = 8192;
 inline constexpr int mobiusHorizonPoints = 4096;
-inline constexpr int mobiusStarPoints = 8192;
-inline constexpr int mobiusDebrisPoints = 4096;
-inline constexpr int mobiusFlowPoints = 16384;
+inline constexpr int mobiusStarPoints = 12288;
+inline constexpr int mobiusDebrisPoints = 6144;
+inline constexpr int mobiusFlowPoints = 24576;
 inline constexpr int mobiusPointCount = mobiusCorePoints + mobiusHorizonPoints + mobiusStarPoints +
                                         mobiusDebrisPoints + mobiusFlowPoints;
 
 inline constexpr int quantumFieldPoints = 98304;
 inline constexpr int quantumBraidPoints = 8192;
 inline constexpr int quantumNodePoints = 4096;
-inline constexpr int quantumStarPoints = 4096;
+inline constexpr int quantumStarPoints = 8192;
 inline constexpr int quantumPointCount = quantumFieldPoints + quantumBraidPoints + quantumNodePoints +
                                          quantumStarPoints;
 inline constexpr int hyperFieldPoints = 65536;
 inline constexpr int hyperScaffoldPoints = 16384;
-inline constexpr int hyperStarPoints = 4096;
+inline constexpr int hyperStarPoints = 8192;
 inline constexpr int hyperPointCount = hyperFieldPoints + hyperScaffoldPoints + hyperStarPoints;
 
 inline constexpr const char* mobiusSurfaceVertex = R"COSMIC(#version 410 core
@@ -145,8 +145,8 @@ out float vDepth;
 const float PI = 3.141592653589793;
 const int CORE = 8192;
 const int HORIZON = 4096;
-const int STARS = 8192;
-const int DEBRIS = 4096;
+const int STARS = 12288;
+const int DEBRIS = 6144;
 uint hash(uint x) { x ^= x >> 16u; x *= 0x7feb352du; x ^= x >> 15u; x *= 0x846ca68bu; return x ^ (x >> 16u); }
 float random(uint x) { return float(hash(x)) * (1.0 / 4294967295.0); }
 vec3 safeNormalize(vec3 value, vec3 fallback) {

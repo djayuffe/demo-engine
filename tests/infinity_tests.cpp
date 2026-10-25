@@ -9,6 +9,7 @@
 #include "SequentialRays.hpp"
 #include "WorldSheets.hpp"
 #include "RenderCorrections.hpp"
+#include "Composition.hpp"
 #include "Optimize.hpp"
 #include "Shaders.hpp"
 #include "Dodecahedron.hpp"
@@ -20,6 +21,20 @@ void require(bool ok, const char* message) {
   if (!ok) throw std::runtime_error(message);
 }
 int main() {
+  for (int scene = 0; scene < infinity_sync::sceneCount; ++scene) {
+    const auto a = infinity_composition::shot(scene, 17.25, 1.2f, false);
+    const auto loop = infinity_composition::shot(scene, 145.25, 1.2f, false);
+    require(std::abs(a.yaw) <= .11f && std::abs(a.pitch) <= .06f && std::abs(a.eyeX) <= .07f &&
+                std::abs(a.eyeY) <= .05f && a.dolly >= .95f && a.dolly <= 1.05f,
+            "cinematic camera escaped its composition bounds");
+    require(std::abs(a.yaw - loop.yaw) < 1e-6f && std::abs(a.pitch - loop.pitch) < 1e-6f &&
+                std::abs(a.eyeX - loop.eyeX) < 1e-6f && std::abs(a.eyeY - loop.eyeY) < 1e-6f &&
+                std::abs(a.dolly - loop.dolly) < 1e-6f,
+            "cinematic camera phrase does not loop continuously");
+  }
+  const auto invalidShot = infinity_composition::shot(-9, NAN, INFINITY, false);
+  require(std::isfinite(invalidShot.yaw) && std::isfinite(invalidShot.pitch) && std::isfinite(invalidShot.dolly),
+          "invalid camera input escaped containment");
   {
     infinity_motion::Bands whole, split;
     const auto expected = whole.update(1, .5f, .25f, .3);

@@ -6,6 +6,7 @@
 #include "Dodecahedron.hpp"
 #include "Sync.hpp"
 #include "Optimize.hpp"
+#include "Composition.hpp"
 #include "DimensionalRays.hpp"
 #include "RenderCorrections.hpp"
 #include "Parallax.hpp"
@@ -203,6 +204,9 @@ class Infinity final : public de::Demo {
     three(p, "uRo", x + c.m[0] * eye_.x + c.m[3] * eye_.y + c.m[6] * eye_.z,
           y + c.m[1] * eye_.x + c.m[4] * eye_.y + c.m[7] * eye_.z,
           z + c.m[2] * eye_.x + c.m[5] * eye_.y + c.m[8] * eye_.z);
+  }
+  infinity_composition::Shot cinematicShot() const {
+    return infinity_composition::shot(cue_.scene, cue_.flow, cue_.energy, still_);
   }
   std::string error_;
   GLint loc(GLuint p, const char* n) {
@@ -512,9 +516,9 @@ class Infinity final : public de::Demo {
     one(rays_, "uBeat", float(std::fmod(std::max(0.0, frame_.beat.position), 16.0)));
     one(rays_, "uPulse", cue_.strike);
     one(rays_, "uBass", cue_.bass);
-    three(rays_, "uEye", eye_.x, eye_.y, eye_.z);
-    const auto rayCamera =
-        camera(yawOffset_ + (still_ ? 0.f : 0.18f * std::sin(float(cue_.flow) * 0.08f)), pitchOffset_ + 0.12f);
+    const auto shot = cinematicShot();
+    three(rays_, "uEye", eye_.x + shot.eyeX, eye_.y + shot.eyeY, eye_.z);
+    const auto rayCamera = camera(yawOffset_ + shot.yaw, pitchOffset_ + 0.12f + shot.pitch);
     glUniformMatrix3fv(loc(rays_, "uCam"), 1, GL_FALSE, rayCamera.m);
     float turns[12];
     for (int sheet = 0; sheet < 3; ++sheet) {
@@ -549,8 +553,9 @@ class Infinity final : public de::Demo {
     one(p, "uBass", atlasPaused_ || atlasReduced_ ? 0.f : cue_.bass * atlasFlash_);
     one(p, "uExposure", atlasExposure_);
     integer(p, "uUseBvh", reference_ ? 0 : 1);
-    three(p, "uEye", atlasEye_.x, atlasEye_.y, atlasEye_.z);
-    const auto cam = camera(yawOffset_, pitchOffset_);
+    const auto shot = cinematicShot();
+    three(p, "uEye", atlasEye_.x + shot.eyeX, atlasEye_.y + shot.eyeY, atlasEye_.z);
+    const auto cam = camera(yawOffset_ + shot.yaw, pitchOffset_ + shot.pitch);
     glUniformMatrix3fv(loc(p, "uCam"), 1, GL_FALSE, cam.m);
     if (reference_) integer(p, "uMode", mode);
     if (mode == 0) {
@@ -586,14 +591,14 @@ class Infinity final : public de::Demo {
     one(aviation_, "uBass", cue_.bass);
     one(aviation_, "uMid", cue_.mid);
     one(aviation_, "uTreble", cue_.treble);
-    const float phase = still_ ? 0.f : float(cue_.flow);
-    const auto cam = camera(yawOffset_ + .45f + .10f * std::sin(phase * .08f),
-                            pitchOffset_ + .10f + .06f * std::sin(phase * .05f));
+    const auto shot = cinematicShot();
+    const auto cam = camera(yawOffset_ + .45f + shot.yaw, pitchOffset_ + .10f + shot.pitch);
     glUniformMatrix3fv(loc(aviation_, "uCam"), 1, GL_FALSE, cam.m);
-    const float distance = 4.5f;
-    three(aviation_, "uEye", cam.back[0] * distance + cam.m[0] * eye_.x + cam.m[3] * eye_.y,
-          cam.back[1] * distance + cam.m[1] * eye_.x + cam.m[4] * eye_.y,
-          cam.back[2] * distance + cam.m[2] * eye_.x + cam.m[5] * eye_.y);
+    const float distance = 4.5f * shot.dolly;
+    const float eyeX = eye_.x + shot.eyeX, eyeY = eye_.y + shot.eyeY;
+    three(aviation_, "uEye", cam.back[0] * distance + cam.m[0] * eyeX + cam.m[3] * eyeY,
+          cam.back[1] * distance + cam.m[1] * eyeX + cam.m[4] * eyeY,
+          cam.back[2] * distance + cam.m[2] * eyeX + cam.m[5] * eyeY);
     glEnable(GL_PROGRAM_POINT_SIZE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
@@ -604,7 +609,8 @@ class Infinity final : public de::Demo {
     glDisable(GL_BLEND);
     glDisable(GL_PROGRAM_POINT_SIZE);
   }
-  void cosmicUniforms(GLuint program, int w, int h, const Camera& cam, float distance) {
+  void cosmicUniforms(GLuint program, int w, int h, const Camera& cam, float distance,
+                      const infinity_composition::Shot& shot) {
     glUseProgram(program);
     two(program, "uRes", float(w), float(h));
     one(program, "uTime", still_ ? 0.f : float(cue_.flow));
@@ -613,23 +619,24 @@ class Infinity final : public de::Demo {
     one(program, "uMid", cue_.mid);
     one(program, "uTreble", cue_.treble);
     glUniformMatrix3fv(loc(program, "uCam"), 1, GL_FALSE, cam.m);
-    three(program, "uEye", cam.back[0] * distance + cam.m[0] * eye_.x + cam.m[3] * eye_.y,
-          cam.back[1] * distance + cam.m[1] * eye_.x + cam.m[4] * eye_.y,
-          cam.back[2] * distance + cam.m[2] * eye_.x + cam.m[5] * eye_.y);
+    distance *= shot.dolly;
+    const float eyeX = eye_.x + shot.eyeX, eyeY = eye_.y + shot.eyeY;
+    three(program, "uEye", cam.back[0] * distance + cam.m[0] * eyeX + cam.m[3] * eyeY,
+          cam.back[1] * distance + cam.m[1] * eyeX + cam.m[4] * eyeY,
+          cam.back[2] * distance + cam.m[2] * eyeX + cam.m[5] * eyeY);
   }
   void mobius(int w, int h) {
     output_.bind();
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
-    const float phase = still_ ? 0.f : float(cue_.flow);
-    const auto cam = camera(yawOffset_ + .30f + .08f * std::sin(phase * .06f),
-                            pitchOffset_ + .12f + .055f * std::sin(phase * .043f));
+    const auto shot = cinematicShot();
+    const auto cam = camera(yawOffset_ + .30f + shot.yaw, pitchOffset_ + .12f + shot.pitch);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
-    cosmicUniforms(mobiusSurface_, w, h, cam, 4.6f);
+    cosmicUniforms(mobiusSurface_, w, h, cam, 4.6f, shot);
     glDrawArrays(GL_TRIANGLES, 0, cosmic_gpu::mobiusSurfaceVertices);
     glEnable(GL_PROGRAM_POINT_SIZE);
-    cosmicUniforms(mobiusPoints_, w, h, cam, 4.6f);
+    cosmicUniforms(mobiusPoints_, w, h, cam, 4.6f, shot);
     glDrawArrays(GL_POINTS, 0, cosmic_gpu::mobiusPointCount);
     glDisable(GL_PROGRAM_POINT_SIZE);
     glDisable(GL_BLEND);
@@ -638,10 +645,9 @@ class Infinity final : public de::Demo {
     output_.bind();
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
-    const float phase = still_ ? 0.f : float(cue_.flow);
-    const auto cam = camera(yawOffset_ + .58f + .075f * std::sin(phase * .07f),
-                            pitchOffset_ + .15f + .05f * std::sin(phase * .037f));
-    cosmicUniforms(quantum_, w, h, cam, 4.8f);
+    const auto shot = cinematicShot();
+    const auto cam = camera(yawOffset_ + .58f + shot.yaw, pitchOffset_ + .15f + shot.pitch);
+    cosmicUniforms(quantum_, w, h, cam, 4.8f, shot);
     glEnable(GL_PROGRAM_POINT_SIZE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
@@ -655,20 +661,18 @@ class Infinity final : public de::Demo {
     output_.bind();
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
-    const float phase = still_ ? 0.f : float(cue_.flow);
-    const auto cam = camera(yawOffset_ + .06f * std::sin(phase * .025f),
-                            pitchOffset_ + .025f * std::sin(phase * .033f));
-    cosmicUniforms(blackHole_, w, h, cam, 0.f);
+    const auto shot = cinematicShot();
+    const auto cam = camera(yawOffset_ + shot.yaw, pitchOffset_ + shot.pitch);
+    cosmicUniforms(blackHole_, w, h, cam, 0.f, shot);
     quad();
   }
   void hyperfractal(int w, int h) {
     output_.bind();
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
-    const float phase = still_ ? 0.f : float(cue_.flow);
-    const auto cam = camera(yawOffset_ + .46f + .07f * std::sin(phase * .055f),
-                            pitchOffset_ + .16f + .05f * std::sin(phase * .041f));
-    cosmicUniforms(hyper_, w, h, cam, 4.8f);
+    const auto shot = cinematicShot();
+    const auto cam = camera(yawOffset_ + .46f + shot.yaw, pitchOffset_ + .16f + shot.pitch);
+    cosmicUniforms(hyper_, w, h, cam, 4.8f, shot);
     glEnable(GL_PROGRAM_POINT_SIZE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE);
@@ -719,12 +723,13 @@ class Infinity final : public de::Demo {
     one(p, "uBeat", float(std::fmod(std::max(0.0, frame_.beat.position), 256.0)));
     one(p, "uPulse", cue_.strike);
     one(p, "uBass", cue_.bass);
-    three(p, "uEye", eye_.x, eye_.y, eye_.z);
     const float phase = still_ ? 0.f : float(cue_.flow);
     const float baseYaw = mode == 3 ? .6f : (mode == 2 ? .25f : 0.f);
     const float basePitch = mode == 3 ? .3f : .13f;
-    const auto cam = camera(yawOffset_ + baseYaw + .25f * std::sin(phase * .1f),
-                            pitchOffset_ + basePitch + .12f * std::sin(phase * .07f));
+    const auto shot = cinematicShot();
+    three(p, "uEye", eye_.x + shot.eyeX, eye_.y + shot.eyeY, eye_.z);
+    const auto cam = camera(yawOffset_ + baseYaw + .16f * std::sin(phase * .1f) + shot.yaw,
+                            pitchOffset_ + basePitch + .07f * std::sin(phase * .07f) + shot.pitch);
     glUniformMatrix3fv(loc(p, "uCam"), 1, GL_FALSE, cam.m);
     if (reference_) integer(p, "uMode", mode);
     quad();
@@ -1196,7 +1201,9 @@ public:
     timer_.begin(cue_.scene, f.frame);
     ++submitFrames_;
     float motion = still_ ? 0.f : float(cue_.flow);
-    Camera cam = camera(.6f + motion * .09f + yawOffset_, .22f + .1f * std::sin(motion * .07f) + pitchOffset_);
+    const auto shot = cinematicShot();
+    Camera cam = camera(.6f + .18f * std::sin(motion * .055f) + shot.yaw + yawOffset_,
+                        .22f + .07f * std::sin(motion * .07f) + shot.pitch + pitchOffset_);
     if (cue_.scene < 4)
       chamber(cue_.scene, w, h, cam);
     else if (cue_.scene < 10)

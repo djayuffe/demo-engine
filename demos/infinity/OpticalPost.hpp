@@ -103,6 +103,16 @@ void main() {
     c += diffraction * uGlow * (.018 + .032 * uDrive.y);
   }
   c *= 1.0 + .18 * uDrive.x + .45 * uDrive.y;
+  // Compose around the central subject while retaining enough corner energy
+  // for star fields and wide geometry. Highlight split-toning separates hot
+  // material cores from cool depth without lifting a black source pixel.
+  vec2 frame = (vUv * 2.0 - 1.0) * vec2(.84, 1.0);
+  float edge = smoothstep(.34, 1.34, dot(frame, frame));
+  c *= 1.0 - edge * (.12 + .05 * (1.0 - uFade));
+  float luminance = dot(c, vec3(.2126, .7152, .0722));
+  vec3 splitTone = c * mix(vec3(.965, .995, 1.045), vec3(1.045, .995, .955),
+                           smoothstep(.035, .72, luminance));
+  c = mix(c, splitTone, .16);
   c = pow(max(c - vec3(.008), vec3(0)), vec3(1.18));
   float peak = max(c.r, max(c.g, c.b));
   float mapped = peak <= .58 ? peak : .58 + .40 * (1 - exp(-(peak - .58) / .40));
