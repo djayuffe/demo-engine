@@ -92,7 +92,7 @@ Press **Left/Right** to change scenes, **P** to pause Atlas motion and **Q** or
 **Escape** to quit. Full Atlas controls and the scene matrix are in
 [`demos/atlas/README.md`](demos/atlas/README.md).
 
-GPU geometry: [adaptive tessellation, 23 offloaded effects, instanced copies, HDR and validation](docs/GPU_RENDERING.md).
+GPU geometry: [adaptive tessellation, 30 native scenes, instanced copies, HDR and validation](docs/GPU_RENDERING.md).
 On Metal-backed OpenGL, the engine automatically bypasses geometry-shader expansion
 for compatible wires; use `--gpu-info` to inspect the selected path and live limits.
 

@@ -100,11 +100,15 @@ in float vFlow;
 in float vDepth;
 out vec4 outColor;
 uniform float uPulse, uBass, uTreble;
+vec3 safeNormalize(vec3 value, vec3 fallback) {
+  float magnitudeSquared = dot(value, value);
+  return magnitudeSquared > 1e-12 ? value * inversesqrt(magnitudeSquared) : fallback;
+}
 void main() {
-  vec3 n = normalize(vNormal);
-  vec3 v = normalize(vView);
-  vec3 l = normalize(vec3(-0.42, 0.74, 0.52));
-  vec3 h = normalize(l + v);
+  vec3 n = safeNormalize(vNormal, vec3(0.0, 0.0, 1.0));
+  vec3 v = safeNormalize(vView, vec3(0.0, 0.0, 1.0));
+  vec3 l = safeNormalize(vec3(-0.42, 0.74, 0.52), vec3(0.0, 1.0, 0.0));
+  vec3 h = safeNormalize(l + v, l);
   float ndl = max(0.0, dot(n, l));
   float ndh = max(0.0, dot(n, h));
   float nv = abs(dot(n, v));
@@ -137,6 +141,10 @@ const int STARS = 8192;
 const int DEBRIS = 4096;
 uint hash(uint x) { x ^= x >> 16u; x *= 0x7feb352du; x ^= x >> 15u; x *= 0x846ca68bu; return x ^ (x >> 16u); }
 float random(uint x) { return float(hash(x)) * (1.0 / 4294967295.0); }
+vec3 safeNormalize(vec3 value, vec3 fallback) {
+  float magnitudeSquared = dot(value, value);
+  return magnitudeSquared > 1e-12 ? value * inversesqrt(magnitudeSquared) : fallback;
+}
 vec3 sphere(int index, int count) {
   float q = (float(index) + 0.5) / float(count), z = 1.0 - 2.0 * q;
   float a = float(index) * 2.399963229728653, r = sqrt(max(0.0, 1.0 - z * z));
@@ -155,7 +163,7 @@ void main() {
   if (id < CORE) {
     vec3 n = sphere(id, CORE);
     p = n * (0.31 + 0.035 * uBass);
-    float rim = pow(1.0 - abs(dot(n, normalize(uEye - p))), 2.0);
+    float rim = pow(1.0 - abs(dot(n, safeNormalize(uEye - p, vec3(0.0, 0.0, 1.0)))), 2.0);
     vColor = vec3(0.025, 0.055, 0.12) + vec3(0.20, 0.82, 1.65) * rim + vec3(1.4, 0.16, 0.30) * uPulse;
     vKind = 0.0; size = 3.1 + 1.1 * uPulse;
   } else if (id < CORE + HORIZON) {
@@ -321,6 +329,10 @@ uniform vec2 uRes;
 uniform float uTime, uPulse, uBass, uMid, uTreble;
 
 const float PI = 3.141592653589793;
+vec3 safeNormalize(vec3 value, vec3 fallback) {
+  float magnitudeSquared = dot(value, value);
+  return magnitudeSquared > 1e-12 ? value * inversesqrt(magnitudeSquared) : fallback;
+}
 float hash12(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
@@ -355,7 +367,7 @@ void main() {
   vec2 p = vUv * 2.0 - 1.0;
   p.x *= uRes.x / max(uRes.y, 1.0);
   vec3 ro = uCam * (vec3(0.0, 0.0, 5.2) + uEye * 0.18);
-  vec3 rd = normalize(uCam * vec3(p * 0.72, -1.5));
+  vec3 rd = safeNormalize(uCam * vec3(p * 0.72, -1.5), vec3(0.0, 0.0, -1.0));
   vec3 pos = ro;
   vec3 dir = rd;
   vec3 color = vec3(0.0);
@@ -375,7 +387,7 @@ void main() {
       break;
     }
     float gravity = (0.012 + 0.004 * uBass) / max(radius * radius * radius, 0.18);
-    dir = normalize(dir - pos * gravity);
+    dir = safeNormalize(dir - pos * gravity, dir);
     float stepSize = clamp((radius - 0.68) * 0.075, 0.012, 0.105);
     vec3 nextPos = pos + dir * stepSize;
     float nextPlane = dot(nextPos, diskNormal);

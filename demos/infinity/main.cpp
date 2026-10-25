@@ -151,7 +151,7 @@ class Infinity final : public de::Demo {
   std::array<GLuint, 128> specialized_{};
   std::unordered_map<GLuint, std::unordered_map<std::string, GLint>> uniforms_;
   InfinityGpuTimer timer_;
-  bool profile_ = false, reference_ = false, adaptive_ = true, opticalBloom_ = true;
+  bool profile_ = false, reference_ = false, adaptive_ = true, opticalBloom_ = true, pixelsExplicit_ = false;
   GLuint bloomExtract_ = 0;
   infinity_motion::Bands bandMotion_;
   infinity_motion::Clock atlasMotion_;
@@ -878,6 +878,7 @@ public:
         manual_ = n;
       else {
         pixels_ = n;
+        pixelsExplicit_ = true;
         adaptive_ = false;
       }
       return true;
@@ -891,7 +892,7 @@ public:
            "  --atlas-paused     Freeze Atlas animation; P toggles pause\n"
            "  --atlas-exposure F Atlas exposure cap 0..2 (default 1)\n"
            "  --atlas-flash-gain F Atlas beat light gain 0..1 (default 1)\n"
-           "  --infinity-pixels N GPU budget (10000..4000000; default 400000)\n"
+           "  --infinity-pixels N GPU budget (10000..4000000; default 900000 Metal, 400000 other)\n"
            "  --infinity-orbit Y P Fixed initial yaw/pitch in radians (yaw +/-pi, pitch +/-1.2)\n"
            "  --infinity-eye X Y  Fixed camera offset (-1..1); disables automatic dolly\n"
            "  --still             Fixed camera; accumulate up to 400 samples\n"
@@ -961,9 +962,11 @@ public:
     blackHole_ = program(FULLSCREEN_VS, cosmic_gpu::blackHoleFragment);
     hyper_ = glutil::linkProgram(cosmic_gpu::hyperVertex, cosmic_gpu::pointFragment, error_);
     const char* glVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));
-    aviationLayers_ = glVersion && std::string(glVersion).find("Metal") != std::string::npos ? 4 : 2;
-    quantumLayers_ = glVersion && std::string(glVersion).find("Metal") != std::string::npos ? 4 : 2;
-    hyperLayers_ = glVersion && std::string(glVersion).find("Metal") != std::string::npos ? 4 : 2;
+    const bool metalBacked = glVersion && std::string(glVersion).find("Metal") != std::string::npos;
+    aviationLayers_ = metalBacked ? 4 : 2;
+    quantumLayers_ = metalBacked ? 4 : 2;
+    hyperLayers_ = metalBacked ? 4 : 2;
+    if (!pixelsExplicit_) pixels_ = infinity_opt::defaultPixelCeiling(metalBacked);
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
@@ -1182,8 +1185,8 @@ public:
                     targetMs_);
       budget = std::max(1, int(float(budget) * q.fraction()));
     }
-    double scale = std::min(1.0, std::sqrt(double(budget) / (double(f.width) * f.height)));
-    int w = std::max(1, int(f.width * scale)), h = std::max(1, int(f.height * scale));
+    const auto renderSize = infinity_opt::fitPixelBudget(f.width, f.height, budget);
+    int w = renderSize.width, h = renderSize.height;
     bool resized = image_.w != w || image_.h != h;
     if ((cue_.scene < 10 && !image_.resize(w, h, GL_RGBA16F, true, error)) ||
         !output_.resize(w, h, GL_RGBA16F, false, error))

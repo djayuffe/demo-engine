@@ -50,8 +50,26 @@ vec3 reconstruct(vec2 uv){
        + texture(uImg,vec2(h1.x,h1.y)).rgb*g1.x*g1.y;
 }
 
+// Recover bounded local contrast after reconstruction. Clamping to the source
+// cross prevents overshoot and dark/bright halos around thin HDR filaments.
+vec3 restoreDetail(vec2 uv, vec3 center) {
+  vec2 texel = 1.0 / vec2(textureSize(uImg, 0));
+  vec3 left = texture(uImg, uv - vec2(texel.x, 0.0)).rgb;
+  vec3 right = texture(uImg, uv + vec2(texel.x, 0.0)).rgb;
+  vec3 down = texture(uImg, uv - vec2(0.0, texel.y)).rgb;
+  vec3 up = texture(uImg, uv + vec2(0.0, texel.y)).rgb;
+  vec3 localMin = min(center, min(min(left, right), min(down, up)));
+  vec3 localMax = max(center, max(max(left, right), max(down, up)));
+  vec3 average = (left + right + down + up) * 0.25;
+  float range = max(localMax.r, max(localMax.g, localMax.b)) -
+                min(localMin.r, min(localMin.g, localMin.b));
+  float amount = 0.24 * smoothstep(0.003, 0.08, range);
+  return clamp(center + (center - average) * amount, localMin, localMax);
+}
+
 void main() {
   vec3 c = uUpscale > .5 ? reconstruct(vUv) : texture(uImg, vUv).rgb;
+  if (uUpscale > .5) c = restoreDetail(vUv, c);
   if (any(isnan(c)) || any(isinf(c))) c = vec3(0);
   c = clamp(c, vec3(0), vec3(60000));
   if (uGlow > 0) {

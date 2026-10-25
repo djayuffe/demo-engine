@@ -5,6 +5,28 @@
 #include <string>
 
 namespace infinity_opt {
+struct RenderSize {
+  int width = 1, height = 1;
+  bool operator==(const RenderSize&) const = default;
+};
+
+// Preserve the framebuffer aspect ratio while keeping intermediate storage
+// inside a strict pixel ceiling. Invalid window sizes still produce a usable
+// 1x1 target during minimize/restore transitions.
+inline RenderSize fitPixelBudget(int width, int height, int budget) {
+  width = std::max(1, width);
+  height = std::max(1, height);
+  budget = std::max(1, budget);
+  const double pixels = double(width) * double(height);
+  const double scale = std::min(1.0, std::sqrt(double(budget) / pixels));
+  return {std::max(1, int(std::floor(double(width) * scale))),
+          std::max(1, int(std::floor(double(height) * scale)))};
+}
+
+// Apple's GL 4.1 implementation is Metal-backed and has ample headroom for a
+// sharper Retina intermediate. Other drivers retain the established ceiling.
+inline int defaultPixelCeiling(bool metalBacked) { return metalBacked ? 900000 : 400000; }
+
 inline void replace(std::string& source, const std::string& from, const std::string& to) {
   auto at = source.find(from);
   if (at == std::string::npos) throw std::runtime_error("Infinity shader contract missing: " + from);

@@ -40,9 +40,12 @@ Drag to orbit. Left/right select scenes; Space returns to the automatic show; Q 
 | 21 | Euclidean/H³ iris portal |
 | 22 | Euclidean ornament |
 | 23 | Causal event volume and procedural glyphs |
-| 24 | Filigree face emergence |
+| 24 | Four-dimensional Möbius universe |
 | 25 | Three independent H³ viewpoints |
 | 26 | Spectral parametric point field, moon companion and bouncing marker |
+| 27 | Majorana quantum twist lattice |
+| 28 | Fractal black hole, photon ring and accretion disk |
+| 29 | Quantum hyperfractal and projected 4D scaffold |
 
 ## Music direction
 
@@ -66,7 +69,7 @@ A scene lasts 32 beats (eight bars). The cut fades through black at the bar boun
 
 For example, `--instrument-state 13` uses hyperbolic, curved, spectral glass in air. `--grin-curvature F` sets the ray-lab gradient in [0,1]; otherwise it breathes with the clock and bass.
 
-The GPU pixel budget defaults to 400,000, with a third of that for the costly spectral instrument. Use `--infinity-pixels N` to choose 10,000–4,000,000. Intermediate targets retain floating point precision and bloom mipmaps; the final image upscales with linear filtering. The ray lab retains the original 512-step, checkpoint-then-fill RK4 integration and 182-row float state texture, including all seven spectral wavelengths.
+The adaptive GPU pixel ceiling defaults to 900,000 on Metal-backed OpenGL and 400,000 on other drivers, with a third of that for the costly spectral instrument. Use `--infinity-pixels N` to choose 10,000–4,000,000. Intermediate targets retain floating point precision and bloom mipmaps; the final image uses cubic reconstruction plus bounded, neighborhood-clamped detail recovery when it must upscale. The ray lab retains the original 512-step, checkpoint-then-fill RK4 integration and 182-row float state texture, including all seven spectral wavelengths.
 
 Moving glass uses two stochastic samples per frame. `--still` fixes automatic camera motion and accumulates up to 400 samples; dragging, resizing, or changing scenes clears accumulation to avoid ghosting. The full numerical ray integrator remains enabled. Resolution is capped rather than silently reducing bounce/step accuracy. Large budgets can be expensive, especially with horizon and printed layers enabled together.
 
@@ -88,7 +91,7 @@ The 1.1 renderer uses specialized optical kernels, cached immutable uniforms, ac
 
 ## Adaptive GPU budget (1.2)
 
-Normal playback now adjusts each scene's rendering resolution from completed GPU timer queries, targeting 16.67 ms of GPU work by default. It changes the pixel count, not the optical model, ray steps, bounce count or wavelength count. The ceiling remains 400,000 pixels (one third for glass); the lower bound is 25% of that scene's ceiling, or half its linear resolution. A scene's learned quality is retained separately from the other scenes.
+Normal playback now adjusts each scene's rendering resolution from completed GPU timer queries, targeting 16.67 ms of GPU work by default. It changes the pixel count, not the optical model, ray steps, bounce count or wavelength count. The platform ceiling is 900,000 pixels on Metal and 400,000 elsewhere (one third for glass); the lower bound is 25% of that scene's ceiling, or half its linear resolution. A scene's learned quality is retained separately from the other scenes.
 
 Eight readings establish the timing estimate. A smoothed measurement, a dead band around the target, and a 30-frame cooldown prevent repeated resize chatter. Busy queries are never waited on. Without `--gpu-profile`, the feedback path stores only the latest reading and prints no timing statistics.
 
@@ -100,7 +103,7 @@ Eight readings establish the timing estimate. A smoothed measurement, a dead ban
 
 `--infinity-fps N` accepts 24–144 and sets a GPU-time target, not a hard frame-rate cap or guarantee. Explicit `--infinity-pixels N` pins the budget, making existing captures and benchmarks reproducible; put `--infinity-adaptive` after it to use that value as an adaptive ceiling. Reference mode and `--still` always bypass adaptation. Stationary accumulation therefore still reaches 400 samples without being reset by quality changes.
 
-On the development M1 Pro, a 160-frame printed-layer run reduced its pixel fraction to 0.8 and then 0.64, reporting a 17.44 ms mean GPU time across the run. This includes the higher-cost settling frames and is not an A/B speedup claim. Tests cover budget limits, recovery with headroom, stale/invalid query rejection and near-target stability. Actual GPU checks verify pinned budgets, stationary convergence, quiet ordinary playback and all 12 scenes.
+On the development M1 Pro, a 160-frame printed-layer run reduced its pixel fraction to 0.8 and then 0.64, reporting a 17.44 ms mean GPU time across the run. This includes the higher-cost settling frames and is not an A/B speedup claim. Tests cover budget limits, recovery with headroom, stale/invalid query rejection and near-target stability. Actual GPU checks verify pinned budgets, stationary convergence, quiet ordinary playback and all 30 scenes.
 
 
 ## Contrast and glare
