@@ -368,17 +368,33 @@ float fbm(vec3 p) {
   }
   return sum;
 }
-vec3 stars(vec3 rd) {
-  vec2 cell = floor(vec2(atan(rd.z, rd.x) * 190.0, asin(clamp(rd.y, -1.0, 1.0)) * 260.0));
+vec3 starLayer(vec2 spherical, float scale, float threshold) {
+  vec2 grid = spherical * scale;
+  vec2 cell = floor(grid);
+  vec2 local = fract(grid) - 0.5;
   float seed = hash12(cell);
-  float star = pow(max(0.0, (seed - 0.986) / 0.014), 9.0);
-  vec3 temperature = mix(vec3(0.22, 0.46, 1.1), vec3(1.2, 0.68, 0.30), hash12(cell + 17.0));
-  return temperature * star * (0.5 + 0.8 * uTreble);
+  vec2 center = vec2(hash12(cell + 17.0), hash12(cell + 43.0)) - 0.5;
+  center *= 0.56;
+  float distanceToStar = length(local - center);
+  float radius = mix(0.018, 0.052, hash12(cell + 71.0));
+  float coverage = 1.0 - smoothstep(radius, radius + 0.018, distanceToStar);
+  float occupancy = smoothstep(threshold, 1.0, seed);
+  float core = coverage * occupancy * mix(0.35, 1.35, hash12(cell + 91.0));
+  vec3 temperature = mix(vec3(0.22, 0.46, 1.1), vec3(1.2, 0.68, 0.30), hash12(cell + 113.0));
+  return temperature * core;
+}
+vec3 stars(vec3 rd) {
+  vec2 spherical = vec2(atan(rd.z, rd.x) / (2.0 * PI), asin(clamp(rd.y, -1.0, 1.0)) / PI);
+  vec3 field = starLayer(spherical, 310.0, 0.945);
+  field += starLayer(spherical + vec2(0.173, 0.319), 570.0, 0.978) * 0.72;
+  return field * (0.42 + 0.82 * uTreble);
 }
 void main() {
   vec2 p = vUv * 2.0 - 1.0;
   p.x *= uRes.x / max(uRes.y, 1.0);
-  vec3 ro = uCam * (vec3(0.0, 0.0, 5.2) + uEye * 0.18);
+  // uEye is already a world-space camera translation. Applying uCam to it a
+  // second time rotated parallax incorrectly as the view orbited.
+  vec3 ro = uCam * vec3(0.0, 0.0, 5.2) + uEye * 0.72;
   vec3 rd = safeNormalize(uCam * vec3(p * 0.72, -1.5), vec3(0.0, 0.0, -1.0));
   vec3 pos = ro;
   vec3 dir = rd;
@@ -390,7 +406,7 @@ void main() {
   vec3 diskZ = cross(diskNormal, diskX);
   float previousPlane = dot(pos, diskNormal);
   bool swallowed = false;
-  for (int stepIndex = 0; stepIndex < 92; ++stepIndex) {
+  for (int stepIndex = 0; stepIndex < 96; ++stepIndex) {
     float radius = max(length(pos), 0.001);
     closest = min(closest, radius);
     if (radius < 0.72) {
@@ -398,13 +414,34 @@ void main() {
       transmission = 0.0;
       break;
     }
-    float gravity = (0.012 + 0.004 * uBass) / max(radius * radius * radius, 0.18);
-    dir = safeNormalize(dir - pos * gravity, dir);
     float stepSize = clamp((radius - 0.68) * 0.075, 0.012, 0.105);
+    // Integrate curvature per travelled distance so adaptive spatial steps do
+    // not silently change gravity. The coefficient preserves the former
+    // far-field deflection while damping numerical overshoot near the horizon.
+    float gravity = (0.15 + 0.05 * uBass) * stepSize / max(radius * radius * radius, 0.18);
+    dir = safeNormalize(dir - pos * gravity, dir);
     vec3 nextPos = pos + dir * stepSize;
     float nextPlane = dot(nextPos, diskNormal);
+    vec3 projectedDisk = nextPos - diskNormal * nextPlane;
+    float projectedRadius = length(projectedDisk);
+    if (projectedRadius > 1.02 && projectedRadius < 4.35 && abs(nextPlane) < 0.22) {
+      float volumeAngle = atan(dot(projectedDisk, diskZ), dot(projectedDisk, diskX));
+      float radialDensity = smoothstep(1.02, 1.28, projectedRadius) *
+                            (1.0 - smoothstep(3.45, 4.35, projectedRadius));
+      float verticalDensity = exp(-pow(abs(nextPlane) / mix(0.055, 0.16, projectedRadius / 4.35), 2.0));
+      float filaments = 0.42 + 0.58 * pow(0.5 + 0.5 * sin(volumeAngle * 11.0 - projectedRadius * 18.0 -
+                                                          uTime * (1.35 + 0.25 * uMid)), 6.0);
+      float density = radialDensity * verticalDensity * filaments;
+      float heat = clamp((4.35 - projectedRadius) / 3.3, 0.0, 1.0);
+      vec3 volumeColor = mix(vec3(0.48, 0.025, 0.008), vec3(1.32, 0.34, 0.055), heat);
+      color += transmission * volumeColor * density * stepSize * (0.16 + 0.12 * uBass);
+      transmission *= exp(-density * stepSize * 0.34);
+    }
     if (previousPlane * nextPlane <= 0.0) {
-      vec3 diskPosition = nextPos - diskNormal * nextPlane;
+      float planeDelta = previousPlane - nextPlane;
+      float crossing = abs(planeDelta) > 1e-6 ? clamp(previousPlane / planeDelta, 0.0, 1.0) : 0.0;
+      vec3 crossingPosition = mix(pos, nextPos, crossing);
+      vec3 diskPosition = crossingPosition - diskNormal * dot(crossingPosition, diskNormal);
       float diskRadius = length(diskPosition);
       if (diskRadius > 1.05 && diskRadius < 4.15) {
         float angle = atan(dot(diskPosition, diskZ), dot(diskPosition, diskX));
@@ -439,8 +476,11 @@ void main() {
   if (!swallowed) color += stars(dir) * transmission;
   float photonRing = exp(-pow((closest - 0.79) * 24.0, 2.0));
   float outerRing = exp(-pow((closest - 1.03) * 13.0, 2.0));
-  color += vec3(1.55, 0.48, 0.09) * photonRing * (0.62 + 0.55 * uPulse);
+  float caustic = 0.82 + 0.18 * sin(atan(p.y, p.x) * 9.0 - uTime * 0.7);
+  color += vec3(1.55, 0.48, 0.09) * photonRing * caustic * (0.62 + 0.55 * uPulse);
   color += vec3(0.22, 0.08, 0.72) * outerRing * (0.22 + 0.30 * uMid);
+  float lensArc = outerRing * pow(0.5 + 0.5 * cos(atan(p.y, p.x) * 2.0 + 0.4), 8.0);
+  color += vec3(0.18, 0.48, 1.15) * lensArc * (0.10 + 0.18 * uTreble);
   float vignette = 1.0 - 0.36 * smoothstep(0.45, 1.45, length(p));
   outColor = vec4(max(color, vec3(0.0)) * vignette, 1.0);
 }

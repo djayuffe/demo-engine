@@ -20,6 +20,7 @@ Scope: the Hold Infinity host, render targets, shader transformations, ray integ
 | Reconstruction | Cubic upscaling was stable but softened fine filaments | Add neighborhood-clamped local contrast recovery with no HDR overshoot or dark halos |
 | Cosmic shader math | View, half-vector and gravity directions assumed nonzero inputs | Use finite fallback directions for degenerate normalization paths |
 | Camera direction | Each renderer used an unrelated oscillator, producing inconsistent pacing and framing | Share a bounded, periodic cinematic phrase across world sheets, rays, Atlas and cosmic scenes; test continuity and invalid input containment |
+| Black-hole rays | Curvature ignored adaptive step length; disk hits used step endpoints; the star grid illuminated whole cells | Integrate curvature per distance, interpolate disk crossings, correct world-space parallax and filter jittered subpixel stars; see [focused audit](BLACK_HOLE_AUDIT.md) |
 
 The proposed per-point projection cache from an earlier pass remains discarded. Sequential RK4 is a different optimization: it reuses integration prefixes, not projected ribbon coordinates.
 

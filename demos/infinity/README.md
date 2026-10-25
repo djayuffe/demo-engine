@@ -249,11 +249,13 @@ p95 at the same budget. Both scenes generate all geometry from `gl_VertexID`, wi
 streaming geometry uploads. [Port boundaries and source hashes](../cosmic/SOURCE.md).
 
 Scene 28 is a bounded gravitational ray field derived from the supplied advanced fractal
-black-hole study. Ninety-two fragment steps bend rays around a dark event horizon and
-accumulate a tilted, turbulent accretion disk, Doppler-colored photon rings, polar Hawking
-jets and a lensed temperature-varied starfield. Bass energizes the disk, mid energy changes
-its spiral turbulence, treble wakes distant stars and beat attacks strike the photon ring.
-An M1 Pro measured 5.663 ms average and 7.092 ms p95 at 400,000 pixels.
+black-hole study. Ninety-six adaptive fragment steps integrate curvature per travelled
+distance around a dark event horizon. Exact segment/plane crossings and a thin volumetric
+layer form the tilted accretion disk, with orbital Doppler color, spiral density, absorption,
+polar jets, caustic photon rings and a two-layer filtered starfield. World-space camera
+translation supplies real parallax. Bass energizes the disk, mid energy changes its spiral
+turbulence, treble wakes distant stars and lens arcs, and beat attacks strike the photon
+ring. [Low-level findings, limits and measurements](BLACK_HOLE_AUDIT.md).
 
 Scene 29 moves the supplied hyperfractal's four-component probabilistic recurrence entirely
 onto the GPU. Each of 65,536 seeds executes 28 deterministic sine/product iterations per

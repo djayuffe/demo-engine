@@ -1053,7 +1053,7 @@ public:
                   quantumLayers_, quantumVertices);
       const int hyperVertices = cosmic_gpu::hyperFieldPoints * hyperLayers_ +
                                 (cosmic_gpu::hyperPointCount - cosmic_gpu::hyperFieldPoints);
-      std::printf("GPU black hole: ray-steps=92 fullscreen=1 temporal=gpu\n");
+      std::printf("GPU black hole: ray-steps=96 step-scaled-curvature=1 volumetric-disk=1 temporal=gpu\n");
       std::printf("GPU hyperfractal: layers=%d vertices=%d iterations=28 geometry-uploads=0\n",
                   hyperLayers_, hyperVertices);
     }

@@ -13,6 +13,7 @@
 #include "Optimize.hpp"
 #include "Shaders.hpp"
 #include "Dodecahedron.hpp"
+#include "../demos/cosmic/CosmicShaders.hpp"
 #include <cmath>
 #include <cstdio>
 #include <limits>
@@ -21,6 +22,16 @@ void require(bool ok, const char* message) {
   if (!ok) throw std::runtime_error(message);
 }
 int main() {
+  const std::string blackHoleShader = cosmic_gpu::blackHoleFragment;
+  require(blackHoleShader.find("* stepSize / max(radius * radius * radius") != std::string::npos,
+          "black-hole curvature is no longer integrated per travelled distance");
+  require(blackHoleShader.find("uCam * vec3(0.0, 0.0, 5.2) + uEye") != std::string::npos,
+          "black-hole world-space parallax transform regressed");
+  require(blackHoleShader.find("vec3 starLayer") != std::string::npos &&
+              blackHoleShader.find("verticalDensity") != std::string::npos,
+          "black-hole subpixel stars or volumetric disk detail missing");
+  require(blackHoleShader.find("mix(pos, nextPos, crossing)") != std::string::npos,
+          "black-hole disk crossing is no longer interpolated within the ray step");
   for (int scene = 0; scene < infinity_sync::sceneCount; ++scene) {
     const auto a = infinity_composition::shot(scene, 17.25, 1.2f, false);
     const auto loop = infinity_composition::shot(scene, 145.25, 1.2f, false);
