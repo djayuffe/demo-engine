@@ -70,6 +70,8 @@ make run-atlas            # Hold Infinity opened directly on GPU Atlas scene 16
 make run-aviation         # supplied parametric 3D point effect, native GPU scene 26
 make run-mobius           # supplied 4D Möbius universe, native GPU scene 24
 make run-quantum          # supplied quantum twist lattice, native GPU scene 27
+make run-black-hole       # supplied fractal black-hole effect, native GPU scene 28
+make run-hyperfractal     # supplied quantum hyperfractal, native GPU scene 29
 make run-wireframe        # Impossible Wireframe show
 make run-hello            # minimal engine example
 make run-ripple           # adaptive GPU-tessellation example

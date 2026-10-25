@@ -39,3 +39,30 @@ invocations without geometry buffers or CPU animation.
 
 Neither archive includes an explicit license. This provenance record and the derived-code
 boundary are therefore kept separate from the engine's MIT-licensed original code.
+
+## Advanced Fractal Black Hole Simulator
+
+Archive: `websim_ai___advanced_fractal_black_hole_simulator_by_purpletwilight21858029.zip`
+SHA-256: `b4498c8cb6a42758bc0886e0866e518d7627298fc6dd7db0e1c459ee9bf129f7`
+
+The archive contains one `index.html` file with SHA-256
+`101af7817b20dec0d805c83b6be1c481772efc7946f7f3d60d6fa0521b830540`.
+The native effect ports the event horizon, accretion disk, fractal turbulence, gravitational
+particle deflection, Hawking radiation and lensed starfield. A bounded 92-step fragment
+shader replaces the source's separate Three.js meshes and CPU-created particle arrays.
+The source's UI text and physical claims are descriptive content, not simulation guarantees.
+
+## Quantum Hyperfractal Simulator
+
+Archive: `quantum_hyperfractal_simulator_by_purpletwilight21858029.zip`
+SHA-256: `2f1a49e0b8bebd007adb56e6c7070320cad98571d451d79c6ba967206ab78960`
+
+The archive contains one `index.html` file with SHA-256
+`7eabdccd8259654837d2fb605e773c77048cac3499f64a1619feb3cbfd2b6266`.
+The native effect ports its four-component sine/product iteration into a deterministic
+28-step vertex shader. A projected rotating tesseract makes the fourth coordinate visible,
+and the existing audio analysis drives branch probability, rotation, color and light. The
+browser UI, pointer-lock movement and CDN dependencies are not included.
+
+These two archives also contain no explicit license. Their attribution and derived-code
+boundaries remain separate from the engine's MIT-licensed original code.

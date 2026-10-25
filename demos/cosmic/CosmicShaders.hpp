@@ -21,6 +21,10 @@ inline constexpr int quantumNodePoints = 4096;
 inline constexpr int quantumStarPoints = 4096;
 inline constexpr int quantumPointCount = quantumFieldPoints + quantumBraidPoints + quantumNodePoints +
                                          quantumStarPoints;
+inline constexpr int hyperFieldPoints = 65536;
+inline constexpr int hyperScaffoldPoints = 16384;
+inline constexpr int hyperStarPoints = 4096;
+inline constexpr int hyperPointCount = hyperFieldPoints + hyperScaffoldPoints + hyperStarPoints;
 
 inline constexpr const char* mobiusSurfaceVertex = R"COSMIC(#version 410 core
 uniform mat3 uCam;
@@ -296,6 +300,209 @@ void main() {
     p = vec3(sqrt(max(0.0, 1.0-z*z))*cos(a), z, sqrt(max(0.0, 1.0-z*z))*sin(a)) * r;
     vColor = mix(vec3(0.12, 0.38, 1.25), vec3(1.25, 0.72, 0.30), random(sid * 5u)) * (0.30 + uTreble);
     vOpacity = 0.72; vKind = 2.0; size = 1.4 + 1.6 * uTreble;
+  }
+  vec3 view = transpose(uCam) * (p - uEye);
+  float depth = -view.z;
+  vDepth = depth;
+  float aspect = uRes.x / max(uRes.y, 1.0);
+  gl_Position = depth > 0.05 ? vec4(view.xy / (depth * vec2(0.52 * aspect, 0.52)),
+                                    clamp(depth / 12.0, 0.0, 1.0) * 2.0 - 1.0, 1.0)
+                            : vec4(2.0, 2.0, 2.0, 1.0);
+  gl_PointSize = depth > 0.05 ? clamp(size * uRes.y / (500.0 * depth), 1.0, 10.0) : 1.0;
+}
+)COSMIC";
+
+inline constexpr const char* blackHoleFragment = R"COSMIC(#version 410 core
+in vec2 vUv;
+out vec4 outColor;
+uniform mat3 uCam;
+uniform vec3 uEye;
+uniform vec2 uRes;
+uniform float uTime, uPulse, uBass, uMid, uTreble;
+
+const float PI = 3.141592653589793;
+float hash12(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+float noise(vec3 p) {
+  vec3 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float n = dot(i, vec3(1.0, 57.0, 113.0));
+  return mix(mix(mix(hash12(vec2(n, n + 1.0)), hash12(vec2(n + 1.0, n + 2.0)), f.x),
+                 mix(hash12(vec2(n + 57.0, n)), hash12(vec2(n + 58.0, n)), f.x), f.y),
+             mix(mix(hash12(vec2(n + 113.0, n)), hash12(vec2(n + 114.0, n)), f.x),
+                 mix(hash12(vec2(n + 170.0, n)), hash12(vec2(n + 171.0, n)), f.x), f.y), f.z);
+}
+float fbm(vec3 p) {
+  float sum = 0.0, amplitude = 0.5;
+  for (int i = 0; i < 5; ++i) {
+    sum += amplitude * noise(p);
+    p = p * 2.03 + vec3(1.7, 9.2, 2.4);
+    amplitude *= 0.5;
+  }
+  return sum;
+}
+vec3 stars(vec3 rd) {
+  vec2 cell = floor(vec2(atan(rd.z, rd.x) * 190.0, asin(clamp(rd.y, -1.0, 1.0)) * 260.0));
+  float seed = hash12(cell);
+  float star = pow(max(0.0, (seed - 0.986) / 0.014), 9.0);
+  vec3 temperature = mix(vec3(0.22, 0.46, 1.1), vec3(1.2, 0.68, 0.30), hash12(cell + 17.0));
+  return temperature * star * (0.5 + 0.8 * uTreble);
+}
+void main() {
+  vec2 p = vUv * 2.0 - 1.0;
+  p.x *= uRes.x / max(uRes.y, 1.0);
+  vec3 ro = uCam * (vec3(0.0, 0.0, 5.2) + uEye * 0.18);
+  vec3 rd = normalize(uCam * vec3(p * 0.72, -1.5));
+  vec3 pos = ro;
+  vec3 dir = rd;
+  vec3 color = vec3(0.0);
+  float transmission = 1.0;
+  float closest = 100.0;
+  vec3 diskNormal = normalize(vec3(0.22, 0.86, 0.46));
+  vec3 diskX = normalize(cross(diskNormal, vec3(0.0, 1.0, 0.0)));
+  vec3 diskZ = cross(diskNormal, diskX);
+  float previousPlane = dot(pos, diskNormal);
+  bool swallowed = false;
+  for (int stepIndex = 0; stepIndex < 92; ++stepIndex) {
+    float radius = max(length(pos), 0.001);
+    closest = min(closest, radius);
+    if (radius < 0.72) {
+      swallowed = true;
+      transmission = 0.0;
+      break;
+    }
+    float gravity = (0.012 + 0.004 * uBass) / max(radius * radius * radius, 0.18);
+    dir = normalize(dir - pos * gravity);
+    float stepSize = clamp((radius - 0.68) * 0.075, 0.012, 0.105);
+    vec3 nextPos = pos + dir * stepSize;
+    float nextPlane = dot(nextPos, diskNormal);
+    if (previousPlane * nextPlane <= 0.0) {
+      vec3 diskPosition = nextPos - diskNormal * nextPlane;
+      float diskRadius = length(diskPosition);
+      if (diskRadius > 1.05 && diskRadius < 4.15) {
+        float angle = atan(dot(diskPosition, diskZ), dot(diskPosition, diskX));
+        float spiral = angle * 7.0 - log(diskRadius) * 13.0 - uTime * (1.1 + 0.25 * uMid);
+        float turbulence = fbm(vec3(angle * 2.2, diskRadius * 2.6, uTime * 0.08));
+        float bands = pow(0.5 + 0.5 * sin(spiral + turbulence * 5.0), 4.0);
+        float radial = smoothstep(1.05, 1.35, diskRadius) * (1.0 - smoothstep(3.2, 4.15, diskRadius));
+        float heat = clamp((4.15 - diskRadius) / 3.1, 0.0, 1.0);
+        vec3 plasma = mix(vec3(0.85, 0.035, 0.008), vec3(1.75, 0.72, 0.16), heat);
+        plasma = mix(plasma, vec3(0.48, 0.72, 1.55), pow(heat, 5.0) * 0.45);
+        float energy = radial * (0.025 + 0.28 * bands) * (0.55 + 0.45 * uBass + 0.25 * uPulse);
+        color += transmission * plasma * energy;
+        transmission *= 0.90;
+      }
+    }
+    float jetAxis = dot(nextPos, diskNormal);
+    float jetRadius = length(nextPos - diskNormal * jetAxis);
+    float jet = exp(-jetRadius * 10.0) * smoothstep(0.7, 2.8, abs(jetAxis));
+    float knot = 0.45 + 0.55 * sin(abs(jetAxis) * 14.0 - uTime * 3.0);
+    color += transmission * vec3(0.08, 0.42, 1.35) * jet * knot * (0.008 + 0.014 * uTreble);
+    previousPlane = nextPlane;
+    pos = nextPos;
+    if (length(pos) > 11.0) break;
+  }
+  if (!swallowed) color += stars(dir) * transmission;
+  float photonRing = exp(-pow((closest - 0.79) * 24.0, 2.0));
+  float outerRing = exp(-pow((closest - 1.03) * 13.0, 2.0));
+  color += vec3(1.55, 0.48, 0.09) * photonRing * (0.62 + 0.55 * uPulse);
+  color += vec3(0.22, 0.08, 0.72) * outerRing * (0.22 + 0.30 * uMid);
+  float vignette = 1.0 - 0.36 * smoothstep(0.45, 1.45, length(p));
+  outColor = vec4(max(color, vec3(0.0)) * vignette, 1.0);
+}
+)COSMIC";
+
+inline constexpr const char* hyperVertex = R"COSMIC(#version 410 core
+uniform mat3 uCam;
+uniform vec3 uEye;
+uniform vec2 uRes;
+uniform float uTime, uPulse, uBass, uMid, uTreble;
+out vec3 vColor;
+out float vOpacity;
+out float vKind;
+out float vDepth;
+
+const float PI = 3.141592653589793;
+const int FIELD = 65536;
+const int SCAFFOLD = 16384;
+uint hash(uint x) { x ^= x >> 16u; x *= 0x7feb352du; x ^= x >> 15u; x *= 0x846ca68bu; return x ^ (x >> 16u); }
+float random(uint x) { return float(hash(x)) * (1.0 / 4294967295.0); }
+vec3 hsv(float h, float s, float v) {
+  vec3 p = abs(fract(vec3(h) + vec3(0.0, 2.0/3.0, 1.0/3.0)) * 6.0 - 3.0);
+  return v * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), s);
+}
+vec4 rotate4(vec4 q, float a, float b) {
+  float ca = cos(a), sa = sin(a), cb = cos(b), sb = sin(b);
+  q.xz = mat2(ca, -sa, sa, ca) * q.xz;
+  q.yw = mat2(cb, -sb, sb, cb) * q.yw;
+  q.xw = mat2(cb, -sb, sb, cb) * q.xw;
+  return q;
+}
+vec3 project4(vec4 q) {
+  return q.xyz * (1.22 / max(1.15, 2.7 - 0.32 * q.w));
+}
+void main() {
+  int id = gl_VertexID;
+  vec3 p;
+  float size = 2.0;
+  vOpacity = 1.0;
+  if (id < FIELD) {
+    uint sid = uint(id);
+    float echo = float(gl_InstanceID);
+    vec4 q = vec4(random(sid * 4u), random(sid * 4u + 1u), random(sid * 4u + 2u), random(sid * 4u + 3u)) * PI;
+    vec4 c = vec4(2.25 + 0.12 * uBass);
+    float branchCount = 0.0;
+    for (int iteration = 0; iteration < 28; ++iteration) {
+      float choice = random(sid + uint(iteration) * 0x9e3779b9u);
+      if (choice > 0.47 + 0.08 * uTreble) {
+        q = 2.7182818 * sin(q) + c;
+      } else {
+        q = vec4(q.x * cos(q.y), q.y * sin(q.z), q.z * cos(q.w), q.w * sin(q.x));
+        q = clamp(q, vec4(-10.0), vec4(10.0));
+        branchCount += 1.0;
+      }
+    }
+    q -= c;
+    float delay = echo * (0.07 + 0.025 * uBass);
+    q = rotate4(q, uTime * (0.09 + 0.018 * uMid) - delay, uTime * 0.061 + delay);
+    p = project4(q) * (0.86 + 0.035 * uBass);
+    float probability = branchCount / 28.0;
+    vColor = hsv(fract(0.47 + q.w * 0.08 + probability * 0.58 + echo * 0.025), 0.82,
+                 (0.68 + 0.40 * uTreble + 0.36 * uPulse) * exp(-echo * 0.42));
+    vOpacity = exp(-echo * 0.55);
+    vKind = 5.0;
+    size = 1.55 + 1.35 * uPulse + 0.16 * echo;
+  } else if (id < FIELD + SCAFFOLD) {
+    int local = id - FIELD;
+    int edge = local / 512;
+    int sampleIndex = local % 512;
+    int dimension = edge % 4;
+    int pattern = edge / 4;
+    vec4 q = vec4(0.0);
+    int bitIndex = 0;
+    for (int component = 0; component < 4; ++component) {
+      if (component == dimension) q[component] = mix(-1.0, 1.0, float(sampleIndex) / 511.0);
+      else {
+        q[component] = ((pattern >> bitIndex) & 1) == 0 ? -1.0 : 1.0;
+        ++bitIndex;
+      }
+    }
+    q = rotate4(q * 1.55, uTime * 0.09, uTime * 0.061);
+    p = project4(q);
+    float packet = pow(max(0.0, sin(float(sampleIndex) * 0.061 - uTime * 2.2)), 10.0);
+    vColor = mix(vec3(0.055, 0.30, 1.35), vec3(1.45, 0.08, 0.62), float(dimension) / 3.0) *
+             (0.30 + 0.48 * packet + 0.32 * uMid + 0.24 * uPulse);
+    vOpacity = 0.68; vKind = 1.0; size = 1.35 + 1.8 * packet + 0.7 * uPulse;
+  } else {
+    uint sid = uint(id - FIELD - SCAFFOLD);
+    float a = random(sid * 3u) * 2.0 * PI, z = random(sid * 3u + 1u) * 2.0 - 1.0;
+    float r = 5.5 + 3.0 * random(sid * 3u + 2u);
+    p = vec3(sqrt(max(0.0, 1.0-z*z))*cos(a), z, sqrt(max(0.0, 1.0-z*z))*sin(a)) * r;
+    vColor = mix(vec3(0.14, 0.46, 1.30), vec3(1.30, 0.62, 0.22), random(sid * 7u)) * (0.28 + uTreble);
+    vOpacity = 0.7; vKind = 2.0; size = 1.4 + 1.6 * uTreble;
   }
   vec3 view = transpose(uCam) * (p - uEye);
   float depth = -view.z;

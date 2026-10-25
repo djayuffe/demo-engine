@@ -77,7 +77,7 @@ ctest --test-dir build --output-on-failure
 python3 tools/smoke_infinity.py
 ```
 
-Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 28 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
+Headless tests cover 20 vertices, 30 edges, unit face normals, hyperbolic face orthogonality, bar cuts, fade timing, clock sanitization, deterministic beat fronts and audio response. The GPU smoke tool runs all 30 scenes and saves screenshots/logs under `build/infinity-smoke/`. On the development Mac, all scenes and the combined 127 instrument state rendered without shader/FBO/OpenGL errors. Strict-warning Release builds and the existing geometry suite pass. A dynamically sized accelerated clock run covers the full automatic cycle; a 205-frame still run exercises the 400-sample accumulation cap. Windows entry points are declared in the engine loader, but this pass was run on macOS only.
 
 [Source attribution, original archive hash and port boundaries](SOURCE.md).
 
@@ -245,9 +245,23 @@ beat attacks travel through the node pairs. An M1 Pro measured 4.913 ms average 
 p95 at the same budget. Both scenes generate all geometry from `gl_VertexID`, with zero
 streaming geometry uploads. [Port boundaries and source hashes](../cosmic/SOURCE.md).
 
+Scene 28 is a bounded gravitational ray field derived from the supplied advanced fractal
+black-hole study. Ninety-two fragment steps bend rays around a dark event horizon and
+accumulate a tilted, turbulent accretion disk, Doppler-colored photon rings, polar Hawking
+jets and a lensed temperature-varied starfield. Bass energizes the disk, mid energy changes
+its spiral turbulence, treble wakes distant stars and beat attacks strike the photon ring.
+An M1 Pro measured 5.663 ms average and 7.092 ms p95 at 400,000 pixels.
+
+Scene 29 moves the supplied hyperfractal's four-component probabilistic recurrence entirely
+onto the GPU. Each of 65,536 seeds executes 28 deterministic sine/product iterations per
+phase layer; Metal runs four layers plus a 16,384-point projected tesseract and star shell,
+for 282,624 vertex invocations with zero streaming geometry uploads. The fourth coordinate
+controls perspective and hue while music changes branch balance, rotation and emission. An
+M1 Pro measured 5.155 ms average and 7.271 ms p95 at the same pixel budget.
+
 ## Rendering refinement (4.1)
 
-All 28 scenes share a half-resolution RGBA16F highlight pyramid: soft-knee extraction, weighted downsampling, GPU mip generation and explicit-LOD composition. Bloom adds a restrained halo without raising black input. `--no-optical-bloom` disables this pass for A/B measurements. GPU timing includes the new passes, so the existing adaptive pixel governor accounts for their cost.
+All 30 scenes share a half-resolution RGBA16F highlight pyramid: soft-knee extraction, weighted downsampling, GPU mip generation and explicit-LOD composition. Bloom adds a restrained halo without raising black input. `--no-optical-bloom` disables this pass for A/B measurements. GPU timing includes the new passes, so the existing adaptive pixel governor accounts for their cost.
 
 Audio bands use frame-independent exponential attack/release smoothing. Beat attacks retain their phase-locked clock; smooth envelopes supply the sustained motion. Atlas motion now handles backward seeks, pause/resume and a consistent 12% reduced-motion rate. Sphere radii and 4D section extents breathe geometrically, with conservative hierarchy padding for the maximum radius.
 

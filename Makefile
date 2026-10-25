@@ -11,6 +11,8 @@
 #   make run-aviation # launch the supplied parametric 3D point effect
 #   make run-mobius # launch the 4D Möbius universe
 #   make run-quantum # launch the Majorana quantum twist lattice
+#   make run-black-hole # launch the fractal black-hole ray field
+#   make run-hyperfractal # launch the 4D quantum hyperfractal
 #   make run-silicon# the wireframe demo with Silicon Dancer by Drozerix
 #   make run-hello  # build + launch the minimal hello demo
 #   make run-ripple # build + launch the GPU-tessellated ripple demo
@@ -52,7 +54,7 @@ CMAKE_FLAGS := -DCMAKE_BUILD_TYPE=$(TYPE) -DIW_BUILD_TESTS=ON $(CMAKE_EXTRA)
 # the build-type / generator case.)
 STAMP := $(BUILD_DIR)/.stamp
 
-.PHONY: all configure build test run run-atlas run-aviation run-mobius run-quantum run-atlas-reference run-atlas-advanced run-wireframe run-silicon run-hello run-ripple run-pulse clean reconfigure diag help stamp
+.PHONY: all configure build test run run-atlas run-aviation run-mobius run-quantum run-black-hole run-hyperfractal run-atlas-reference run-atlas-advanced run-wireframe run-silicon run-hello run-ripple run-pulse clean reconfigure diag help stamp
 
 all: build
 
@@ -108,6 +110,12 @@ run-mobius: build
 
 run-quantum: build
 	$(BIN) --infinity-scene 27
+
+run-black-hole: build
+	$(BIN) --infinity-scene 28
+
+run-hyperfractal: build
+	$(BIN) --infinity-scene 29
 
 run-atlas-reference: build
 	$(ATLAS_RENDER) $(BUILD_DIR)/atlas-reference.ppm 0.9 480
@@ -167,6 +175,8 @@ help:
 	@echo "  run-aviation    Build + launch the supplied parametric 3D point effect"
 	@echo "  run-mobius      Build + launch the 4D Möbius universe"
 	@echo "  run-quantum     Build + launch the Majorana quantum twist lattice"
+	@echo "  run-black-hole  Build + launch the fractal black-hole ray field"
+	@echo "  run-hyperfractal Build + launch the 4D quantum hyperfractal"
 	@echo "  run-atlas-reference Generate the four-panel CPU Atlas reference image"
 	@echo "  run-atlas-advanced  Generate the advanced CPU Atlas reference image"
 	@echo "  run-wireframe   Build + launch the previous wireframe show"

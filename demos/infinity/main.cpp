@@ -64,7 +64,9 @@ constexpr const char* names[] = {"HOLD INFINITY / MIRROR SCULPTURE",
                                  "FOUR-DIMENSIONAL MOBIUS UNIVERSE",
                                  "ATLAS / THREE HYPERBOLIC VIEWPOINTS",
                                  "SPECTRAL PARAMETRIC POINT FIELD",
-                                 "MAJORANA QUANTUM TWIST LATTICE"};
+                                 "MAJORANA QUANTUM TWIST LATTICE",
+                                 "FRACTAL BLACK HOLE / PHOTON RING",
+                                 "QUANTUM HYPERFRACTAL / 4D SCAFFOLD"};
 static_assert(std::size(names) == infinity_sync::sceneCount);
 
 struct Target {
@@ -162,8 +164,8 @@ class Infinity final : public de::Demo {
   GLuint post_ = 0, trace_ = 0, show_ = 0, integrate_ = 0, rays_ = 0, compose_ = 0, vao_ = 0, vbo_ = 0;
   GLuint aviation_ = 0, aviationTemporal_ = 0;
   int aviationLayers_ = 2;
-  GLuint mobiusSurface_ = 0, mobiusPoints_ = 0, quantum_ = 0;
-  int quantumLayers_ = 2;
+  GLuint mobiusSurface_ = 0, mobiusPoints_ = 0, quantum_ = 0, blackHole_ = 0, hyper_ = 0;
+  int quantumLayers_ = 2, hyperLayers_ = 2;
   std::array<GLuint, 2> sequential_{};
   std::array<GLuint, 4> worlds_{};
   GLuint worldReference_ = 0;
@@ -648,6 +650,33 @@ class Infinity final : public de::Demo {
     glDisable(GL_BLEND);
     glDisable(GL_PROGRAM_POINT_SIZE);
   }
+  void blackHole(int w, int h) {
+    output_.bind();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    const float phase = still_ ? 0.f : float(cue_.flow);
+    const auto cam = camera(yawOffset_ + .06f * std::sin(phase * .025f),
+                            pitchOffset_ + .025f * std::sin(phase * .033f));
+    cosmicUniforms(blackHole_, w, h, cam, 0.f);
+    quad();
+  }
+  void hyperfractal(int w, int h) {
+    output_.bind();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    const float phase = still_ ? 0.f : float(cue_.flow);
+    const auto cam = camera(yawOffset_ + .46f + .07f * std::sin(phase * .055f),
+                            pitchOffset_ + .16f + .05f * std::sin(phase * .041f));
+    cosmicUniforms(hyper_, w, h, cam, 4.8f);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDrawArraysInstanced(GL_POINTS, 0, cosmic_gpu::hyperFieldPoints, hyperLayers_);
+    glDrawArrays(GL_POINTS, cosmic_gpu::hyperFieldPoints,
+                 cosmic_gpu::hyperPointCount - cosmic_gpu::hyperFieldPoints);
+    glDisable(GL_BLEND);
+    glDisable(GL_PROGRAM_POINT_SIZE);
+  }
   void atlasConstants(GLuint p) {
     glUseProgram(p);
     float bounds[112 * 4]{}, meta[56 * 4]{}, levels[9 * 4]{}, events[24 * 4]{};
@@ -856,7 +885,7 @@ public:
     return false;
   }
   std::string usage() const override {
-    return "  --infinity-scene N  Hold one optical scene (0..27)\n"
+    return "  --infinity-scene N  Hold one optical scene (0..29)\n"
            "  --no-optical-bloom Disable shared GPU highlight pyramid for A/B timing\n"
            "  --atlas-reduced-motion Slow new Atlas effects; suppress beat flashes\n"
            "  --atlas-paused     Freeze Atlas animation; P toggles pause\n"
@@ -929,9 +958,12 @@ public:
     mobiusSurface_ = glutil::linkProgram(cosmic_gpu::mobiusSurfaceVertex, cosmic_gpu::mobiusSurfaceFragment, error_);
     mobiusPoints_ = glutil::linkProgram(cosmic_gpu::mobiusPointVertex, cosmic_gpu::pointFragment, error_);
     quantum_ = glutil::linkProgram(cosmic_gpu::quantumVertex, cosmic_gpu::pointFragment, error_);
+    blackHole_ = program(FULLSCREEN_VS, cosmic_gpu::blackHoleFragment);
+    hyper_ = glutil::linkProgram(cosmic_gpu::hyperVertex, cosmic_gpu::pointFragment, error_);
     const char* glVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));
     aviationLayers_ = glVersion && std::string(glVersion).find("Metal") != std::string::npos ? 4 : 2;
     quantumLayers_ = glVersion && std::string(glVersion).find("Metal") != std::string::npos ? 4 : 2;
+    hyperLayers_ = glVersion && std::string(glVersion).find("Metal") != std::string::npos ? 4 : 2;
     const auto rayVertex = infinity_dimension::vertex(RAY_VS);
     const auto rayFragment = infinity_dimension::fragment(RAY_FS);
     rays_ = program(rayVertex.c_str(), rayFragment.c_str());
@@ -945,6 +977,7 @@ public:
       return false;
     }
     if (!atlasTemporal_ || !aviation_ || !aviationTemporal_ || !mobiusSurface_ || !mobiusPoints_ || !quantum_ ||
+        !blackHole_ || !hyper_ ||
         (reference_ ? !atlasReference_
                     : std::any_of(atlasPrograms_.begin(), atlasPrograms_.end(), [](GLuint p) { return !p; }))) {
       std::fprintf(stderr, "Atlas/point-field shader failure: %s\n", error_.c_str());
@@ -1008,6 +1041,11 @@ public:
                   cosmic_gpu::mobiusSurfaceVertices, cosmic_gpu::mobiusPointCount);
       std::printf("GPU quantum lattice: layers=%d vertices=%d geometry-uploads=0\n",
                   quantumLayers_, quantumVertices);
+      const int hyperVertices = cosmic_gpu::hyperFieldPoints * hyperLayers_ +
+                                (cosmic_gpu::hyperPointCount - cosmic_gpu::hyperFieldPoints);
+      std::printf("GPU black hole: ray-steps=92 fullscreen=1 temporal=gpu\n");
+      std::printf("GPU hyperfractal: layers=%d vertices=%d iterations=28 geometry-uploads=0\n",
+                  hyperLayers_, hyperVertices);
     }
     glGenTextures(1, &antTexture_);
     glBindTexture(GL_TEXTURE_2D, antTexture_);
@@ -1168,8 +1206,12 @@ public:
       mobius(w, h);
     else if (cue_.scene == 26)
       aviation(w, h);
-    else
+    else if (cue_.scene == 27)
       quantum(w, h);
+    else if (cue_.scene == 28)
+      blackHole(w, h);
+    else
+      hyperfractal(w, h);
     if (validateOutput_ && !outputChecked_[size_t(cue_.scene)]) {
       std::vector<float> values(size_t(w * h * 4));
       output_.bind();
@@ -1313,6 +1355,14 @@ public:
     if (quantum_) {
       glDeleteProgram(quantum_);
       quantum_ = 0;
+    }
+    if (blackHole_) {
+      glDeleteProgram(blackHole_);
+      blackHole_ = 0;
+    }
+    if (hyper_) {
+      glDeleteProgram(hyper_);
+      hyper_ = 0;
     }
     for (auto& history : temporalHistory_) history.release();
     for (auto& p : worlds_)
