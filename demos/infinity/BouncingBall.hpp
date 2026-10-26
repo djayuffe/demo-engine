@@ -11,15 +11,17 @@ inline double dot(const V& a, const V& b) {
 }
 struct Ball {
   V p = {.12, -.08, .06, 0}, v = {.57, .43, .69, 0};
+  V impactPoint = {.12, -.08, .06, 0}, impactNormal = {0, 1, 0, 0};
   bool hyper = false, cube = false;
   int impacts = 0;
-  double flash = 0;
+  double flash = 0, travelled = 0;
   static constexpr double radius = .14;
   Ball(bool h = false, bool c = false) : hyper(h), cube(c) {
     if (hyper) {
       p[3] = std::sqrt(1 + p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
       v[3] = (p[0] * v[0] + p[1] * v[1] + p[2] * v[2]) / p[3];
     }
+    impactPoint = p;
     const double length = std::sqrt(dot(v, v));
     for (auto& x : v) x /= length;
   }
@@ -54,6 +56,7 @@ struct Ball {
   }
   void travel(double distance) {
     flash *= std::exp(-distance * 16);
+    travelled += distance;
     if (!hyper) {
       for (int k = 0; k < 3; ++k) p[k] += v[k] * distance;
       return;
@@ -108,9 +111,13 @@ struct Ball {
         for (auto& x : n) x /= norm;
       }
       const double vn = dot(v, n);
+      impactPoint = p;
+      impactNormal = n;
       for (int k = 0; k < 4; ++k) v[k] -= 2 * vn * n[k];
       ++impacts;
-      flash = 1;
+      // A grazing touch emits less energy than a head-on collision while a
+      // minimum response keeps shallow contacts legible in the HDR scene.
+      flash = std::max(flash, std::clamp(std::abs(vn), .24, 1.0));
     }
     if (hyper) {
       double norm = std::sqrt(-dot(p, p));

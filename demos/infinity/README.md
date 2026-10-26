@@ -180,7 +180,11 @@ Scenes 0–3 now contain a lit sphere, including its mirror images. The cube and
 
 Physics advances in fixed 1/120-beat steps, preserving elastic speed, with collision-time subdivision within a step. Rendering predicts the fractional remainder for smooth motion. The GPU tests sphere intersections on each ray segment before its next wall, so depth, occlusion and repeated mirror images follow the scene tracing rather than a screen overlay. Impact energy adds a brief warm glint through the existing HDR grade. Glass/instrument and final light scenes remain separate from the chamber ball.
 
-Long-run tests cover 24,000 steps for all three chamber models, checking wall clearance, unit speed, hyperboloid position norm, tangent velocity and repeated impacts. Different update cadences produce the same state. Large or backward clock seeks reset at the new clock position with bounded work, and playback can resume normally.
+The ball now retains travelled distance plus the exact center and surface normal of its latest wall contact. Its impact energy follows the incoming normal velocity, so grazing contacts are quieter than direct hits. The rendered object has a rotating spectral-ribbon shell, cellular inlays, emissive seams, varying microfacet roughness, clearcoat, Fresnel rim and beat-responsive subsurface light. Two shrinking motion ghosts, a transparent aura and an expanding collision shell form additional ray-traced layers. Hyperbolic trails rewind along the ball's geodesic with `cosh`/`sinh`; the collision shell is centered on the retained hyperboloid contact and concentrated along the wall's tangent plane rather than projected in screen space.
+
+The solid ball remains visible throughout the mirror recursion. Transparent secondary objects are evaluated only in the four nearest reflected rooms, where their contribution survives fog and attenuation, and trails are suppressed during the immediate post-impact reversal. This keeps distant reflected balls detailed while avoiding repeated invisible intersection work.
+
+Long-run tests cover 24,000 steps for all three chamber models, checking wall clearance, unit speed, hyperboloid position norm, tangent velocity, exact contact retention, travelled phase and repeated impacts. Different update cadences produce the same state. Large or backward clock seeks reset at the new clock position with bounded work, and playback can resume normally.
 
 
 ## Physics and optical frames (2.2)
