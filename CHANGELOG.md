@@ -1,3 +1,11 @@
+# GPU math and shader-domain audit — 2026-10-26
+
+- Replace four neighbouring Möbius surface evaluations per vertex with analytic partial derivatives, retaining the original position equation and including its animated scale derivatives.
+- Make cosmic trilinear noise use consistent corner hashes across cell boundaries.
+- Integrate black-hole volume emission with absorption, scale jet emission by travelled distance, prevent negative jet emission and reuse the disk projection.
+- Replace signed square powers with multiplication and reverse descending smoothstep ramps explicitly in native post, background and depth shaders.
+- Add native GPU numerical checks for surface derivatives, source position equivalence and noise continuity; run them from the GPU smoke tool.
+
 # Atlas geometry cache and Lorentz gallery — 2026-10-25
 
 - Integrate the incoming Metal, cosmic, audio and scene-composition updates; preserve scene indices 0–29 and the three-view playback skip.

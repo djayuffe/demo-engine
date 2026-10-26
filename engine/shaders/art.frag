@@ -39,7 +39,7 @@ float dustField(vec2 p){
   vec2 dp=floor(p*vec2(46.,26.)+uTime*vec2(.35,.18));
   float dh=hash(dp);
   vec2 df=fract(p*vec2(46.,26.)+uTime*vec2(.35,.18));
-  return step(.86,dh)*smoothstep(.16,.0,length(df-.5))*(.3+.5*uMusicLevel);
+  return step(.86,dh)*(1.0-smoothstep(.0,.16,length(df-.5)))*(.3+.5*uMusicLevel);
 }
 float gridField(vec2 p){return pow(.5+.5*sin((p.x+p.y*.35)*18.+uTime*.55),18.)*(.018+.06*uMusicLevel);}
 float matrixField(vec2 p){

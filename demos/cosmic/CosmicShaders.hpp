@@ -45,15 +45,24 @@ const float PI = 3.141592653589793;
 const int U_CELLS = 320;
 const int V_CELLS = 80;
 
-vec3 mobius(float u, float v, float time, float bass) {
-  float twist = sin(u * 0.5) * 2.5;
-  float ribbonAngle = u * 0.5 + twist;
-  float detail = 0.018 * sin(u * 20.0 + time * 0.7) + 0.016 * cos(v * 15.0 - time * 0.31);
-  float radius = 1.5 + 0.5 * v * cos(ribbonAngle);
-  vec3 p = vec3(radius * cos(u), radius * sin(u), 0.5 * v * sin(ribbonAngle));
-  p.z += 0.25 * cos(u * 0.25);
-  p *= 0.82 * (1.0 + detail + 0.018 * bass);
-  return p;
+// Analytic derivatives share the position's trigonometry instead of evaluating
+// four neighbouring surfaces per vertex. Includes the animated scale derivative.
+struct MobiusSample { vec3 position; vec3 du; vec3 dv; };
+MobiusSample sampleMobius(float u, float v, float time, float bass) {
+  float ribbonAngle = u * 0.5 + sin(u * 0.5) * 2.5;
+  float ribbonDerivative = 0.5 + 1.25 * cos(u * 0.5);
+  float su = sin(u), cu = cos(u), sa = sin(ribbonAngle), ca = cos(ribbonAngle);
+  float phaseU = u * 20.0 + time * 0.7, phaseV = v * 15.0 - time * 0.31;
+  float scale = 0.82 * (1.0 + 0.018 * sin(phaseU) + 0.016 * cos(phaseV) + 0.018 * bass);
+  float radius = 1.5 + 0.5 * v * ca;
+  float radiusU = -0.5 * v * sa * ribbonDerivative;
+  vec3 base = vec3(radius * cu, radius * su, 0.5 * v * sa + 0.25 * cos(u * 0.25));
+  vec3 baseU = vec3(radiusU * cu - radius * su, radiusU * su + radius * cu,
+                    0.5 * v * ca * ribbonDerivative - 0.0625 * sin(u * 0.25));
+  vec3 baseV = vec3(0.5 * ca * cu, 0.5 * ca * su, 0.5 * sa);
+  return MobiusSample(base * scale,
+                      baseU * scale + base * (0.2952 * cos(phaseU)),
+                      baseV * scale - base * (0.1968 * sin(phaseV)));
 }
 vec3 safeNormalize(vec3 v, vec3 fallback) {
   float m = dot(v, v);
@@ -74,12 +83,9 @@ void main() {
   float u = float(ui + corner.x) * (4.0 * PI / float(U_CELLS));
   float v = float(vi + corner.y) * (2.0 / float(V_CELLS)) - 1.0;
   float time = uTime + 0.12 * uPulse;
-  vec3 p = mobius(u, v, time, uBass);
-  float eu = 4.0 * PI / float(U_CELLS);
-  float ev = 2.0 / float(V_CELLS);
-  vec3 tangentU = mobius(u + eu, v, time, uBass) - mobius(u - eu, v, time, uBass);
-  vec3 tangentV = mobius(u, v + ev, time, uBass) - mobius(u, v - ev, time, uBass);
-  vNormal = safeNormalize(cross(tangentU, tangentV), vec3(0.0, 0.0, 1.0));
+  MobiusSample surface = sampleMobius(u, v, time, uBass);
+  vec3 p = surface.position;
+  vNormal = safeNormalize(cross(surface.du, surface.dv), vec3(0.0, 0.0, 1.0));
   vView = safeNormalize(uEye - p, vec3(0.0, 0.0, 1.0));
   float flow = 0.5 + 0.5 * sin(u * 7.0 - uTime * (2.4 + 0.8 * uMid));
   float dimension = 0.5 + 0.5 * cos(u * 0.25 + v * PI);
@@ -174,7 +180,8 @@ void main() {
   if (id < CORE) {
     vec3 n = sphere(id, CORE);
     p = n * (0.31 + 0.035 * uBass);
-    float rim = pow(1.0 - abs(dot(n, safeNormalize(uEye - p, vec3(0.0, 0.0, 1.0)))), 2.0);
+    float facing = 1.0 - clamp(abs(dot(n, safeNormalize(uEye - p, vec3(0.0, 0.0, 1.0)))), 0.0, 1.0);
+    float rim = facing * facing;
     vColor = vec3(0.025, 0.055, 0.12) + vec3(0.20, 0.82, 1.65) * rim + vec3(1.4, 0.16, 0.30) * uPulse;
     vKind = 0.0; size = 3.1 + 1.1 * uPulse;
   } else if (id < CORE + HORIZON) {
@@ -455,9 +462,9 @@ float noise(vec3 p) {
   f = f * f * (3.0 - 2.0 * f);
   float n = dot(i, vec3(1.0, 57.0, 113.0));
   return mix(mix(mix(hash12(vec2(n, n + 1.0)), hash12(vec2(n + 1.0, n + 2.0)), f.x),
-                 mix(hash12(vec2(n + 57.0, n)), hash12(vec2(n + 58.0, n)), f.x), f.y),
-             mix(mix(hash12(vec2(n + 113.0, n)), hash12(vec2(n + 114.0, n)), f.x),
-                 mix(hash12(vec2(n + 170.0, n)), hash12(vec2(n + 171.0, n)), f.x), f.y), f.z);
+                 mix(hash12(vec2(n + 57.0, n + 58.0)), hash12(vec2(n + 58.0, n + 59.0)), f.x), f.y),
+             mix(mix(hash12(vec2(n + 113.0, n + 114.0)), hash12(vec2(n + 114.0, n + 115.0)), f.x),
+                 mix(hash12(vec2(n + 170.0, n + 171.0)), hash12(vec2(n + 171.0, n + 172.0)), f.x), f.y), f.z);
 }
 float fbm(vec3 p) {
   float sum = 0.0, amplitude = 0.5;
@@ -528,14 +535,19 @@ void main() {
       float volumeAngle = atan(dot(projectedDisk, diskZ), dot(projectedDisk, diskX));
       float radialDensity = smoothstep(1.02, 1.28, projectedRadius) *
                             (1.0 - smoothstep(3.45, 4.35, projectedRadius));
-      float verticalDensity = exp(-pow(abs(nextPlane) / mix(0.055, 0.16, projectedRadius / 4.35), 2.0));
+      float diskHeight = nextPlane / mix(0.055, 0.16, projectedRadius / 4.35);
+      float verticalDensity = exp(-diskHeight * diskHeight);
       float filaments = 0.42 + 0.58 * pow(0.5 + 0.5 * sin(volumeAngle * 11.0 - projectedRadius * 18.0 -
                                                           uTime * (1.35 + 0.25 * uMid)), 6.0);
       float density = radialDensity * verticalDensity * filaments;
       float heat = clamp((4.35 - projectedRadius) / 3.3, 0.0, 1.0);
       vec3 volumeColor = mix(vec3(0.48, 0.025, 0.008), vec3(1.32, 0.34, 0.055), heat);
-      color += transmission * volumeColor * density * stepSize * (0.16 + 0.12 * uBass);
-      transmission *= exp(-density * stepSize * 0.34);
+      // Homogeneous-segment emission/absorption. Fourth-order evaluation
+      // avoids cancellation in 1-exp(-tau) for thin samples (tau <= 0.036).
+      float tau = density * stepSize * 0.34;
+      float opacity = tau * (1.0 - tau * (0.5 - tau * (1.0 / 6.0 - tau / 24.0)));
+      color += transmission * volumeColor * opacity * ((0.16 + 0.12 * uBass) / 0.34);
+      transmission *= 1.0 - opacity;
     }
     if (previousPlane * nextPlane <= 0.0) {
       float planeDelta = previousPlane - nextPlane;
@@ -565,17 +577,21 @@ void main() {
       }
     }
     float jetAxis = dot(nextPos, diskNormal);
-    float jetRadius = length(nextPos - diskNormal * jetAxis);
-    float jet = exp(-jetRadius * 10.0) * smoothstep(0.7, 2.8, abs(jetAxis));
-    float knot = 0.45 + 0.55 * sin(abs(jetAxis) * 14.0 - uTime * 3.0);
-    color += transmission * vec3(0.08, 0.42, 1.35) * jet * knot * (0.008 + 0.014 * uTreble);
+    // Reuse the disk projection instead of another vector projection/sqrt.
+    float jet = exp(-projectedRadius * 10.0) * smoothstep(0.7, 2.8, abs(jetAxis));
+    float knot = max(0.0, 0.45 + 0.55 * sin(abs(jetAxis) * 14.0 - uTime * 3.0));
+    // Preserve the former far-field brightness at ds=.105; integrate by
+    // distance so smaller steps near the horizon do not create extra energy.
+    color += transmission * vec3(0.08, 0.42, 1.35) * jet * knot *
+             (0.008 + 0.014 * uTreble) * (stepSize / 0.105);
     previousPlane = nextPlane;
     pos = nextPos;
-    if (length(pos) > 11.0) break;
+    if (dot(pos, pos) > 121.0) break;
   }
   if (!swallowed) color += stars(dir) * transmission;
-  float photonRing = exp(-pow((closest - 0.79) * 24.0, 2.0));
-  float outerRing = exp(-pow((closest - 1.03) * 13.0, 2.0));
+  float photonOffset = (closest - 0.79) * 24.0, outerOffset = (closest - 1.03) * 13.0;
+  float photonRing = exp(-photonOffset * photonOffset);
+  float outerRing = exp(-outerOffset * outerOffset);
   float caustic = 0.82 + 0.18 * sin(atan(p.y, p.x) * 9.0 - uTime * 0.7);
   color += vec3(1.55, 0.48, 0.09) * photonRing * caustic * (0.62 + 0.55 * uPulse);
   color += vec3(0.22, 0.08, 0.72) * outerRing * (0.22 + 0.30 * uMid);

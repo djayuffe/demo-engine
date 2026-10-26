@@ -73,7 +73,7 @@ void main(){
   // 2) Refractive shockwave ring: a Gaussian ring that displaces the image.
   { float shock=fract(uTime*.145);
     float r=length(suv-.5);
-    float ring=exp(-pow((r-shock*.72)/.025,2.0));
+    float ring=exp(-deSquare((r-shock*.72)/.025));
     suv=.5+(suv-.5)*(1.0-ring*.09*(.5+mlev)*(1.0-calm)); }
   // 3) Barrel/lens breathing (pulse-driven).
   { vec2 bp=suv-.5; float r2=dot(bp,bp);
@@ -156,7 +156,7 @@ void main(){
     float sph=fract(uTime/7.5);
     float spos=mix(-2.2,2.2,sph);
     float sd=dot(p,normalize(vec2(1.,.55)));
-    float sweep=exp(-pow((sd-spos)*2.6,2.))+.45*exp(-pow((sd-spos+.35)*7.,2.));
+    float sweep=exp(-deSquare((sd-spos)*2.6))+.45*exp(-deSquare((sd-spos+.35)*7.));
     vec3 g=vec3(1.0,.93,.82)*sweep*smoothstep(.12,.9,glum)*(1.-smoothstep(1.2,2.6,glum))*(.45+.6*beat+.4*mlev);   // catches mid-bright detail, never pushes blown pixels further
     float gs=uResolution.y/900.;
     // Glints only where a neighbour is BRIGHTER than here: spikes run out of bright points into the dark,

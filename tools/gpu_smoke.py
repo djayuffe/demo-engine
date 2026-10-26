@@ -49,6 +49,11 @@ def main():
     if numeric.returncode:
         raise RuntimeError(numeric.stdout + numeric.stderr)
     print(numeric.stdout.strip(), flush=True)
+    cosmic = subprocess.run([str((options.build / ("gpu_cosmic_tests" + suffix)).resolve())],
+                            capture_output=True, text=True, timeout=60)
+    if cosmic.returncode:
+        raise RuntimeError(cosmic.stdout + cosmic.stderr)
+    print(cosmic.stdout.strip(), flush=True)
     for scene in range(scene_count((options.build / ("hold_infinity" + suffix)).resolve())):
         extra = ["--silent", "--infinity-scene", str(scene), "--infinity-pixels", "30000",
                  "--validate-output", "--bpm", "120", "--beat-division", "4",
