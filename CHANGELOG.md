@@ -12,6 +12,8 @@
 - Replace the single-color sphere with a rotating layered shell: spectral ribbons, cellular inlays, emissive seams, anisotropic roughness, clearcoat, Fresnel rim and beat-lit subsurface color.
 - Add two shrinking motion ghosts, a transparent energy aura and a decaying impact shell inside the existing ray traversal, preserving mirror placement, curved-space transport and occlusion.
 - Bound transparent secondary intersections to the four nearest reflection rooms and suppress invalid post-bounce trails while retaining the solid sphere in every reflected room.
+- Give every ant an articulated GPU-rasterized silhouette, individual cadence, lateral gait and colony flicker while retaining exact CPU/GPU validation and zero per-frame texture uploads.
+- Animate chamber wire width, room-specific breathing and traveling edge highlights, then add dark prismatic atmospheric folds, smoothly changing dust, a lens ring and energy-sensitive vignette in the HDR composite.
 
 # Atlas geometry cache and Lorentz gallery — 2026-10-25
 

@@ -270,8 +270,16 @@ int main() {
     }
   }
   for (const char* chamber : {infinity_shader::CHAMBER_OBJECT, infinity_shader::CHAMBER_CUBE,
-                              infinity_shader::CHAMBER_FLAT, infinity_shader::CHAMBER_HYPER})
-    require(infinity_matrix::expand(chamber).find("float ants=") != std::string::npos, "matrix walkers missing");
+                              infinity_shader::CHAMBER_FLAT, infinity_shader::CHAMBER_HYPER}) {
+    const auto living = infinity_matrix::expand(chamber);
+    require(living.find("float ants=") != std::string::npos, "matrix walkers missing");
+    require(living.find("colonyFlicker") != std::string::npos, "colony light variation missing");
+    require(living.find("liveWidth") != std::string::npos && living.find("float chase=") != std::string::npos,
+            "living wire modulation missing");
+  }
+  require(std::string(infinity_shader::CHAMBER_POST).find("postHash") != std::string::npos &&
+              std::string(infinity_shader::CHAMBER_POST).find("lensRing") != std::string::npos,
+          "chamber atmosphere pass missing");
   using namespace infinity_sync;
   require(sample(31.999, 0, false, 0, 0, 0).scene == 0, "scene changes before boundary");
   require(sample(32, 0, false, 0, 0, 0).scene == 1, "bar-boundary cut missing");

@@ -371,6 +371,8 @@ class Infinity final : public de::Demo {
     one(post_, "uBloom", .13f + .06f * cue_.mid + .045f * cue_.strike);
     one(post_, "uStar", scene == 0 ? .035f : .01f);
     one(post_, "uBeat", .65f * cue_.strike);
+    one(post_, "uTime", float(frame_.effectTime));
+    one(post_, "uEnergy", cue_.energy);
     quad();
   }
   void instrument(int scene, int w, int h, const Camera& cam, bool resized) {

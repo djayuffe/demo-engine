@@ -2230,7 +2230,14 @@ uniform vec2 uRes;
 uniform float uBloom;
 uniform float uStar;
 uniform float uBeat;
+uniform float uTime;
+uniform float uEnergy;
 vec3 bright(vec3 c, float thr) { return max(c - thr, 0.0); }
+float postHash(vec2 p) {
+  vec3 q=fract(vec3(p.xyx)*.1031);
+  q+=dot(q,q.yzx+33.33);
+  return fract((q.x+q.y)*q.z);
+}
 void main() {
   vec2 uv = vUv;
   vec2 dc = uv - 0.5;
@@ -2263,6 +2270,23 @@ void main() {
 
   vec3 add = bloom * uBloom * (0.8 + 0.5 * uBeat) + star * uStar;
   vec3 c = base.rgb + add * (1.0 - base.rgb);   // screen blend: glow never washes out detail
+  // A dark prismatic atmosphere keeps empty mirror regions dimensional. The
+  // sparse dust is cell-jittered and changes only on musical half phrases.
+  float radius=length(dc),angle=atan(dc.y,dc.x);
+  float veil=exp(-pow(abs(dc.y+.13*sin(angle*3.0-uTime*.07)),2.0)*13.0);
+  float folds=.5+.5*sin(angle*9.0+radius*23.0-uTime*.11);
+  vec3 atmosphere=mix(vec3(.006,.025,.075),vec3(.09,.012,.14),folds)*veil;
+  vec2 dustCell=floor(uv*uRes/vec2(37.0,31.0));
+  float dustClock=uTime*.35,dustPhase=floor(dustClock);
+  float dustFade=smoothstep(0.0,1.0,fract(dustClock));
+  float dust=mix(step(.986,postHash(dustCell+dustPhase)),
+                 step(.986,postHash(dustCell+dustPhase+1.0)),dustFade)*(.35+.65*uBeat);
+  vec3 dustColor=mix(vec3(.16,.45,1.0),vec3(1.0,.20,.52),postHash(dustCell+17.0));
+  float darkness=1.0-smoothstep(.025,.52,dot(c,vec3(.2126,.7152,.0722)));
+  c+=darkness*(atmosphere*(.42+.18*uEnergy)+dustColor*dust*.075);
+  float lensRing=exp(-abs(radius-(.31+.018*sin(uTime*.17)))*85.0);
+  c+=vec3(.08,.26,.52)*lensRing*(.012+.018*uBeat)*(1.0-darkness*.6);
+  c*=1.0-smoothstep(.42,.78,radius)*(.13-.025*uEnergy);
   float a = max(base.a, clamp(max(c.r, max(c.g, c.b)), 0.0, 1.0));
   outColor = vec4(min(c, vec3(a)), a);
 })HOLD";
