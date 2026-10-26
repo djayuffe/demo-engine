@@ -332,7 +332,20 @@ class Infinity final : public de::Demo {
                 float(infinity_ball::Ball::radius));
     glUniform4f(loc(p, "uBallH"), float(hyperBall.p[0]), float(hyperBall.p[1]), float(hyperBall.p[2]),
                 float(hyperBall.p[3]));
+    three(p, "uBallVelocityE", float(flatBall.v[0]), float(flatBall.v[1]), float(flatBall.v[2]));
+    glUniform4f(loc(p, "uBallVelocityH"), float(hyperBall.v[0]), float(hyperBall.v[1]), float(hyperBall.v[2]),
+                float(hyperBall.v[3]));
+    three(p, "uBallImpactE", float(flatBall.impactPoint[0]), float(flatBall.impactPoint[1]),
+          float(flatBall.impactPoint[2]));
+    glUniform4f(loc(p, "uBallImpactH"), float(hyperBall.impactPoint[0]), float(hyperBall.impactPoint[1]),
+                float(hyperBall.impactPoint[2]), float(hyperBall.impactPoint[3]));
+    three(p, "uBallImpactNormalE", float(flatBall.impactNormal[0]), float(flatBall.impactNormal[1]),
+          float(flatBall.impactNormal[2]));
+    glUniform4f(loc(p, "uBallImpactNormalH"), float(hyperBall.impactNormal[0]), float(hyperBall.impactNormal[1]),
+                float(hyperBall.impactNormal[2]), float(hyperBall.impactNormal[3]));
     one(p, "uBallImpact", float(scene == 1 || scene == 2 ? flatBall.flash : hyperBall.flash));
+    one(p, "uBallSpin", float(scene == 1 || scene == 2 ? flatBall.travelled : hyperBall.travelled));
+    one(p, "uBallBeat", cue_.strike);
     one(p, "uTime", float(frame_.effectTime));
     one(p, "uFlow", float(cue_.flow));
     one(p, "uEnergy", cue_.energy);

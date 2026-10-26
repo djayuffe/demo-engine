@@ -6,6 +6,7 @@
 #include "MatrixLife.hpp"
 #include "AntTraffic.hpp"
 #include "BouncingBall.hpp"
+#include "BallShader.hpp"
 #include "SequentialRays.hpp"
 #include "WorldSheets.hpp"
 #include "RenderCorrections.hpp"
@@ -119,11 +120,23 @@ int main() {
   impact.step(.1);
   require(impact.impacts == 1 && std::abs(impact.flash - std::exp(-.09 * 16)) < 1e-8,
           "impact glow decay uses pre-hit time");
+  require(std::abs(impact.impactPoint[0] - (1.0 - infinity_ball::Ball::radius)) < 1e-8 &&
+              std::abs(impact.impactNormal[0] - 1.0) < 1e-8 && std::abs(impact.travelled - .1) < 1e-10,
+          "ball contact point or travelled-distance phase is incorrect");
   infinity_ball::Ball corner(false, true);
   corner.p = {.85, .85, 0, 0};
   corner.v = {std::sqrt(.5), std::sqrt(.5), 0, 0};
   corner.step(.1);
   require(corner.impacts == 2 && corner.v[0] < 0 && corner.v[1] < 0, "simultaneous corner bounce incorrect");
+  const auto flatBallShader = infinity_ball::shader(infinity_matrix::expand(infinity_shader::CHAMBER_CUBE));
+  const auto hyperBallShader = infinity_ball::shader(infinity_matrix::expand(infinity_shader::CHAMBER_HYPER));
+  require(flatBallShader.find("ballTrailFlat") != std::string::npos &&
+              flatBallShader.find("waveRadius") != std::string::npos &&
+              flatBallShader.find("clearcoat") != std::string::npos,
+          "layered ball material, trails or impact wave missing");
+  require(hyperBallShader.find("ballTrailHyper") != std::string::npos &&
+              hyperBallShader.find("trailRadiusH") != std::string::npos,
+          "hyperbolic ball effects no longer follow geodesic motion");
   for (bool hyper : {false, true}) {
     infinity_ball::Ball reversible(hyper);
     const auto initial = reversible.p;

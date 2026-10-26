@@ -1,3 +1,10 @@
+# Layered chamber ball and impact physics — 2026-10-26
+
+- Weight impact emission by normal collision speed and retain the exact Euclidean or hyperbolic contact center for expanding shock waves.
+- Replace the single-color sphere with a rotating layered shell: spectral ribbons, cellular inlays, emissive seams, anisotropic roughness, clearcoat, Fresnel rim and beat-lit subsurface color.
+- Add two shrinking motion ghosts, a transparent energy aura and a decaying impact shell inside the existing ray traversal, preserving mirror placement, curved-space transport and occlusion.
+- Bound transparent secondary intersections to the four nearest reflection rooms and suppress invalid post-bounce trails while retaining the solid sphere in every reflected room.
+
 # Atlas geometry cache and Lorentz gallery — 2026-10-25
 
 - Integrate the incoming Metal, cosmic, audio and scene-composition updates; preserve scene indices 0–29 and the three-view playback skip.
