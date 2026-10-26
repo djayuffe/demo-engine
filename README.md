@@ -61,7 +61,7 @@ Copyright (c) 2026 Ulf Bertilsson. Original engine code is MIT licensed; importe
 
 **Contents:** [Why](#why) | [Quick start](#quick-start) | [What the engine provides](#what-the-engine-provides) | [Writing a demo](#writing-a-demo) | [Demos in this repository](#demos-in-this-repository) | [Build](#build) | [Tests and CI](#tests-and-ci) | [Repository layout](#repository-layout) | [Roadmap](#roadmap)
 
-Docs: [ARCHITECTURE.md](ARCHITECTURE.md) | [docs/WRITING_A_DEMO.md](docs/WRITING_A_DEMO.md) | [CHANGELOG.md](CHANGELOG.md)
+Docs: [ARCHITECTURE.md](ARCHITECTURE.md) | [docs/WRITING_A_DEMO.md](docs/WRITING_A_DEMO.md) | [CHANGELOG.md](CHANGELOG.md) | [GPU math audit](docs/GPU_AUDIT_2026-10-26.md)
 
 Eight bundled tracks now span tracker/chiptune, melodic EDM, drum and bass, dark jazz and ambient synth.
 
