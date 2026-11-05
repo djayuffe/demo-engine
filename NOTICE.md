@@ -2,8 +2,8 @@
 
 Copyright (c) 2026 Ulf Bertilsson.
 
-This repository contains a generic wireframe demo engine, three demos built on it
-(including the Impossible Wireframe demo), geometry generators, validation tests,
+This repository contains a generic graphics demo engine, native optical, Atlas and cosmic effects,
+the Impossible Wireframe show and minimal examples, geometry generators, validation tests,
 shader code, documentation and build scripts.
 Third-party dependencies remain under their own licenses.
 
@@ -29,3 +29,20 @@ Other music:
 The bundled tracker module and the generated `wireframe_pulse.wav` are committed under `demos/wireframe/assets/music/` so the demo plays out of the box; `demos/wireframe/assets/music/README.md` lists their sources and licences. The UBER logo cards in `demos/wireframe/assets/logos/` are the author's own artwork.
 
 Third-party code vendored in `thirdparty/`: `stb_image.h` and `stb_image_write.h` (Sean Barrett, public domain / MIT).
+
+Imported Hold Infinity optical renderer sources are credited separately in `demos/infinity/SOURCE.md`; original files and source hashes are preserved under that directory. They are not relicensed by the engine's MIT license.
+
+The user-supplied DMT Atlas v0.3 reference sources and their derivatives are recorded in `demos/atlas/SOURCE.md`. Original files and SHA-256 hashes are preserved. The archive provides no separate license; inclusion does not relicense it under the engine MIT license.
+
+
+## Additional CC0 music (2026-10-24)
+
+The bundled Melodic EDM (Fupi), Black Diamond (Joth), Moil (Ruskerdax), and Synthwave
+15k (The Cynic Project / cynicmusic) are distributed unmodified under their source
+pages' CC0 designation. Their rights are separate from the engine source code.
+See [music credits](demos/wireframe/assets/music/README.md) and
+[the pinned source manifest](demos/wireframe/assets/music/additional_music.json)
+for source/download URLs, licensing links, author credits and SHA-256 checksums.
+The Cynic Project: https://cynicmusic.com/ and https://pixelsphere.org/.
+
+For a consolidated licensing map, see [LICENSES.md](LICENSES.md). Supplied cosmic and parametric effects are credited in [cosmic source records](demos/cosmic/SOURCE.md) and [aviation source records](demos/aviation/SOURCE.md).

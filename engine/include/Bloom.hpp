@@ -13,6 +13,6 @@ public:
   static constexpr int kLevels = 6;
 private:
   unsigned down_ = 0, up_ = 0, vao_ = 0, vbo_ = 0, tex_[kLevels] = {}, fbo_[kLevels] = {};
-  int w_[kLevels] = {}, h_[kLevels] = {};
-  int dSrc_ = -1, dTexel_ = -1, dFirst_ = -1, uSrc_ = -1, uTexel_ = -1, uWeight_ = -1;
+  int w_[kLevels] = {}, h_[kLevels] = {}, levels_ = 0;
+  int dSrc_ = -1, dFirst_ = -1, uSrc_ = -1, uTexel_ = -1, uWeight_ = -1;
 };

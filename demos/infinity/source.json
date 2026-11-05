@@ -1,0 +1,28 @@
+{
+  "archive": "hold_infinity_by_purpletwilight21858029.zip",
+  "sha256": "71deb5a0cd1dd051b7add885657de14b317f120cf68f884d5dda3fd18910a866",
+  "files": {
+    "app.js": "5c527b535edb86d811bfd008ebf9ae3366e050d780af42892d3a6f3b052a02d5",
+    "chamber.js": "05cb5a9a7bbc794a1f61ce9fe01ea0b8f4e5dc07a89212973e799cde44d932a3",
+    "dodeca.js": "0933b2a19decac360a9768c0dd4b3d51d6b081d48bf972ca3639815bb8d09dd0",
+    "gl.js": "b4b86944c17026ba0583f5c057582db2126f5e70f671c4b02b552625301406aa",
+    "grin.js": "e781b76c131725ee6b610de5f48e85a9422a236625247364d0c25ed23d8d980c",
+    "index.html": "2ccf367d1184f5dad85c183ae34d8eb55cc762c5f9cdf30f9279218152ac664b",
+    "instrument.js": "29f1223846a6f9b4bf420300b57cceea7b7433b775a6d0cf75a1084bee07522a",
+    "style.css": "472a19027007d21997339838ad361ac8c0f65817c3cd1ee6d51ceee849aa7937"
+  },
+  "shaders": [
+    "CHAMBER_CUBE",
+    "CHAMBER_FLAT",
+    "CHAMBER_HYPER",
+    "CHAMBER_OBJECT",
+    "CHAMBER_POST",
+    "FIELD_FS",
+    "FULLSCREEN_VS",
+    "INTEGRATE_FS",
+    "RAY_FS",
+    "RAY_VS",
+    "SHOW_FS",
+    "TRACE_FS"
+  ]
+}

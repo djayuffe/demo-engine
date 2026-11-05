@@ -113,6 +113,28 @@ Added in engine 1.2 / Impossible Wireframe v4.36. Each is deterministic, finite 
 
 New recipes: 24 Hopf Fibration Storm (64, 73, 14), 25 Hyperbolic Drift (66, 75, 41), 26 Keplerian Galaxy (68, 71, 5), 27 Barbed Crystal (70, 73, 65), 28 Soliton Garden (76, 69, 71), 29 Quaternion Bloom (77, 79, 72, 78). The procedural mutation draws from all 80 effects.
 
+## Beyond effects (80-92)
+
+Added after engine 1.6.0. Each is built on a real phenomenon or paradox, is deterministic, finite and fail-safe like the rest, and is tested to change a mesh. All run on the CPU path; `gpuDeformationSupported()` keeps returning false for them, so the GPU recipe path applies them on the CPU and defers nothing.
+
+| Id | Name | What it does |
+|---|---|---|
+| 80 | Penrose Stairs | Four quantised flights around the y axis; each flight ends where the next begins, so the stair climbs forever and arrives where it started. The phase scrolls with time |
+| 81 | Dzhanibekov Flip | Builds the mesh's inertia tensor, diagonalises it (Jacobi), sorts the principal axes and integrates Euler's free rigid-body equations with moments 1:2:3 from a spin about the intermediate axis; the orientation quaternion is applied, so the object flips end over end with no torque (tennis-racket theorem). Periodic over 36 s of effect time |
+| 82 | Tesseract Turn | Adds w = 0.9 sin(2.5y + 0.4t) + 1.4(abs(x) - 1), rotates in the xw and zw planes and applies 4D perspective (2.6 / (2.6 - w)); the form turns inside out |
+| 83 | Gravitational Wave | Plus and cross strain of an inspiral chirp (amplitude ~ (tc - t)^-1/4, phase ~ (tc - t)^5/8) propagating along y; rises to merger at 8 s, rings down, repeats every 9 s |
+| 84 | Magnetosphere | New geometry: dipole field lines r = L sin^2(theta) on 3 shells x 12 azimuths x 24 segments around a tilted (20 deg), precessing axis; skipped when the mesh is within 1500 edges of the budget |
+| 85 | Voronoi Drift | Nine seed points (from the seed) split the mesh into rigid shards that drift outward and spin about their seed axis; edges between shards are cut |
+| 86 | Time Crystal | Radial snap between two states at half the drive frequency (tanh-sharpened), with spatial domains of opposite phase |
+| 87 | Droste Spiral | Log-polar fold of the xz plane into one scale band (ratio 3) with a spiral twist, plus two nested copies at 1/3 and 1/9; edges stretched across the fold are cut |
+| 88 | Origami | Three crease planes sweep around the centre; points past each crease rotate rigidly about the crease line (a fold, not a mirror) |
+| 89 | Phyllotaxis | Each vertex keeps its latitude and radius and is drawn to the golden-angle seed of its band on a 144-seed Fibonacci sphere, then released |
+| 90 | Chladni Plate | Standing-wave modes cos(a x)cos(b z) - cos(b x)cos(a z) of a square plate, modes (1,2) (2,3) (1,4) (3,4) (2,5) changing every 5 s, amplitude driven by the bass |
+| 91 | Triple Shadow | New geometry: three flattened copies on a floor and two walls behind the object; follows every earlier stage in the chain |
+| 92 | Indra Pearls | Reduced words of 1-3 inversions in four orbiting spheres (no immediate backtracking), copying the mesh into pearls within pearls; stretched edges are cut |
+
+New recipes: 30 Impossible Staircase (80, 88, 24), 31 Tennis Racket Paradox (81, 85, 73), 32 Fourth Dimension (82, 91, 5), 33 LIGO Chirp (83, 90, 41), 34 Magnetar (84, 81, 69), 35 Escher Infinity (87, 80, 91), 36 Time Crystal Garden (86, 89, 71), 37 Indra's Net (92, 39, 85). The procedural mutation now draws from all 93 effects; existing effect, recipe and scene outputs are bit-identical (verified with `tools/golden`).
+
 ## Golden orbit scenes (57-58)
 
 Ports of GALAXY.COM and CLIFF.COM from [uber256-lab](https://github.com/djayuffe/uber256-lab), drawn with the golden glimmer wire style (`Renderer::setWireStyle(1)`):

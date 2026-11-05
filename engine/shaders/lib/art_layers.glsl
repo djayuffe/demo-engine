@@ -6,7 +6,7 @@ float tunnelLayer(vec2 p,float z,float twist){
   float r=length(q);
   float ribs=pow(.5+.5*sin(a*18.0+z*7.0),18.0);
   float rings=pow(.5+.5*sin(r*18.0-z*5.5),22.0);
-  return (ribs*.55+rings*.45)*smoothstep(1.95,.18,r);
+  return (ribs*.55+rings*.45)*(1.0-smoothstep(.18,1.95,r));
 }
 
 // ---- Arty layers (shown whenever the logo card is not on screen) -----------
@@ -63,7 +63,7 @@ vec3 blob3D(vec2 p,float ml,float beat){
     col=pal(q.y*.25+t*.03+dot(n,vec3(.3))+.2)*(.12+.75*dif)+pal(fres+t*.05)*fres*.95+vec3(1.,.9,.8)*spec*.5;
   }
   col+=pal(t*.04+tt*.1)*glow*.045*(.5+ml);
-  return col*smoothstep(2.6,.3,length(p));
+  return col*(1.0-smoothstep(.3,2.6,length(p)));
 }
 
 // Julia-set glow: orbit-trap fractal that slowly morphs its constant.
@@ -86,7 +86,7 @@ float moire(vec2 p,float t){
 float turing(vec2 p,float t){
   float v=0.;
   for(int i=0;i<3;i++){float a=float(i)*2.0944+t*.03;v+=cos(dot(p,vec2(cos(a),sin(a)))*9.+sin(t*.2+float(i))*2.);}
-  return smoothstep(.4,1.4,v)*smoothstep(3.,1.8,v+.6);
+  return smoothstep(.4,1.4,v)*(1.0-smoothstep(1.8,3.,v+.6));
 }
 // ---- Gallery layers G..J: slow, painterly, each surfaces in its own wave ---------------------------------
 // G: topographic contour lines of a drifting height field, with pulses running up the slopes.
@@ -112,7 +112,7 @@ float poincare(vec2 p,float t){
   float spokes=abs(fract(atan(z.y,z.x)*(7./6.2831853)+t*.02)-.5)*2.;
   float edge=min(ring,spokes*(.35+.65*smoothstep(0.,2.5,d)));  // spokes thin out toward the centre
   float cell=floor(d*1.35-t*.12)+floor(atan(z.y,z.x)*(7./6.2831853)+t*.02);
-  return exp(-edge*14.)*(.5+.5*mod(cell,2.))*smoothstep(1.0,.82,r);
+  return exp(-edge*14.)*(.5+.5*mod(cell,2.))*(1.0-smoothstep(.82,1.0,r));
 }
 // I: kaleidoscopic IFS (fold, shift, rotate, scale) - lace-like filaments that breathe.
 float kifs(vec2 p,float t){
@@ -181,5 +181,5 @@ vec3 artLayer(vec2 p,float ml,float beat){
   c+=pal(fbm((p-uPointer*.55)*.9+t*.02)+t*.01)*.035*(.6+ml)*e(11);
   // Uneven, drifting light pools: some regions glow while others sink into darkness.
   float pools=smoothstep(.15,.85,fbm(p*.7+vec2(uTime*.04,-uTime*.03)));
-  return (c*smoothstep(2.4,.2,r)*.9)*(.25+1.5*pools)+organism*(.55+.45*pools);
+  return (c*(1.0-smoothstep(.2,2.4,r))*.9)*(.25+1.5*pools)+organism*(.55+.45*pools);
 }

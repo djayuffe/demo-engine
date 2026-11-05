@@ -6,6 +6,7 @@
 class ArtPass {
 public:
   struct Params {
+    float beat = 0;
     float time = 0, music = 0, bpm = 132, logoVisibility = 0, fxAmount = 1;
     bool hasLogos = false, gold = false;
     float fade = 1, pointerX = 0, pointerY = 0, pulse = 0;
@@ -22,5 +23,5 @@ public:
 private:
   unsigned prog_ = 0, fbo_ = 0, tex_ = 0, vao_ = 0, vbo_ = 0;
   int w_ = 0, h_ = 0, hdrW_ = 0, hdrH_ = 0, div_ = 2;
-  int uTime_ = -1, uRes_ = -1, uMusic_ = -1, uBpm_ = -1, uHasLogo_ = -1, uLogoVis_ = -1, uGold_ = -1, uFx_ = -1, uStyle_ = -1, uPointer_ = -1, uFade_ = -1, uObjects_ = -1, uPulse_ = -1;
+  int uBeat_ = -1, uTime_ = -1, uRes_ = -1, uMusic_ = -1, uBpm_ = -1, uHasLogo_ = -1, uLogoVis_ = -1, uGold_ = -1, uFx_ = -1, uStyle_ = -1, uPointer_ = -1, uFade_ = -1, uObjects_ = -1, uPulse_ = -1;
 };

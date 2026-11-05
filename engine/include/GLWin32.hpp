@@ -20,6 +20,18 @@ typedef char GLchar;
 typedef ptrdiff_t GLsizeiptr;
 typedef ptrdiff_t GLintptr;
 
+#ifndef GL_UNIFORM_BUFFER
+#define GL_UNIFORM_BUFFER 0x8A11
+#endif
+#ifndef GL_MAX_UNIFORM_BLOCK_SIZE
+#define GL_MAX_UNIFORM_BLOCK_SIZE 0x8A30
+#endif
+#ifndef GL_UNIFORM_BLOCK_DATA_SIZE
+#define GL_UNIFORM_BLOCK_DATA_SIZE 0x8A40
+#endif
+#ifndef GL_INVALID_INDEX
+#define GL_INVALID_INDEX 0xFFFFFFFFu
+#endif
 // Constants newer than GL 1.1. Plain macros, each guarded, so ones the SDK already defines are left alone.
 #ifndef GL_ARRAY_BUFFER
 #define GL_ARRAY_BUFFER 0x8892
@@ -32,6 +44,9 @@ typedef ptrdiff_t GLintptr;
 #endif
 #ifndef GL_DYNAMIC_DRAW
 #define GL_DYNAMIC_DRAW 0x88E8
+#endif
+#ifndef GL_STREAM_DRAW
+#define GL_STREAM_DRAW 0x88E0
 #endif
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -56,6 +71,12 @@ typedef ptrdiff_t GLintptr;
 #endif
 #ifndef GL_VERTEX_SHADER
 #define GL_VERTEX_SHADER 0x8B31
+#endif
+#ifndef GL_TESS_CONTROL_SHADER
+#define GL_TESS_CONTROL_SHADER 0x8E88
+#define GL_TESS_EVALUATION_SHADER 0x8E87
+#define GL_PATCHES 0x000E
+#define GL_PATCH_VERTICES 0x8E72
 #endif
 #ifndef GL_FRAGMENT_SHADER
 #define GL_FRAGMENT_SHADER 0x8B30
@@ -95,7 +116,27 @@ typedef ptrdiff_t GLintptr;
 #endif
 
 
+#ifndef GL_RGBA16F
+#define GL_RGBA16F 0x881A
+#endif
+#ifndef GL_RGBA32F
+#define GL_RGBA32F 0x8814
+#endif
+
+#ifndef GL_TIME_ELAPSED
+#define GL_TIME_ELAPSED 0x88BF
+#define GL_QUERY_RESULT 0x8866
+#define GL_QUERY_RESULT_AVAILABLE 0x8867
+#endif
+typedef unsigned long long GLuint64;
+
 #define DE_GL_FUNCTIONS(X) \
+  X(void,    glGenQueries,              (GLsizei n, GLuint* ids)) \
+  X(void,    glDeleteQueries,           (GLsizei n, const GLuint* ids)) \
+  X(void,    glBeginQuery,              (GLenum target, GLuint id)) \
+  X(void,    glEndQuery,                (GLenum target)) \
+  X(void,    glGetQueryObjectiv,        (GLuint id, GLenum pname, GLint* params)) \
+  X(void,    glGetQueryObjectui64v,      (GLuint id, GLenum pname, GLuint64* params)) \
   X(void,    glActiveTexture,           (GLenum texture)) \
   X(void,    glAttachShader,            (GLuint program, GLuint shader)) \
   X(void,    glBindBuffer,              (GLenum target, GLuint buffer)) \
@@ -115,6 +156,8 @@ typedef ptrdiff_t GLintptr;
   X(void,    glDeleteRenderbuffers,     (GLsizei n, const GLuint* renderbuffers)) \
   X(void,    glDeleteShader,            (GLuint shader)) \
   X(void,    glDeleteVertexArrays,      (GLsizei n, const GLuint* arrays)) \
+  X(void,    glDrawElementsInstanced,   (GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount)) \
+  X(void,    glDrawArraysInstanced,     (GLenum mode, GLint first, GLsizei count, GLsizei instancecount)) \
   X(void,    glEnableVertexAttribArray, (GLuint index)) \
   X(void,    glFramebufferRenderbuffer, (GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)) \
   X(void,    glFramebufferTexture2D,    (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)) \
@@ -128,11 +171,21 @@ typedef ptrdiff_t GLintptr;
   X(void,    glGetShaderInfoLog,        (GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* infoLog)) \
   X(void,    glGetShaderiv,             (GLuint shader, GLenum pname, GLint* params)) \
   X(GLint,   glGetUniformLocation,      (GLuint program, const GLchar* name)) \
+  X(GLuint,  glGetUniformBlockIndex,    (GLuint program, const GLchar* name)) \
+  X(void,    glUniformBlockBinding,    (GLuint program, GLuint index, GLuint binding)) \
+  X(void,    glGetActiveUniformBlockiv, (GLuint program, GLuint index, GLenum pname, GLint* params)) \
+  X(void,    glBindBufferBase,         (GLenum target, GLuint index, GLuint buffer)) \
   X(void,    glLinkProgram,             (GLuint program)) \
+  X(void,    glPatchParameteri,         (GLenum pname, GLint value)) \
   X(void,    glRenderbufferStorage,     (GLenum target, GLenum internalformat, GLsizei width, GLsizei height)) \
   X(void,    glShaderSource,            (GLuint shader, GLsizei count, const GLchar* const* string, const GLint* length)) \
   X(void,    glUniform1f,               (GLint location, GLfloat v0)) \
   X(void,    glUniform1i,               (GLint location, GLint v0)) \
+  X(void,    glUniform1ui,              (GLint location, GLuint v0)) \
+  X(void,    glUniform3fv,              (GLint location, GLsizei count, const GLfloat* value)) \
+  X(void,    glUniform4fv,              (GLint location, GLsizei count, const GLfloat* value)) \
+  X(void,    glUniform4f,               (GLint location, GLfloat x, GLfloat y, GLfloat z, GLfloat w)) \
+  X(void,    glUniformMatrix3fv,        (GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)) \
   X(void,    glUniform2f,               (GLint location, GLfloat v0, GLfloat v1)) \
   X(void,    glUniform3f,               (GLint location, GLfloat v0, GLfloat v1, GLfloat v2)) \
   X(void,    glUniformMatrix4fv,        (GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)) \

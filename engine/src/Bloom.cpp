@@ -13,7 +13,6 @@ bool Bloom::init(const std::string& dir, std::string& err) {
   up_ = down_ ? glutil::linkProgram(vs, ufs, err) : 0;
   if (!up_) return false;
   dSrc_ = glGetUniformLocation(down_, "uSrc");
-  dTexel_ = glGetUniformLocation(down_, "uTexel");
   dFirst_ = glGetUniformLocation(down_, "uFirst");
   uSrc_ = glGetUniformLocation(up_, "uSrc");
   uTexel_ = glGetUniformLocation(up_, "uTexel");
@@ -24,7 +23,8 @@ bool Bloom::init(const std::string& dir, std::string& err) {
 
 bool Bloom::resize(int width, int height, std::string& err) {
   bool ok = true;
-  int w = std::max(2, width / 2), h = std::max(2, height / 2);
+  int w = std::max(1, width / 2), h = std::max(1, height / 2);
+  levels_ = 0;
   for (int i = 0; i < kLevels; ++i) {
     if (!tex_[i]) glGenTextures(1, &tex_[i]);
     if (!fbo_[i]) glGenFramebuffers(1, &fbo_[i]);
@@ -39,8 +39,10 @@ bool Bloom::resize(int width, int height, std::string& err) {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo_[i]);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex_[i], 0);
     ok = ok && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-    w = std::max(2, w / 2);
-    h = std::max(2, h / 2);
+    ++levels_;
+    if (w == 1 && h == 1) break;
+    w = std::max(1, w / 2);
+    h = std::max(1, h / 2);
   }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   if (!ok) err = "bloom framebuffer incomplete";
@@ -48,7 +50,7 @@ bool Bloom::resize(int width, int height, std::string& err) {
 }
 
 unsigned Bloom::apply(unsigned sceneTex) {
-  if (!down_ || !tex_[0]) return 0;
+  if (!down_ || !tex_[0] || !levels_) return 0;
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
   glBindVertexArray(vao_);
@@ -56,29 +58,19 @@ unsigned Bloom::apply(unsigned sceneTex) {
   glUseProgram(down_);
   glUniform1i(dSrc_, 0);
   unsigned src = sceneTex;
-  int sw = 0, sh = 0;
-  glBindTexture(GL_TEXTURE_2D, sceneTex);
-  GLint tw = 0, th = 0;
-  glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &tw);
-  glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &th);
-  sw = tw;
-  sh = th;
-  for (int i = 0; i < kLevels; ++i) {
+  for (int i = 0; i < levels_; ++i) {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo_[i]);
     glViewport(0, 0, w_[i], h_[i]);
     glBindTexture(GL_TEXTURE_2D, src);
-    glUniform2f(dTexel_, 1.f / float(std::max(1, sw)), 1.f / float(std::max(1, sh)));
     glUniform1f(dFirst_, i == 0 ? 1.f : 0.f);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     src = tex_[i];
-    sw = w_[i];
-    sh = h_[i];
   }
   glUseProgram(up_);
   glUniform1i(uSrc_, 0);
   glEnable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ONE);
-  for (int i = kLevels - 1; i > 0; --i) {
+  for (int i = levels_ - 1; i > 0; --i) {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo_[i - 1]);
     glViewport(0, 0, w_[i - 1], h_[i - 1]);
     glBindTexture(GL_TEXTURE_2D, tex_[i]);
@@ -102,4 +94,5 @@ void Bloom::shutdown() {
   if (vbo_) glDeleteBuffers(1, &vbo_);
   if (vao_) glDeleteVertexArrays(1, &vao_);
   down_ = up_ = vbo_ = vao_ = 0;
+  levels_ = 0;
 }

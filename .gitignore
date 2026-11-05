@@ -4,6 +4,9 @@ dist/
 .DS_Store
 *.app/
 *.dSYM/
+__pycache__/
+/advanced.ppm
+/atlas.ppm
 assets/music/*
 !assets/music/README.md
 !assets/music/fetch_other_music.py

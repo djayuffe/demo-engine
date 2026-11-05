@@ -19,12 +19,12 @@ vec3 styleSynthwave(vec2 p,float ml,float beat){
   // neon aurora curtains in the upper sky, drifting at their own depth
   { vec2 ap=p-vec2(uPointer.x*.16,0.);
     float cur=sin(ap.x*2.3+uTime*.35+sin(ap.x*5.+uTime*.2)*.8)*.12;
-    float band=exp(-pow((ap.y-.62-cur)*5.,2.))+.6*exp(-pow((ap.y-.85-cur*1.4)*6.,2.));
+    float band=exp(-deSquare((ap.y-.62-cur)*5.))+.6*exp(-deSquare((ap.y-.85-cur*1.4)*6.));
     float ray=.7+.3*sin(ap.x*22.+uTime*.5+fbm(ap*2.5)*5.);
     col+=mix(vec3(.1,1.,.8),vec3(1.,.2,.9),.5+.5*sin(ap.x*1.5+uTime*.2))*band*ray*(.16+.25*ml)*step(hor,p.y)*e(4); }       // 4: aurora
   // stars
   vec2 sp=(p-uPointer*.03)*vec2(95.,60.);          // stars: farthest plane
-  float st=step(.992,hash(floor(sp)))*smoothstep(.5,.0,length(fract(sp)-.5))*(.5+.5*sin(uTime*3.+hash(floor(sp))*40.));
+  float st=step(.992,hash(floor(sp)))*(1.0-smoothstep(.0,.5,length(fract(sp)-.5)))*(.5+.5*sin(uTime*3.+hash(floor(sp))*40.));
   col+=vec3(.9,.8,1.)*st*sk*1.4*e(3);                                  // 3: stars
   // sun with horizontal slits that widen toward the bottom
   vec2 sc=vec2(-uPointer.x*.06,hor+.34);          // sun: far
@@ -32,7 +32,7 @@ vec3 styleSynthwave(vec2 p,float ml,float beat){
   float d=length(p-sc);
   float sy=(p.y-(hor))/(R*1.7);                    // 0 at horizon -> ~1 at sun top
   float slit=smoothstep(.0,.06,abs(fract(sy*7.-uTime*.15)-.5)*2.-mix(.75,.05,clamp(sy*1.15,0.,1.)));
-  float disc=smoothstep(R,R-.012,d)*(p.y>hor?1.:0.)*(sy>.55?1.:slit);
+  float disc=(1.-smoothstep(R-.012,R,d))*(p.y>hor?1.:0.)*(sy>.55?1.:slit);
   vec3 sunC=mix(vec3(1.4,.12,.55),vec3(1.7,1.1,.15),clamp((p.y-sc.y+R)/(2.*R),0.,1.));
   col+=(sunC*disc+vec3(1.,.2,.6)*exp(-max(d-R,0.)*5.5)*(.55+.5*ml)*(p.y>hor?1.:.4))*e(0);   // 0: sun
   // mountains (two ridge layers, neon rim light)
@@ -52,14 +52,14 @@ vec3 styleSynthwave(vec2 p,float ml,float beat){
     vec2 g=vec2((pg.x)*z*.9,z+sp2);
     vec2 gl=abs(fract(g)-.5);
     float w=.02+.12*h;
-    float line=smoothstep(w,.0,min(gl.x,gl.y)*.5+0.0)+smoothstep(w*2.,0.,min(gl.x,gl.y))*.25;
+    float line=(1.-smoothstep(.0,w,min(gl.x,gl.y)*.5))+(1.-smoothstep(0.,w*2.,min(gl.x,gl.y)))*.25;
     float fade=smoothstep(.0,.35,h);
     vec3 gc=mix(vec3(1.1,.15,.8),vec3(.1,.85,1.2),clamp(h*2.2,0.,1.));
     col=vec3(.02,0,.06)+vec3(.55,.05,.35)*exp(-h*6.)*.6*e(6);  // dark ground + horizon glow
     col+=gc*line*fade*(.9+1.2*beat)*e(2);                  // 2: grid
     col+=vec3(1.,.3,.7)*exp(-h*30.)*.7*e(6);               // bright horizon line
     // the sun's reflection streaks down the floor, broken into bars
-    float refl=exp(-pow((p.x+uPointer.x*.06)/(.02+.5*h),2.))*smoothstep(.0,.05,h)*exp(-h*3.)*(.5+.5*sin(h*90.-uTime*3.));
+    float refl=exp(-deSquare((p.x+uPointer.x*.06)/(.02+.5*h)))*smoothstep(.0,.05,h)*exp(-h*3.)*(.5+.5*sin(h*90.-uTime*3.));
     col+=vec3(1.4,.5,.9)*refl*(.4+.6*ml)*e(5);             // 5: sun reflection
   }
   return col;
@@ -92,7 +92,7 @@ vec3 styleNebula(vec2 p,float ml,float beat){
     vec2 sp=(p-uPointer*(.02+.34*fi)+vec2(t*(.012+.02*fi),0.))*(55.+fi*70.);
     vec2 id=floor(sp);float h=hash(id+fi*31.);
     float tw=.6+.4*sin(t*(2.+h*5.)+h*60.);
-    float s=step(.985-fi*.004,h)*smoothstep(.45,.0,length(fract(sp)-.5))*tw;
+    float s=step(.985-fi*.004,h)*(1.0-smoothstep(.0,.45,length(fract(sp)-.5)))*tw;
     col+=mix(vec3(.7,.8,1.),vec3(1.,.8,.6),hash(id+3.))*s*(i==0?1.6:.9)*e(1);                  // 1: stars
   }
   // flared stars: nearest plane
@@ -106,7 +106,7 @@ vec3 styleNebula(vec2 p,float ml,float beat){
   // beat-driven supernova: an expanding shell with a hot core, wherever the pointer sits
   { vec2 sn=p-uPointer*.4;float rr=length(sn);
     float ph=fract(t*.12);float R=ph*1.7;
-    col+=pal(t*.05+rr)*exp(-pow((rr-R)*14.,2.))*(1.-ph)*(1.-ph)*(.35+.9*ml+.5*beat)*e(3);   // 3: supernova
+    col+=pal(t*.05+rr)*exp(-deSquare((rr-R)*14.))*(1.-ph)*(1.-ph)*(.35+.9*ml+.5*beat)*e(3);   // 3: supernova
     col+=vec3(1.,.8,.6)*exp(-rr*9.)*(1.-smoothstep(0.,.25,ph))*1.2*e(3); }
   // shooting star every few seconds
   float ct=floor(t*.33);float ft=fract(t*.33);
@@ -114,7 +114,7 @@ vec3 styleNebula(vec2 p,float ml,float beat){
   vec2 dir=normalize(vec2(1.,-.4-hash(vec2(ct,3.))*.5));
   vec2 hp=a0+dir*ft*2.2;vec2 rel=p-hp;
   float along=-dot(rel,dir),perp=abs(dot(rel,vec2(-dir.y,dir.x)));
-  col+=vec3(.9,.95,1.2)*step(0.,along)*exp(-along*5.)*exp(-perp*110.)*smoothstep(.0,.1,ft)*smoothstep(1.,.7,ft)*2.*e(4);   // 4: shooting stars
+  col+=vec3(.9,.95,1.2)*step(0.,along)*exp(-along*5.)*exp(-perp*110.)*smoothstep(.0,.1,ft)*(1.0-smoothstep(.7,1.,ft))*2.*e(4);   // 4: shooting stars
   return col*(.85+.5*ml);
 }
 
@@ -149,11 +149,11 @@ vec3 styleMandala(vec2 p,float ml,float beat){
   { vec2 u=rot2(p+uPointer*.25,-t*.07);float a2=atan(u.y,u.x);float s2=6.2831853/6.;a2=abs(mod(a2,s2)-s2*.5);
     vec2 w=vec2(cos(a2),sin(a2))*length(u)*2.2;float tr=1e3;
     for(int i=0;i<4;i++){w=abs(w)-vec2(.55,.3+.1*sin(t*.2));w=rot2(w,.8);w*=1.4;tr=min(tr,abs(w.x*.7+w.y*.7));}
-    col+=pal(t*.07+.5)*exp(-tr*12.)*.22*(.6+ml+beat*.6)*smoothstep(1.8,.3,r0)*e(3); }   // 3: counter-rotating fold
+    col+=pal(t*.07+.5)*exp(-tr*12.)*.22*(.6+ml+beat*.6)*(1.0-smoothstep(.3,1.8,r0))*e(3); }   // 3: counter-rotating fold
   // expanding beat rings
   float ring=pow(.5+.5*sin(length(p+uPointer*.30)*16.-t*(2.+3.*ml)),26.)*exp(-r0*1.1);   // ring plane sits in front of the crystal
   col+=pal(t*.06+r0)*ring*(.4+.9*beat)*e(4);                              // 4: beat rings
-  return col*smoothstep(2.6,.4,r0)+vec3(.0,.0,.01);
+  return col*(1.0-smoothstep(.4,2.6,r0))+vec3(.0,.0,.01);
 }
 
 
@@ -162,18 +162,18 @@ vec3 styleMandala(vec2 p,float ml,float beat){
 vec3 bhGalaxy(vec3 d,float t){
   // sky seen in direction d: a milky-way band with dust lanes, a distant spiral and deep starfield
   float lat=d.y,lon=atan(d.z,d.x);
-  float band=exp(-pow(lat*3.2+.25*sin(lon*2.+t*.01),2.));
+  float band=exp(-deSquare(lat*3.2+.25*sin(lon*2.+t*.01)));
   vec2 q=vec2(lon*2.2,lat*5.);
   float gas=fbm(q*1.6+vec2(t*.004,0.));
   float dust=smoothstep(.45,.8,fbm(q*3.1+9.))*.8;
   vec3 c=(mix(vec3(.9,.45,.3),vec3(.35,.5,1.),gas)*band*gas*(1.-dust)*.55
-         +vec3(1.,.8,.55)*exp(-pow(length(vec2(lat*2.2,sin(lon*.5)*.6)),2.)*4.)*band*.5)*e(3);   // 3: galaxy band + bulge
+         +vec3(1.,.8,.55)*exp(-deSquare(length(vec2(lat*2.2,sin(lon*.5)*.6)))*4.)*band*.5)*e(3);   // 3: galaxy band + bulge
   // stars on a sphere: cell grid in (lon,lat); finer grid = fainter, more numerous
   for(int i=0;i<3;i++){
     float k=90.+float(i)*110.;
     vec2 sp=vec2(lon*k*.5,lat*k*.5+float(i)*17.);vec2 id=floor(sp);
     float h=hash(id+float(i)*5.3);
-    float m=step(.975,h)*smoothstep(.5,.0,length(fract(sp)-.5)*1.4);
+    float m=step(.975,h)*(1.0-smoothstep(.0,.5,length(fract(sp)-.5)*1.4));
     c+=mix(vec3(.6,.75,1.),vec3(1.,.8,.6),hash(id+1.7))*m*(i==0?1.8:.9)*e(4);   // 4: stars
   }
   return c;
@@ -211,7 +211,7 @@ vec3 styleBlackHole(vec2 p,float ml,float beat){
         float lanes=.5+.5*sin(rr*9.+turb*9.+sin(ang*2.)*2.)*(.55+.45*spiral);
         float hot=pow(max(0.,sin(ang*3.-t*1.1+rr*.7)),24.)*exp(-(rr-3.)*.5);   // orbiting hot spots
         lanes=mix(.45,1.,lanes*lanes);
-        float dens=smoothstep(2.6,3.4,rr)*smoothstep(9.5,6.,rr)*(.35+turb)*lanes*(1.+1.6*hot);
+        float dens=smoothstep(2.6,3.4,rr)*(1.0-smoothstep(6.,9.5,rr))*(.35+turb)*lanes*(1.+1.6*hot);
         vec3 tang=normalize(vec3(-hp.z,0.,hp.x));
         float dop=clamp(1.+.75*dot(tang,-vel),.15,2.2);          // approaching side blazes
         float temp=pow(clamp(2.8/rr,0.,1.),.75)*dop;
@@ -264,7 +264,7 @@ vec3 styleHyperspace(vec2 p,float ml,float beat){
     float len=(.10+.55*speed)*(.25+rr)*depth*.6;
     float along=r-rad;
     float width=(.0018+.0045*rr)/depth;
-    float streak=smoothstep(width,.0,abs(lane)*r*6.2831853/sectors)*pow(smoothstep(len,0.,along),1.6)*step(0.,along);
+    float streak=(1.-smoothstep(.0,width,abs(lane)*r*6.2831853/sectors))*pow((1.-smoothstep(0.,len,along)),1.6)*step(0.,along);
     vec3 sc=mix(vec3(.6,.8,1.4),pal(h*4.+t*.05),.45);
     col+=sc*streak*(.6+1.6*rr)*(1.4-fi*.12)*(.7+ml)*e(1);   // 1: star streaks
   }

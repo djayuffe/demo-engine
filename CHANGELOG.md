@@ -1,6 +1,4 @@
-# Changelog
-
-## Unreleased: beyond effects
+# Beyond mesh effects — 2026-11-05
 
 - Thirteen new "beyond" mesh effects (80-92), each grounded in a real phenomenon:
   - **Penrose Stairs**: four quantised flights around the axis that climb forever and arrive where they started.
@@ -18,6 +16,200 @@
   - **Indra Pearls**: reduced words of sphere inversions in four orbiting spheres (a Kleinian group), copying the object into pearls within pearls.
 - Eight new curated recipes (30-37): Impossible Staircase, Tennis Racket Paradox, Fourth Dimension, LIGO Chirp, Magnetar, Escher Infinity, Time Crystal Garden, Indra's Net. There are now 93 effects and 38 recipes.
 - Proven additive with `tools/golden`: all 720 hash cases of the 80 existing effects, all 30 existing recipes and all 219 scene hashes are bit-identical. Only the random mutations differ, because the new effects join the mutation pool. In auto mode, scenes now cycle through 38 curated recipes instead of 30.
+- Merged with the GPU recipe path: the new effects are not in `gpuDeformationSupported()`, so `applyRecipeGpu` runs them on the CPU. Merged-tree golden comparison against `main`: 720/720 old effect cases, 30/30 old recipes and 219/219 scene hashes identical; 9/9 ctest suites, GPU deformation validation (1380 cases) and the cosmic GPU math checks pass.
+
+# GPU math and shader-domain audit — 2026-10-26
+
+- Replace four neighbouring Möbius surface evaluations per vertex with analytic partial derivatives, retaining the original position equation and including its animated scale derivatives.
+- Make cosmic trilinear noise use consistent corner hashes across cell boundaries.
+- Integrate black-hole volume emission with absorption, scale jet emission by travelled distance, prevent negative jet emission and reuse the disk projection.
+- Replace signed square powers with multiplication and reverse descending smoothstep ramps explicitly in native post, background and depth shaders.
+- Add native GPU numerical checks for surface derivatives, source position equivalence and noise continuity; run them from the GPU smoke tool.
+
+# Layered chamber ball and impact physics — 2026-10-26
+
+- Weight impact emission by normal collision speed and retain the exact Euclidean or hyperbolic contact center for expanding shock waves.
+- Replace the single-color sphere with a rotating layered shell: spectral ribbons, cellular inlays, emissive seams, anisotropic roughness, clearcoat, Fresnel rim and beat-lit subsurface color.
+- Add two shrinking motion ghosts, a transparent energy aura and a decaying impact shell inside the existing ray traversal, preserving mirror placement, curved-space transport and occlusion.
+- Bound transparent secondary intersections to the four nearest reflection rooms and suppress invalid post-bounce trails while retaining the solid sphere in every reflected room.
+- Give every ant an articulated GPU-rasterized silhouette, individual cadence, lateral gait and colony flicker while retaining exact CPU/GPU validation and zero per-frame texture uploads.
+- Animate chamber wire width, room-specific breathing and traveling edge highlights, then add dark prismatic atmospheric folds, smoothly changing dust, a lens ring and energy-sensitive vignette in the HDR composite.
+
+# Atlas geometry cache and Lorentz gallery — 2026-10-25
+
+- Integrate the incoming Metal, cosmic, audio and scene-composition updates; preserve scene indices 0–29 and the three-view playback skip.
+- Append scene 30: a compact H³ mirror gallery using exact geodesic-plane intersections, Lorentz reflections and intrinsic H² wall markings.
+- Share immutable Atlas geometry through a checked 5,376-byte GPU uniform block and move hypercube corner projection into the vertex stage.
+- Add isolated cache benchmarks and an opt-in instanced edge-raster backend; retain the normal backend by default after measured geometry-stage overhead on M1 Pro.
+- Freeze the cinematic camera as well as geometry/audio drive during Atlas pause and still mode; retain the upstream celestial background in both hypercube backends.
+
+# PurpleTwilight parametric point field — 2026-10-25
+
+- Add scene 26, a native OpenGL 4.1 port of the supplied four-lobe parametric point effect with spectral additive particles, moon companion, bouncing marker and star field.
+- Generate the 68,548-point base composition in the vertex shader from `gl_VertexID`, eliminating the browser source's per-frame CPU geometry upload while adding music-band and beat drive through the existing HDR bloom pipeline.
+- Use four Metal-tuned instanced phase echoes, procedural orbit guides and GPU-only ping-pong light persistence; the resulting 225,040 vertex samples plus temporal HDR, bloom and composition averaged 1.804 ms over a 600-frame M1 Pro run.
+- Record the supplied archive/file hashes and distinguish its actual “Quantum Fractal Explorer” content from the aviation-oriented archive filename.
+
+# Integrated rendering and playback polish — 2026-10-24
+
+- Pulled upstream df2ebdc: refined Atlas materials, breathing geometry, audio band smoothing and GPU highlight pyramid.
+- Combined highlight bloom with cubic reconstruction and shared beat exposure; stationary output dither smooths optical gradients while preserving black and paused frames.
+- Added responsive on-screen H controls, I playback/tempo status, J beat-source cycling, startup hints and transient playback feedback. Demo-specific shortcuts appear in the controls card.
+
+# Metal/OpenGL capability and realtime audit — 2026-10-24
+
+- Query live OpenGL 4.1 limits, clamp HDR targets safely and expose `--gpu-info`, `--tessellation N` and `--no-tessellation`.
+- Route compatible static wires through quad tessellation on Metal-backed OpenGL, bypassing geometry expansion; an isolated M1 Pro test reduced average GPU time from 1.953 ms to 1.650 ms.
+- Add non-blocking generic GPU timings, complete fallback sampler textures and unchanged GPU-font upload caching.
+- Move fixed filter math out of the SDL callback, use independent relaxed telemetry atomics, and add CMake switches for audio and optional codecs.
+
+# Diverse music pack and audio attacks — 2026-10-24
+
+- Fetch four unmodified CC0 tracks: Fupi's Melodic EDM, Joth's Black Diamond, Ruskerdax's Moil and The Cynic Project's Synthwave 15k. Record source/licence URLs and pinned SHA-256 hashes, plus a reproducible fetch/verify script.
+- Add edm/dnb/jazz/ambient/new presets, expand the shared catalog to eight tracks and show creator credits in both demos.
+- Apply published catalog BPM to rhythmic PCM tracks and confidence-gated load-time tempo analysis to unknown PCM; leave the curated ambient track free-time.
+- Detect actual audio attacks with an adaptive novelty threshold, refractory interval and time-based release. Add hybrid/audio/clock beat sources while preserving deterministic fixed-step captures.
+- Test tempo estimation across sample rates, silence/steady-tone rejection, onset release, source mixing and actual PCM onset/tempo publication.
+
+# Shared beat response and music controls — 2026-10-24
+
+- Drive geometry, recipes, lighting, backgrounds, travellers, post effects and optical composition from a shared beat clock and phase-aligned pulse/flash envelopes.
+- Add pulse/flash strength, decay, subdivisions and attack offsets, with E/F toggles; retain Atlas reduced-motion flash suppression.
+- Add bundled music presets, sorted folder playlists, deterministic shuffle, list-only mode, volume and pause/resume controls; expand Infinity's default playlist to four tracks.
+- Support optional libsndfile decoding for compressed audio, track live module tempo changes, and correct stereo/device-rate band analysis.
+- Add dummy-device audio tests and rhythm/playlist validation; run GPU scene checks at maximum pulse and flash strengths.
+
+# GPU recipe offload and instanced geometry — 2026-10-23
+
+- Offload 17 supported final recipe deformations and six copy/echo effects to indexed GPU processing; preserve CPU prefixes, edge budgets, seed/time transforms and a CPU reference switch.
+- Retain immutable meshes by shared ownership; animate Hello with its GPU model matrix and keep Ripple geometry resident without frame copies.
+- Reuse unchanged vertex buffers as well as indices, and report CPU work, upload bytes and deferred geometry counters with `--stats`.
+- Rasterize Infinity's traffic field with GPU splats instead of per-frame 64 KB image uploads; retain CPU interaction planning and pixel comparison validation.
+- Add real-GPU numerical validation and reproducible alternating-order CPU/GPU benchmarks. Document measured CPU reductions, transfer savings, and mixed traffic GPU timings.
+
+# GPU geometry and HDR improvements — 2026-10-23
+
+- Add adaptive OpenGL 4.1 quad-ribbon tessellation and GPU wave displacement, demonstrated by the cached ripple torus; retain the original pipeline for undeformed meshes and shader fallback.
+- Reuse unchanged mesh index buffers and clip near-plane crossings before wide-line expansion.
+- Remove per-frame bloom texture-size queries, stop small pyramids at 1 by 1, and protect half-float bloom and ACES inputs.
+- Reconstruct reduced-resolution Infinity output with four-sample cubic B-spline upscaling while retaining direct native-resolution sampling.
+- Add `tools/gpu_smoke.py` for post/bypass rendering and all 26 finite-HDR scene checks; document usage and limitations in `docs/GPU_RENDERING.md`.
+
+# Hold Infinity 3.0 hyperbolic world-sheet studies — 2026-10-22
+
+- Add four original GPU effects inspired by the supplied QRI essay: harmonic chrysanthemum, heptagonal Poincaré gates, saddled world sheets and branching crystal garden.
+- Implement {7,3} disk reflections and Möbius navigation, analytic two-root saddle intersections, translucent depth sorting and tetrahedral fold fractals.
+- Integrate music accents, translated-camera parallax and restrained HDR lighting; expand scene timing, quality state and GPU statistics to sixteen scenes.
+- Discover scene ranges in GPU tools, validate finite HDR output and test tiling geometry and the expanded automatic cycle.
+
+# Hold Infinity 2.3 low-level audit — 2026-10-22
+
+- Reuse RK4 prefixes through sequential geometry emission for monochrome rays; retain raster spectral integration after workload-specific GPU measurements.
+- Preserve all samples and integration equations; add full-float GPU comparison against the original solver and shader-compile fallback.
+- Replace render targets transactionally with complete format/mip keys and hardware-limit checks; prepare immutable samplers once and remove duplicate timer polling.
+- Fix large-seek colony recovery, bound physics catch-up/interpolation and keep chamber camera origins/boosts still when requested.
+- Add deterministic extended GPU validation, sanitizer coverage and an audit report with measured results and platform limits.
+
+# Hold Infinity 2.2 physics and optical frames — 2026-10-22
+
+- Correct hyperbolic hit-ray transport, tangent-frame normal/view/light conversion and camera-origin parallax.
+- Add rough GGX/Fresnel sphere shading and stable conjugate sphere-intersection roots with a shared physical radius.
+- Cache normalized collision planes and fix impact-glow decay to follow elapsed time after contact.
+- Validate corner bounces, time reversal, local lighting angles and exact impact timing in addition to long-run containment.
+
+# Hold Infinity 2.1 bouncing chamber ball — 2026-10-22
+
+- Add a lit sphere and reflected images inside the cube, dodecahedron and hyperbolic chambers.
+- Solve finite-radius elastic collisions in Euclidean space and geodesic sphere/mirror contact in hyperbolic space.
+- Test ball hits within each traced ray segment for correct depth and reflection placement; add brief HDR impact glints.
+- Validate 24,000 steps of containment, speed, hyperboloid/tangent invariants, frame-cadence independence and large-seek recovery.
+
+# Hold Infinity 2.0 interacting ant traffic — 2026-10-22
+
+- Replace independent lane packets with a persistent sixteen-agent colony and beat-timed junction decisions.
+- Reserve destinations, avoid head-on swaps, rotate planning priority, prefer less-visited routes and turn or wait when blocked.
+- Render smoothly moving bodies and warm encounter flashes through a small GPU traffic texture attached to intrinsic surface coordinates.
+- Validate occupancy, target conflicts, movement, path changes, deterministic catch-up and raster stability over 500 decisions.
+
+# Hold Infinity 1.9 Matrix walkers and geometric validation — 2026-10-22
+
+- Add footprint-filtered, beat-accented ant-like walkers on intrinsic geodesic surface lanes.
+- Preserve colour ratios in chamber/glass highlight compression and bound texture mip sampling.
+- Share and test camera, plane rotation and Lorentz mirror construction; reduce long-running rotation angles in double precision.
+- Validate convex mesh topology, face planes, camera orthogonality, rotation length and hyperbolic reflection invariants.
+
+# Hold Infinity 1.8 detail and GPU cleanup — 2026-10-22
+
+- Filter minified filament detail using its screen-space footprint to reduce shimmer.
+- Upload shared plane-rotation coefficients once per sheet and skip unused optical image allocation for light-only scenes.
+- Recover invalid pointer state, bound parallax inputs and pin benchmark eye position for deterministic comparisons.
+- Retain the original integration limits and discard a projection-pass experiment that did not show a consistent GPU benefit.
+
+# Hold Infinity 1.7 translational parallax — 2026-10-22
+
+- Translate the camera origin across every optical scene; apply matching view-space translation to dimensional light sheets.
+- Add smoothed pointer-driven eye movement and a subtle beat-clock dolly, preserving mouse orbit and fixed still rendering.
+- Add deterministic eye-offset controls and regression coverage for translation direction, still behavior and frame-rate-independent smoothing.
+
+# Hold Infinity 1.6 organic light and rhythm — 2026-10-22
+
+- Add bounded, endpoint-anchored traveling waves and fine moving striations to dimensional light sheets.
+- Separate bar accents, half-beat treble detail and eight-beat breathing from sustained audio volume.
+- Render hot filaments, coloured inner glow and faint outer halos as three GPU layers; retain deep black backgrounds.
+- Drive chamber glow and glass bloom with rhythmic accents; cover beat decay and phrase boundaries in regression tests.
+
+# Hold Infinity 1.5 projection and light corrections — 2026-10-22
+
+- Correct undefined reversed smoothstep fades throughout native LED, reflected-light and distance-detail shaders.
+- Use the inverse camera basis and homogeneous perspective interpolation for dimensional light ribbons.
+- Follow bends with centered tangents and soften hard ribbon boundaries with derivative-filtered edge coverage.
+- Preserve archived shaders, numerical optical solvers, black backgrounds and song-two startup.
+
+# Hold Infinity 1.4 black and HDR light — 2026-10-22
+
+- Clear the final light scenes to pure black and remove the unused field pass.
+- Deepen display blacks, expand the hue-preserving HDR shoulder, and contrast brighter narrow cores with softer halos.
+- Lock light packets to four-beat circuits and use a sharp phase-derived beat envelope.
+- Start with Digital Rendezvous (song two), retain explicit track overrides, and initialize tempo from the selected song.
+
+# Hold Infinity 1.3 dimensional light — 2026-10-22
+
+- Rebuild the final two scenes as a four-dimensional light loom and prismatic hyperspace threads, with layered GPU instances and XW/YZ rotation.
+- Project ribbon tangents into screen space and scale width/glow by depth; retain narrow highlights and a quiet background.
+- Synchronize traveling light packets to musical beat position and preserve the original GPU RK4 integration.
+- Share the artistic presentation between reference and optimized modes for valid workload comparisons.
+
+# Hold Infinity contrast pass — 2026-10-22
+
+- Reduce chamber/glass bloom, star glare and beat-driven light amplification.
+- Darken midtones and apply a hue-preserving highlight shoulder so bright edges retain detail instead of approaching display white.
+- Reduce the ray-lab halo while keeping its narrow luminous core readable.
+- Refresh the twelve-scene native capture sheet; all GPU scenes and both test suites pass.
+
+# Hold Infinity 1.2 adaptive GPU playback — 2026-10-22
+
+- Drive per-scene pixel budgets from non-blocking completed GPU queries, with bounded quality, smoothed timing, hysteresis and resize cooldown.
+- Keep query feedback allocation-free during ordinary playback; reserve timing histories and output for explicit profiling.
+- Preserve explicit pixel budgets, original-workload comparisons and stationary 400-sample accumulation.
+- Add GPU target controls and regression coverage for slow/fast GPUs, recovery, stale/invalid samples and target stability.
+- Validate all optical scenes, fixed-budget behavior and stationary convergence on the native renderer.
+
+# Hold Infinity 1.1 GPU optimization — 2026-10-21
+
+- Prepare GPU optical-state kernels and immutable geometry once; cache uniform locations and eliminate inactive parameter uploads.
+- Reuse unchanged GPU ray fields, dispatch active rows only, and stop rebuilding bloom after stationary convergence.
+- Add asynchronous GPU timing, deterministic silent captures, original-workload reference mode, all-state specialization/cache tests, and an alternating image/performance benchmark.
+- Local GPU-query means: continuous glass 21% faster, printed layers 61%, fixed-curvature ray lab 32%; chambers and dynamic spectral rays are effectively unchanged. Full conditions and raw data are in `demos/infinity/GPU_PERFORMANCE.md`.
+
+# Hold Infinity native port — 2026-10-21
+
+- Port all three GPU optical pipelines and dodecahedron geometry from the user-supplied archive to GLSL 4.10/C++.
+- Make `hold_infinity` the default show; retain the prior entry point as `make run-wireframe`.
+- Direct 12 scenes, six light fronts, camera flow, glow and ray intensity from music beat/band analysis.
+- Preserve spectral Fresnel/TIR, horizon, seven printed layers, two-stage RK4 ray integration, mouse orbit and 400-sample still accumulation.
+- Add a custom-renderer lifecycle to the engine, bounded native float targets, Windows GL entry points, headless sync tests and a twelve-scene GPU smoke run.
+
+# Changelog
 
 ## 1.6.0 - Impossible worlds
 

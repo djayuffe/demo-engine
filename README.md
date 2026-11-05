@@ -1,3 +1,54 @@
+# Demo Engine — Hold Infinity
+
+[![CI](https://github.com/djayuffe/demo-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/djayuffe/demo-engine/actions)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)
+![OpenGL 4.1](https://img.shields.io/badge/OpenGL-4.1-5586A4)
+
+**A native, music-driven graphics playground for optical worlds, hyperbolic geometry and four-dimensional light.**
+
+Demo Engine combines a reusable C++20/OpenGL renderer with **Hold Infinity**, a show of 31 directly selectable scenes. Explore mirrored chambers, spectral glass, Lorentz geometry, 4D sections, procedural particle fields and cosmic effects, animated by tracker and PCM music. The automatic sequence visits 30 scenes; scene 25 remains available by explicit selection.
+
+![Golden particle sculpture captured in the native demo](docs/screenshots/golden-particles.jpg)
+
+[Build and run](#quick-start) · [Screenshot gallery](docs/SCREENSHOTS.md) · [Controls and scenes](demos/infinity/README.md) · [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [License scope](LICENSES.md)
+
+## Highlights
+
+- GPU ray integration, hyperbolic reflections, spectral refraction and projected 4D geometry.
+- HDR render targets, bloom, tone mapping and adaptive scene resolution.
+- Tracker/PCM playback with beat, bar and frequency-band response; eight bundled tracks.
+- Interactive camera controls, scene selection, reproducible captures and reference renderers.
+- Reusable wireframe geometry, deformation, tessellation and particle rendering paths.
+- CMake builds and CI definitions for macOS, Linux and Windows; recent native GPU validation uses Apple M1 Pro.
+
+## Get the source
+
+```sh
+git clone git@github.com:djayuffe/demo-engine.git
+cd demo-engine
+```
+
+HTTPS also works: `git clone https://github.com/djayuffe/demo-engine.git`.
+
+## Hold Infinity
+
+The default demo now ports **Hold Infinity**, supplied as `hold_infinity_by_purpletwilight21858029.zip`: mirrored dodecahedral chambers, hyperbolic honeycombs, spectral GRIN glass, a GPU gradient-index ray lab and the supplied parametric point-field study. Its 31 optical, Atlas, cosmic and point-field scenes follow the soundtrack's beats, bars and frequency bands. The earlier effects are bypassed in this show. Normal playback adapts each scene’s resolution to GPU load; fixed-budget captures and still accumulation remain available.
+
+```sh
+make run
+# or: ./build/hold_infinity --infinity-scene 3
+```
+
+[Controls, scene list, optical parameters and tests](demos/infinity/README.md) · [GPU optimization measurements](demos/infinity/GPU_PERFORMANCE.md) · [Source attribution](demos/infinity/SOURCE.md). `make run-wireframe` launches the previous demo.
+
+The integrated [DMT Atlas](demos/atlas/README.md) adds a Lorentz mirror gallery, exact 4D sections, six-plane hypercubes, seeded radial and folded fields, an accelerated H³ sphere renderer, iris portals and event glyphs over a beat-reactive celestial background. The former three-view scene is skipped by playback.
+
+![The first sixteen native optical scenes](docs/infinity-contact.jpg)
+
+![Ten native Atlas effects](docs/atlas-contact.jpg)
+
+---
+
 # Demo Engine
 
 ![The wireframe demo, running on the engine](docs/wireframe-demo.jpg)
@@ -6,11 +57,20 @@
 
 It was extracted from the [Impossible Wireframe](https://github.com/djayuffe/wireframe-scroller) demo, which is now just the first demo built on it.
 
-Copyright (c) 2026 Ulf Bertilsson. MIT licensed. Engine version 1.6.0.
+Copyright (c) 2026 Ulf Bertilsson. Original engine code is MIT licensed; imported code and assets have separate terms. See [LICENSE](LICENSE), [LICENSES.md](LICENSES.md) and [NOTICE.md](NOTICE.md). Engine version 1.6.0.
 
 **Contents:** [Why](#why) | [Quick start](#quick-start) | [What the engine provides](#what-the-engine-provides) | [Writing a demo](#writing-a-demo) | [Demos in this repository](#demos-in-this-repository) | [Build](#build) | [Tests and CI](#tests-and-ci) | [Repository layout](#repository-layout) | [Roadmap](#roadmap)
 
-Docs: [ARCHITECTURE.md](ARCHITECTURE.md) | [docs/WRITING_A_DEMO.md](docs/WRITING_A_DEMO.md) | [CHANGELOG.md](CHANGELOG.md)
+Docs: [ARCHITECTURE.md](ARCHITECTURE.md) | [docs/WRITING_A_DEMO.md](docs/WRITING_A_DEMO.md) | [CHANGELOG.md](CHANGELOG.md) | [GPU math audit](docs/GPU_AUDIT_2026-10-26.md)
+
+Eight bundled tracks now span tracker/chiptune, melodic EDM, drum and bass, dark jazz and ambient synth.
+
+Beat and music controls: [shared pulse/flash timing, playlists, presets and codecs](docs/MUSIC_AND_BEATS.md).
+
+```sh
+./build/hold_infinity --music-preset new --shuffle-seed 42 --beat-source hybrid
+./build/impossible_wireframe --music-dir ~/Music/Demos --bpm 128 --beat-division 2
+```
 
 ## Background styles
 
@@ -28,8 +88,45 @@ Every demo needs the same plumbing: a window, a float framebuffer, bloom and ton
 brew install cmake glfw sdl2 libopenmpt   # macOS; SDL2 + libopenmpt are optional (music)
 ./build_mac.sh --run                       # or: one command that installs deps, builds, tests and runs
 make run-hello                            # the minimal demo
-make run                                  # the full wireframe demo
+make run                                  # the native optical and Atlas demo
 ```
+
+### Start every version
+
+Run these from the repository root after `make`. Each `make run-*` command also
+builds first, so it is safe to use directly after cloning.
+
+```sh
+make run                  # Hold Infinity: 31 selectable scenes, 30 automatic slots
+make run-atlas            # Hold Infinity opened directly on GPU Atlas scene 16
+make run-aviation         # supplied parametric 3D point effect, native GPU scene 26
+make run-mobius           # supplied 4D Möbius universe, native GPU scene 24
+make run-quantum          # supplied quantum twist lattice, native GPU scene 27
+make run-black-hole       # ray-lensed black hole + 131K GPU physics particles, scene 28
+make run-hyperfractal     # supplied quantum hyperfractal, native GPU scene 29
+make run-wireframe        # Impossible Wireframe show
+make run-hello            # minimal engine example
+make run-ripple           # adaptive GPU-tessellation example
+make run-atlas-reference  # CPU Atlas four-panel image -> build/atlas-reference.ppm
+make run-atlas-advanced   # CPU Atlas advanced image -> build/atlas-advanced.ppm
+```
+
+Any live Atlas scene can be selected directly:
+
+```sh
+./build/hold_infinity --infinity-scene 16  # first Atlas scene
+./build/hold_infinity --infinity-scene 25  # archived three-view study (explicit launch only)
+./build/hold_infinity --infinity-scene 26  # spectral parametric point field
+./build/hold_infinity --infinity-scene 21 --atlas-reduced-motion
+```
+
+Press **Left/Right** to change scenes, **P** to pause Atlas motion and **Q** or
+**Escape** to quit. Full Atlas controls and the scene matrix are in
+[`demos/atlas/README.md`](demos/atlas/README.md).
+
+GPU geometry: [adaptive tessellation, native scenes, instanced copies, HDR and validation](docs/GPU_RENDERING.md).
+On Metal-backed OpenGL, the engine automatically bypasses geometry-shader expansion
+for compatible wires; use `--gpu-info` to inspect the selected path and live limits.
 
 ## What the engine provides
 | Feature | What you get | Where |
@@ -52,17 +149,18 @@ make run                                  # the full wireframe demo
 A complete demo:
 ```cpp
 #include "Engine.hpp"
-#include <cmath>
 
 struct MyDemo : de::Demo {
+  const std::shared_ptr<const Mesh3> base = std::make_shared<const Mesh3>(geo::torus(96, 32, 1.f, .35f));
   de::Config config() const override {
     de::Config c; c.title = "My Demo"; c.version = "1.0"; c.binaryName = "ripple_demo";
     c.fxAmount = 0.4f;                                         // dial the post look down so the torus stays readable
     return c;
   }
   bool update(const de::FrameInfo& f, const de::Input& in, de::Frame& out) override {
-    out.mesh = geo::torus(48, 16, 1.f, .35f);                 // any wire mesh you like
-    for (auto& p : out.mesh.v) p.y += .2f * std::sin(p.x * 3.f + float(f.time));
+    out.retainedMesh = base;
+    out.revision = 1;                                      // upload the static mesh once
+    out.gpuWave[0] = .2f;                                  // vertex shader animates the ripple
     out.scale = 1.f + .1f * f.sync.pulse;                      // pulse on the beat
     out.ticker = "MY DEMO  -  a torus that ripples";
     return !in.pressed(de::Key::Q);                            // Q ends the demo
@@ -78,6 +176,8 @@ This exact code is `demos/ripple/main.cpp`. Register a demo with one line in `CM
 | [`demos/hello`](demos/hello/main.cpp) | `hello_demo` | The minimum: a tumbling cube-in-cube with the ticker, FX off. About 40 lines |
 | [`demos/ripple`](demos/ripple/main.cpp) | `ripple_demo` | The README example above, compiled as a real demo so the docs cannot drift |
 | [`demos/wireframe`](demos/wireframe/README.md) | `impossible_wireframe` | The flagship: 57 mathematical objects, effect recipes, logo show, art background. Uses almost every engine feature, including the golden glimmer orbit clouds ported from uber256-lab |
+| [`demos/infinity`](demos/infinity/README.md) | `hold_infinity` | Native optical scenes 0-15, GPU Atlas studies, Möbius universe, spectral point field and quantum twist lattice |
+| [`demos/atlas`](demos/atlas/README.md) | `atlas_render`, `atlas_advanced` | Standalone CPU reference renderers that write PPM images |
 
 ![Hello demo](docs/hello-demo.jpg)
 
@@ -88,9 +188,11 @@ simplest path is just:
 ```sh
 make            # configure (if needed) + build (Release, parallel)
 make test       # build + run the geometry/scroller tests
-make run        # build + launch the wireframe demo (default music, 132 bpm)
+make run        # build + launch Hold Infinity (optical + Atlas show)
+make run-atlas  # launch directly into the live GPU Atlas
 make run-hello  # launch the minimal hello demo
-make run-pulse  # wireframe demo with the CC0 Wireframe Pulse track
+make run-ripple # launch the adaptive tessellation demo
+make run-pulse  # Hold Infinity with the CC0 Wireframe Pulse track
 make diag       # dump the resolved toolchain (SDK, GLFW, SDL2, openmpt)
 make clean      # remove the build/ directory
 make reconfigure# wipe build/ and reconfigure (recover from a stale cache)
@@ -144,7 +246,7 @@ same commands (or `make`).
 If OpenGL/GLFW are absent, CMake still builds `iw_geometry` and `geometry_tests`, allowing headless CI validation.
 
 ## Tests and CI
-`make test` builds and runs `geometry_tests` (about 8 s): canonical polytope counts, validity of every wireframe scene and every effect recipe, timeline math, window parsing, scroller buffer limits and shader conventions. Targets compile with `-Wall -Wextra -Wpedantic -Werror` (`/W4 /WX` on MSVC) when `IW_WARNINGS_AS_ERRORS=ON`. GitHub Actions builds and tests on macOS 15, Ubuntu 24.04 and Windows 2022. On Windows an in-tree OpenGL loader (`engine/include/GLWin32.hpp`) fetches the GL 4.1 functions through `glfwGetProcAddress`, because `opengl32.dll` only exports GL 1.1. The identical loader builds and passes tests in the public [wireframe-scroller](https://github.com/djayuffe/wireframe-scroller) CI; this private repo's own CI is currently blocked by the GitHub account's billing limit, and the engine has not been run on a physical Windows machine yet.
+`make test` builds and runs the configured CTest suites, including geometry, audio, rhythm, optical and Atlas checks. Geometry coverage includes canonical polytope counts, validity of every wireframe scene and every effect recipe, timeline math, window parsing, scroller buffer limits and shader conventions. Targets compile with `-Wall -Wextra -Wpedantic -Werror` (`/W4 /WX` on MSVC) when `IW_WARNINGS_AS_ERRORS=ON`. GitHub Actions builds and tests on macOS 15, Ubuntu 24.04 and Windows 2022. On Windows an in-tree OpenGL loader (`engine/include/GLWin32.hpp`) fetches the GL 4.1 functions through `glfwGetProcAddress`, because `opengl32.dll` only exports GL 1.1. The identical loader builds and passes tests in the public [wireframe-scroller](https://github.com/djayuffe/wireframe-scroller) CI; current workflow results are available in [GitHub Actions](https://github.com/djayuffe/demo-engine/actions). The engine has not been verified on a physical Windows machine yet.
 
 ## Repository layout
 | Path | Contents |
@@ -153,7 +255,9 @@ If OpenGL/GLFW are absent, CMake still builds `iw_geometry` and `geometry_tests`
 | `engine/shaders` | GLSL 4.10 for wires, logo background, travellers, ticker and the post pass |
 | `demos/hello` | Minimal demo |
 | `demos/wireframe` | Flagship demo with its own scenes, assets, docs |
-| `tests/` | `geometry_tests.cpp` |
+| `tests/` | Geometry, audio, rhythm and optical regression tests |
+| `tools/` | Native GPU smoke tests, reference comparisons and validation scripts |
+| `demos/infinity`, `demos/atlas`, `demos/cosmic` | Optical show, hyperbolic geometry and cosmic GPU effects |
 | `thirdparty/` | `stb_image`, `stb_image_write` |
 | `docs/` | Guides and README images |
 
@@ -163,3 +267,18 @@ If OpenGL/GLFW are absent, CMake still builds `iw_geometry` and `geometry_tests`
 - Mesh colours and per-edge attributes.
 - Multiple meshes and instancing per frame.
 - A scripting layer for scene lists.
+
+### On-screen controls
+
+Press **H** for a responsive controls card, including the current demo’s scene controls.
+**I** shows playback, track credits, tempo source, beat settings and display resolution.
+**J** cycles hybrid → audio → clock beat response. Playback, volume and beat switches
+show brief confirmation cards; a startup hint fades away after seven seconds.
+Use `--hud` or `--help-overlay` to open a card at launch, and `--no-hints` to hide
+the startup hint. Automated frame captures stay clear unless a card is explicitly requested.
+
+## Project participation and licensing
+
+Use [GitHub issues](https://github.com/djayuffe/demo-engine/issues) for reproducible bugs and focused feature proposals. See [CONTRIBUTING.md](CONTRIBUTING.md) for build checks, graphics validation and attribution requirements, and [CHANGELOG.md](CHANGELOG.md) for development history.
+
+The original engine is offered under the [MIT license](LICENSE). This repository also contains imported code without an explicit license grant and separately licensed audio. **The MIT license does not cover every file in this repository.** Review [LICENSES.md](LICENSES.md), [NOTICE.md](NOTICE.md) and the linked source records before redistributing imported components.

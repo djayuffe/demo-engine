@@ -1,4 +1,5 @@
 #version 410 core
+float deSquare(float x){return x*x;}
 // Pre-post composite: temporal refraction (spec effect #13) and the persistent memory layer (#25).
 // Temporal refraction: inside a glass sphere every pixel is taken from a different moment of the
 // recent past, C_out(u,t) = C_scene(u', t - delay(u)), with delay = D * (0.5 + A(1-q^2) sin(k q - w t)).
@@ -36,9 +37,9 @@ void main(){
       float age=clamp(kMaxDelay*(.5+dtOff)/uInterval,0.,uFilled-1.);         // frames into the past
       float a0=floor(age);
       vec3 h=mix(tile(uHead-int(a0),u2),tile(uHead-int(a0)-1,u2),(a0+1.<uFilled)?fract(age):0.);
-      float inside=smoothstep(1.,.93,q)*uTemporal;
+      float inside=(1.0-smoothstep(.93,1.,q))*uTemporal;
       col=mix(col,h*1.15,inside);
-      col+=vec3(.25,.55,1.)*exp(-pow((q-1.)*14.,2.))*uTemporal*.55;        // glass rim so the sphere reads
+      col+=vec3(.25,.55,1.)*exp(-deSquare((q-1.)*14.))*uTemporal*.55;        // glass rim so the sphere reads
     }
   }
   if(uMemory>.002) col+=texture(uMem,uv).rgb*vec3(1.15,.9,1.45)*uMemory*.9;

@@ -5,10 +5,9 @@ uniform sampler2D uScene;
 uniform vec2 uResolution;
 uniform float uTime;
 uniform float uMusicLevel;
-// Tempo in beats per minute. The synthetic beat pulse below is synced to this
-// so the FX pulse at, e.g., --bpm 100 actually pulses at 100 BPM (100/60 Hz)
-// instead of a hard-coded 3.2 Hz (192 BPM) that only matches 192 BPM.
+// Kept for custom shader compatibility; standard effects use the shared beat envelope.
 uniform float uBpm;
+uniform vec4 uBeatDrive; // shared pulse, flash, bass, phase
 // 1.0 when a logo backdrop is in uScene (logo mode): skip the procedural
 // background and reduce the scene gain so the logo isn't washed out.
 uniform float uHasLogo;
@@ -46,17 +45,12 @@ void main(){
   // FX (no UV warps, no procedural background, no grain, no bloom taps).
   if(uBypass>.5){
     vec3 c=texture(uScene,uv).rgb;
-    FragColor=vec4(pow(aces(c*1.25),vec3(.4545)),1.0);
+    FragColor=vec4(pow(aces(c*1.25*(1.+.45*uBeatDrive.y)),vec3(.4545)),1.0);
     return;
   }
   vec2 px=1.0/max(uResolution,vec2(1));
   vec2 p=(uv*2.-1.)*vec2(uResolution.x/max(uResolution.y,1.),1.);
-  // Synthetic beat pulse, synced to the real tempo (uBpm beats/min). The old
-  // hard-coded uTime*3.2 (192 BPM) only matched 192 BPM; at --bpm 132 the FX
-  // pulsed ~45% too fast. beatHz = bpm/60, and a 14th-power sine gives the same
-  // sharp downbeat spike shape the original had.
-  float beatHz=uBpm/60.0;
-  float beat=pow(.5+.5*sin(6.2831853*uTime*beatHz),14.0);
+  float beat=uBeatDrive.x;
   float mlev=uMusicLevel;
   // 1.0 when a logo backdrop is in uScene (logo mode): the logo is a real
   // 0-1 picture, so screen-space UV warps (lensing/shockwave/barrel/CA) would
@@ -79,7 +73,7 @@ void main(){
   // 2) Refractive shockwave ring: a Gaussian ring that displaces the image.
   { float shock=fract(uTime*.145);
     float r=length(suv-.5);
-    float ring=exp(-pow((r-shock*.72)/.025,2.0));
+    float ring=exp(-deSquare((r-shock*.72)/.025));
     suv=.5+(suv-.5)*(1.0-ring*.09*(.5+mlev)*(1.0-calm)); }
   // 3) Barrel/lens breathing (pulse-driven).
   { vec2 bp=suv-.5; float r2=dot(bp,bp);
@@ -162,7 +156,7 @@ void main(){
     float sph=fract(uTime/7.5);
     float spos=mix(-2.2,2.2,sph);
     float sd=dot(p,normalize(vec2(1.,.55)));
-    float sweep=exp(-pow((sd-spos)*2.6,2.))+.45*exp(-pow((sd-spos+.35)*7.,2.));
+    float sweep=exp(-deSquare((sd-spos)*2.6))+.45*exp(-deSquare((sd-spos+.35)*7.));
     vec3 g=vec3(1.0,.93,.82)*sweep*smoothstep(.12,.9,glum)*(1.-smoothstep(1.2,2.6,glum))*(.45+.6*beat+.4*mlev);   // catches mid-bright detail, never pushes blown pixels further
     float gs=uResolution.y/900.;
     // Glints only where a neighbour is BRIGHTER than here: spikes run out of bright points into the dark,
@@ -224,7 +218,7 @@ void main(){
   // 10) ACES tonemap + gentle contrast + gamma.
   // The logo card is already a finished 0..1 picture: expose it lower and skip the mid-tone lift
   // (pow < 1 brightens), or its silver letters burn out to white under the additive wires and bloom.
-  hdr=aces(hdr*(.92+.38*mlev)*mix(1.0,.74,hasLogo));
+  hdr=aces(hdr*(1.+.45*uBeatDrive.y)*(.92+.38*mlev)*mix(1.0,.74,hasLogo));
 
   // --- Wild colour grading (black breaks only): hue drift, solarize on the downbeat, neon posterize ---
   { float k=(1.0-calm)*(uBgStyle>.5?.12:1.0);

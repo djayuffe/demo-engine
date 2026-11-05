@@ -8,6 +8,8 @@ uniform float uMusicLevel;
 uniform float uScrollOffset;
 uniform float uTextWidth;
 uniform float uOpacity;
+// Static card: font scale, columns, rows, live beat intensity. Zero scale = marquee.
+uniform vec4 uPanel;
 // 95 glyphs (ASCII 32..126), 5x7 each, packed row-major into a 665-pixel
 // texture (a 1x665 GL_R8 GL_TEXTURE_2D — Apple's Metal-based OpenGL driver
 // does not support 1D textures, so a 1-row 2D texture is used instead).
@@ -38,6 +40,36 @@ float fontPix(float g, float x, float y){
 
 void main(){
   vec2 px = uv * uResolution;
+  if (uPanel.x > .5) {
+    float s = uPanel.x;
+    vec2 p = vec2(px.x, uResolution.y - px.y) - vec2(24);
+    vec2 size = vec2(uPanel.y * 6.0 * s + 24.0, uPanel.z * 11.0 * s + 24.0);
+    vec2 q = abs(p - size * .5) - (size * .5 - 9.0);
+    float d = length(max(q, vec2(0))) + min(max(q.x, q.y), 0.0) - 9.0;
+    float cover = 1.0 - smoothstep(-.5, 1.0, d);
+    float edge = cover * smoothstep(-2.0, -.5, d);
+    vec3 tint = mix(vec3(.20,.70,.78), vec3(.65,.38,.85), clamp(p.y / size.y,0,1));
+    vec3 color = vec3(.018,.026,.044) + edge * tint * .35;
+    float alpha = cover * .90;
+    vec2 t = p - vec2(12);
+    int col = int(floor(t.x / (6.0*s)));
+    int row = int(floor(t.y / (11.0*s)));
+    vec2 glyphXY = floor(mod(t, vec2(6.0,11.0)*s) / s);
+    int ci = row * int(uPanel.y) + col;
+    if (t.x >= 0 && t.y >= 0 && col < int(uPanel.y) && row < int(uPanel.z) &&
+        ci < uCount && glyphXY.x < 5 && glyphXY.y < 7) {
+      int code = int(round(texture(uCodes,vec2((float(ci)+.5)/2048.0,.5)).r*255.0));
+      float ink = code >= 32 && code <= 126 ? fontPix(float(code-32),glyphXY.x,glyphXY.y) : 0.0;
+      color = mix(color, row == 0 ? vec3(.48,.94,1) : vec3(.84,.89,.95), ink);
+      alpha = max(alpha,ink);
+    }
+    // Slim activity rail below the text; only the rail reacts to beats.
+    float rail = (1.0-smoothstep(1.0,2.0,abs(p.y-size.y+6.0))) *
+                 step(12.0,p.x)*step(p.x,size.x-12.0);
+    color += rail * tint * (.20 + .35*uPanel.w);
+    FragColor = vec4(color * alpha, alpha) * uOpacity;
+    return;
+  }
   float scale = 6.0;                    // screen px per font px (larger, more readable)
   float glyphW = 5.0 * scale;           // 30 px
   float glyphH = 7.0 * scale;           // 42 px
@@ -66,7 +98,7 @@ void main(){
           // float must be SCALED BACK to 0..255 and rounded to recover the byte.
           // (The old `int(r + 0.5)` collapsed every printable char — all < 0.5 —
           // to code 0 -> glyph -32 -> blank marquee.)
-          float u = (float(ci) + 0.5) / 512.0;   // strip texture is allocated at a fixed 512 texels, not uCount
+          float u = (float(ci) + 0.5) / 2048.0;   // strip texture is allocated at a fixed 2048 texels, not uCount
           int code = int(texture(uCodes, vec2(u, 0.5)).r * 255.0 + 0.5);
           float glyph = float(code) - 32.0;   // char - 32 -> 0..94
           if(glyph >= 0.0 && glyph < 95.0){
