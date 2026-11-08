@@ -241,6 +241,9 @@ int main() {
               corrected.find("orderedRamp(0.0,1.0,0.5)") != std::string::npos,
           "increasing or decreasing fade left undefined");
   require(shader.find("orderedRamp") == std::string::npos, "source shader mutated");
+  require(std::string(infinity_post::composite).find("vec3 halation =") != std::string::npos &&
+              std::string(infinity_post::composite).find("vec3 lensGhost =") != std::string::npos,
+          "optical compositor cinematic glow missing");
   require(std::isfinite(infinity_parallax::smooth(std::numeric_limits<float>::quiet_NaN(), 1, .1)),
           "invalid pointer state did not recover");
   const auto invalidEye = infinity_parallax::eye(0, std::numeric_limits<float>::infinity(), 10, true);

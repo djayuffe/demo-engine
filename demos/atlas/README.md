@@ -45,7 +45,7 @@ The palette, contrast, lighting and animation adapt the references to the existi
 
 Sphere normals are tangent to the hyperboloid at the hit. Both the normal and viewing direction are transported to the hit point's local rest frame for lighting. This replaces the source renderer's approximate Poincaré-coordinate normal.
 
-All Atlas scenes render to RGBA16F. Each scene now shares a procedural celestial background with two filtered star populations, temperature variation, parallax, a folded nebula veil and restrained beat-wave light. A separate two-target HDR history pass applies frame-time-dependent, neighborhood-clamped exponential filtering. It resets on scene changes, resize, orbit dragging, still mode and pause, and never samples uninitialized history. It is temporal smoothing, not motion-vector reprojection or an infinite-detail reconstruction. The existing final shoulder preserves saturated highlights below white. Source hierarchy seeds never depend on frame number or camera position.
+All Atlas scenes render to RGBA16F. Each scene now shares a procedural celestial background with three filtered star populations, temperature variation, parallax, a folded nebula veil, moving auroral curtains and restrained beat-wave light. A separate two-target HDR history pass applies frame-time-dependent, neighborhood-clamped exponential filtering. It resets on scene changes, resize, orbit dragging, still mode and pause, and never samples uninitialized history. It is temporal smoothing, not motion-vector reprojection or an infinite-detail reconstruction. The existing final shoulder preserves saturated highlights below white. Source hierarchy seeds never depend on frame number or camera position.
 
 ## Reference tools
 

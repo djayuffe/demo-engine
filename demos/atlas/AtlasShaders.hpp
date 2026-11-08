@@ -70,17 +70,25 @@ vec3 starLayer(vec3 rd, float scale, float threshold) {
 }
 vec3 atlasBackground(vec2 p, vec3 rd) {
   vec3 direction = normalize(rd + uEye * .018);
-  vec3 stars = starLayer(direction, 260, .955) + starLayer(direction.yzx, 470, .980) * .72;
+  vec3 stars = starLayer(direction, 260, .955) + starLayer(direction.yzx, 470, .980) * .72 +
+               starLayer(direction.zxy, 880, .993) * .48;
   float longitude = atan(direction.z, direction.x), latitude = asin(clamp(direction.y, -1, 1));
   float fold = sin(longitude * 3.0 + sin(latitude * 5.0 - uTime * .055) * 1.4);
   float veil = exp(-pow(abs(latitude + .22 * fold), 2.0) * 19.0);
   float filaments = .36 + .64 * pow(.5 + .5 * sin(longitude * 17.0 - latitude * 31.0 + uTime * .12), 6.0);
   vec3 nebula = mix(vec3(.015, .055, .16), vec3(.16, .025, .24), .5 + .5 * fold) * veil * filaments;
+  float auroraCenter = .30 * sin(longitude * 1.7 + uTime * .035) +
+                       .09 * sin(longitude * 6.0 - uTime * .08);
+  float auroraBand = exp(-pow(abs(latitude - auroraCenter), 2.0) * 46.0);
+  float auroraCurtain = pow(.5 + .5 * sin(longitude * 31.0 + latitude * 13.0 - uTime * .14), 5.0);
+  vec3 aurora = mix(vec3(.015, .30, .34), vec3(.24, .035, .42),
+                    .5 + .5 * sin(longitude * 2.0)) * auroraBand * (.18 + .82 * auroraCurtain);
   float radius = length(p);
   float beatWave = exp(-abs(radius - fract(uTime * .16) * 1.8) * 24.0) * uPulse;
   vec3 wave = palette(.57 + radius * .08 + uTime * .006) * beatWave * .055;
   float vignette = 1.0 - smoothstep(.72, 1.75, radius);
-  return (stars * (.24 + .26 * uBass) + nebula * (1.0 + .28 * uBreath) + wave) * (.34 + .66 * vignette);
+  return (stars * (.24 + .26 * uBass) + nebula * (1.0 + .28 * uBreath) +
+          aurora * (.18 + .10 * uBass) + wave) * (.34 + .66 * vignette);
 }
 float segment(vec3 ro, vec3 rd, vec3 a, vec3 b, out float depth) {
   vec3 v = b - a, w = ro - a;

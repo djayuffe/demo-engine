@@ -162,7 +162,9 @@ int main() {
     const std::string shader = gpu::fragment;
     require(shader.find("vec3 atlasBackground") != std::string::npos &&
                 shader.find("starLayer(direction, 260") != std::string::npos &&
-                shader.find("starLayer(direction.yzx, 470") != std::string::npos,
+                shader.find("starLayer(direction.yzx, 470") != std::string::npos &&
+                shader.find("starLayer(direction.zxy, 880") != std::string::npos &&
+                shader.find("float auroraBand") != std::string::npos,
             "Atlas celestial background layers missing");
     require(shader.find("beatWave") != std::string::npos && shader.find("* uPulse") != std::string::npos &&
                 shader.find("uEye * .018") != std::string::npos,

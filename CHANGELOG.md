@@ -1,3 +1,10 @@
+# Unified cinematic polish — 2026-11-08
+
+- Add color-preserving warm halation and a restrained single-sample prismatic lens ghost to the shared wireframe and Hold Infinity HDR compositors.
+- Give foreground depth motes rotating six-blade apertures and rare star spikes while retaining their five-plane parallax, beat response and black-background behavior.
+- Extend every Atlas scene with a third fine star population and slowly moving auroral curtains behind the existing geometry, nebula and beat-wave layers.
+- Keep the lens treatment to one wide-bloom lookup, add shader-contract coverage, and validate the result on Metal-backed OpenGL without introducing geometry uploads.
+
 # Beyond mesh effects — 2026-11-05
 
 - Thirteen new "beyond" mesh effects (80-92), each grounded in a real phenomenon:

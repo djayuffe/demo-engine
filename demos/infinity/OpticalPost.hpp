@@ -93,6 +93,13 @@ void main() {
     vec3 halo = textureLod(uBloom, vUv, 1).rgb * .46 + textureLod(uBloom, vUv, 2).rgb * .29 +
                 textureLod(uBloom, vUv, 3).rgb * .16 + textureLod(uBloom, vUv, 4).rgb * .09;
     c += halo * uGlow;
+    // Warm halation hugs saturated cores while the normal bloom keeps its
+    // original hue. This gives emissive material a photographic inner glow
+    // without lifting empty pixels or flattening fine geometry.
+    float haloLuma = dot(halo, vec3(.2126, .7152, .0722));
+    vec3 halation = halo * vec3(1.10, .28, .075) *
+                    smoothstep(.025, .42, haloLuma) / (1.0 + haloLuma);
+    c += halation * uGlow * (.055 + .035 * uDrive.y);
     vec2 bloomTexel = 1.0 / vec2(textureSize(uBloom, 0));
     float reach = 3.0 + 5.0 * uDrive.x;
     vec3 horizontal = textureLod(uBloom, vUv + vec2(bloomTexel.x * reach, 0.0), 1).rgb +
@@ -101,6 +108,16 @@ void main() {
                     textureLod(uBloom, vUv - vec2(0.0, bloomTexel.y * reach), 1).rgb;
     vec3 diffraction = vec3(horizontal.r, (horizontal.g + vertical.g) * .5, vertical.b);
     c += diffraction * uGlow * (.018 + .032 * uDrive.y);
+    // A restrained internal-lens reflection adds depth to every optical
+    // scene. RGB samples use slightly different radii, producing a prismatic
+    // ghost instead of a grey copy of the subject.
+    vec2 axis = vUv - .5;
+    vec2 lensUv = clamp(.5 - axis * (.62 + .05 * uDrive.x), vec2(.002), vec2(.998));
+    vec3 lensBase = textureLod(uBloom, lensUv, 3).rgb;
+    vec3 lensGhost = mix(lensBase, lensBase.gbr, .22 + .08 * uDrive.x);
+    float ghostRing = exp(-abs(length(axis) - (.27 + .018 * uDrive.x)) * 32.0);
+    float ghostGate = (1.0 - smoothstep(.0, .7, length(axis))) * ghostRing;
+    c += lensGhost * ghostGate * uGlow * (.020 + .018 * uDrive.y);
   }
   c *= 1.0 + .18 * uDrive.x + .45 * uDrive.y;
   // Compose around the central subject while retaining enough corner energy

@@ -17,14 +17,19 @@ vec3 depthMotes(vec2 p,vec2 ptr,float pulse,float t,float ml,float beat){
     float h=hash(id+fi*19.7);
     if(h<.55) continue;
     vec2 o=(vec2(hash(id+3.1),hash(id+7.7))-.5)*.55;
-    float d=length(f-o);
+    vec2 aperture=rot2(f-o,h*6.28318+t*(.018+.012*fi));
+    float angle=atan(aperture.y,aperture.x);
+    float blades=.94+.06*cos(angle*6.);
+    float d=length(aperture)/blades;
     float rad=mix(.30,.07,fi/4.)*(.7+.5*hash(id+1.3))*(1.+.5*beat*(1.-fi*.18));
     float soft=mix(.55,.12,fi/4.);            // near = defocused disc with a bokeh rim
     float disc=(1.-smoothstep(rad*(1.-soft),rad,d));
     float rim=(1.-smoothstep(.0,rad*.25,abs(d-rad*.85)))*(1.-fi*.2)*.8;
+    float sparkle=(exp(-abs(aperture.x)*55.)+exp(-abs(aperture.y)*55.))
+                  *exp(-length(aperture)*13.)*smoothstep(.82,1.,h);
     float tw=.55+.45*sin(t*(1.5+3.*h)+h*50.);
     vec3 c=mix(vec3(.6,.8,1.),pal(h*3.+t*.03),.55);
-    float inten=(disc*mix(.16,.9,fi/4.)+rim*.25)*tw*(.55+.9*ml);
+    float inten=(disc*mix(.16,.9,fi/4.)+rim*.25+sparkle*.12*(.5+beat))*tw*(.55+.9*ml);
     acc+=c*inten*mix(.55,1.,fi/4.);
   }
   // click shockwave: an expanding ring around the cursor

@@ -954,6 +954,8 @@ int main() {
       req(all.find("sin(uTime*3.2)") == std::string::npos, "post.frag no hard-coded 3.2 Hz beat");
       // --no-post bypass path must exist (ACES tone-map + early return)
       req(all.find("uBypass") != std::string::npos, "post.frag declares uBypass");
+      req(all.find("vec3 halation=") != std::string::npos && all.find("vec3 lensGhost=") != std::string::npos,
+          "post.frag retains cinematic halation and lens depth");
     }
   }
   // --window WxH parsing: the shared parseWindowSpec (include/WindowSpec.hpp)

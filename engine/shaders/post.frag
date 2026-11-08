@@ -110,6 +110,18 @@ void main(){
 
   // bloom: multi-scale pyramid built by bloom.cpp (the glow spreads across the screen, wire-width to full-frame)
   vec3 bloom=texture(uBloom,suv).rgb*.5;
+  // Film halation sits inside the broader bloom. It is warm, saturation
+  // preserving and self-limiting, so hot wire intersections acquire a glassy
+  // core without turning the full frame orange.
+  float bloomLuma=dot(bloom,vec3(.2126,.7152,.0722));
+  vec3 halation=bloom*vec3(1.12,.30,.07)*smoothstep(.025,.38,bloomLuma)/(1.+bloomLuma);
+  // A faint prismatic lens ghost mirrors only the wide bloom levels. Channel
+  // separation makes it read as optical glass instead of duplicated geometry.
+  vec2 lensAxis=suv-.5;
+  vec2 lensUv=clamp(.5-lensAxis*(.64+.04*beat),vec2(.002),vec2(.998));
+  vec3 lensBase=textureLod(uBloom,lensUv,3).rgb;
+  vec3 lensGhost=mix(lensBase,lensBase.gbr,.22+.08*beat);
+  float lensRing=exp(-abs(length(lensAxis)-(.26+.016*beat))*34.);
 
 
   // Eye candy: anamorphic horizontal streak + radial light rays (bright pixels only).
@@ -146,6 +158,8 @@ void main(){
   { float fl=cIn*cIn*cIn;   // ENTRY: the new form lands with an exposure punch on the downbeat (wires + glow, not the background)
     scene*=1.+1.4*fl; bloom*=1.+1.6*fl; }
   vec3 hdr=(1.0-hasLogo)*bg*(1.0-.75*uGold) + scene*mix(1.35,1.0,hasLogo) + bloom*(.32+uMusicLevel*.70)*mix(1.0,.30,hasLogo);   // little glow over a logo card: it washes out
+  hdr+=(halation*(.050+.035*uBeatDrive.y)+lensGhost*lensRing*(.010+.016*beat))
+       *(1.0-.92*hasLogo)*(1.0-.55*uGold)*uFxAmount;
   hdr+=(streak+rays)*(1.0-.85*hasLogo);
   // GLOSS: a polished-glass finish. (1) a specular sweep glides across the picture every few seconds
   // and only catches what is already bright (wires, objects), like light rolling over chrome; (2) the
