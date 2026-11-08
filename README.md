@@ -85,7 +85,7 @@ Every demo needs the same plumbing: a window, a float framebuffer, bloom and ton
 
 ## Quick start
 ```sh
-brew install cmake glfw sdl2 libopenmpt   # macOS; SDL2 + libopenmpt are optional (music)
+brew install cmake glfw sdl2 libopenmpt libsndfile   # macOS; SDL2 + libopenmpt are optional (music), libsndfile adds the MP3/FLAC/OGG tracks
 ./build_mac.sh --run                       # or: one command that installs deps, builds, tests and runs
 make run-hello                            # the minimal demo
 make run                                  # the native optical and Atlas demo
@@ -219,7 +219,7 @@ ctest --test-dir build --output-on-failure
 ```
 
 Optional audio playback (libopenmpt + SDL2) is detected automatically; on
-macOS add `brew install sdl2 libopenmpt`. Linux: install a C++20 compiler,
+macOS add `brew install sdl2 libopenmpt libsndfile` (libsndfile decodes the MP3/FLAC/OGG tracks). Linux: install a C++20 compiler,
 CMake, OpenGL development headers and GLFW3 development package, then use the
 same commands (or `make`).
 

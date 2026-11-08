@@ -73,6 +73,15 @@ bool AudioPlayer::open(const std::vector<std::filesystem::path>& playlist) {
       tracks_.push_back(std::move(t));
       continue;
     }
+#else
+    // Without libsndfile these formats cannot be decoded; say why once instead of letting libopenmpt
+    // and SDL each reject the file with a misleading "not a tracker module" error.
+    if (ext == ".flac" || ext == ".ogg" || ext == ".oga" || ext == ".mp3" ||
+        ext == ".aif" || ext == ".aiff" || ext == ".au") {
+      std::cerr << "Skipping " << path.filename().string()
+                << ": built without libsndfile (macOS: brew install libsndfile, then rebuild)\n";
+      continue;
+    }
 #endif
     std::vector<char> data((std::istreambuf_iterator<char>(file)), {});
     if (ext != ".wav")

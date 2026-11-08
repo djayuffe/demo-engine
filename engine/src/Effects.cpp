@@ -9,6 +9,12 @@
 bool applyEffect(Mesh3& m, int iid, const EffectContext& c, const Mesh3* s);
 
 namespace {
+namespace transition {
+inline float smooth(float e0, float e1, float x) {
+  const float t = std::clamp((x - e0) / (e1 - e0), 0.f, 1.f);
+  return t * t * (3.f - 2.f * t);
+}
+}  // namespace transition
 constexpr float PI = 3.14159265358979323846f;
 
 // float -> uint32 without the undefined behaviour of an out-of-range cast (mutateRecipe stores a
@@ -461,7 +467,11 @@ int fxBeyond(int id, Fx& f) {
     mapv(m, [&](V3 p, size_t) {
       V3 x = q(p);
       const float u = (atan2f(x.z, x.x) / (2 * PI) + .5f) * N + t * .22f;
-      const float s = std::floor(fractf(u) * steps) / steps;   // quantised climb inside one flight
+      // Quantised climb inside one flight. The risers and the seam where a flight drops back are
+      // steep but continuous ramps, so vertices scrolling across them slide instead of popping.
+      const float fu = fractf(u), w = fu * steps, fw = fractf(w);
+      float s = (std::floor(w) + transition::smooth(.82f, 1.f, fw)) / steps;
+      s *= 1.f - transition::smooth(.96f, 1.f, fu);
       x.y += A * .5f * r0 * (s - .5f);
       return vadd(C, x); });
   } break;
@@ -487,12 +497,24 @@ int fxBeyond(int id, Fx& f) {
     V3 w{.03f * spin, spin, .02f * spin};
     Quat o{1, 0, 0, 0};
     const float tau = fmodf(std::max(0.f, t) * .9f, 36.f), dt = .01f;
+    float easeSign = 1.f;                     // hemisphere of the orientation when the ease-out starts
+    bool easeSignSet = false;
     for (float s = 0; s < tau; s += dt) {   // Euler's equations (midpoint) + orientation update
+      if (!easeSignSet && s >= 33.f) { easeSign = o.w < 0.f ? -1.f : 1.f; easeSignSet = true; }
       auto dw = [&](V3 v) { return V3{(I2 - I3) / I1 * v.y * v.z, (I3 - I1) / I2 * v.z * v.x, (I1 - I2) / I3 * v.x * v.y}; };
       const V3 mid = vadd(w, vmul(dw(w), dt * .5f));
       w = vadd(w, vmul(dw(mid), dt));
       const float wl = vlen(mid), ang = wl * dt;
       if (wl > 1e-6f) { const V3 k = vmul(mid, sinf(ang * .5f) / wl); o = qmul(o, Quat{cosf(ang * .5f), k.x, k.y, k.z}); }
+    }
+    // The effect is a pure function of time, so it restarts every 36 s; over the last 3 s ease the
+    // orientation back to rest (normalised lerp on the short arc) so the loop has no jump.
+    {
+      const float e = clampf((tau - 33.f) / 3.f, 0.f, 1.f), k = e * e * (3.f - 2.f * e);
+      const float sgn = easeSignSet ? easeSign : (o.w < 0.f ? -1.f : 1.f);   // fixed for the whole window: no hemisphere flip
+      Quat r{(1 - k) * o.w + k * sgn, (1 - k) * o.x, (1 - k) * o.y, (1 - k) * o.z};
+      const float n = std::sqrt(r.w * r.w + r.x * r.x + r.y * r.y + r.z * r.z);
+      if (n > 1e-6f) o = Quat{r.w / n, r.x / n, r.y / n, r.z / n};
     }
     mapv(m, [&](V3 p, size_t) {
       const V3 x = q(p); const V3 b{vdot(x, ax[0]), vdot(x, ax[1]), vdot(x, ax[2])};
@@ -521,11 +543,12 @@ int fxBeyond(int id, Fx& f) {
       const float left = tc - tau;
       h = .32f / powf(left, .25f);
       ph = -2 * PI * 1.1f * (8.f / 5.f) * powf(left, .625f);
-    } else {
-      const float rd = tau - 8.f;
-      h = .32f / powf(.4f, .25f) * expf(-rd * 6.f);
-      ph = 2 * PI * 6.f * rd;
+    } else {   // ring-down continues the chirp's phase and frequency at the merger (no jump)
+      const float rd = tau - 8.f, left = tc - 8.f;
+      h = .32f / powf(left, .25f) * expf(-rd * 6.f);
+      ph = -2 * PI * 1.1f * (8.f / 5.f) * powf(left, .625f) + 2 * PI * 1.1f * powf(left, -.375f) * rd;
     }
+    h *= transition::smooth(0.f, 1.5f, tau);   // the next chirp fades in from silence
     h *= clampf(A, -2, 2);
     const float k = 2 * PI / (2.2f * r0);
     mapv(m, [&](V3 p, size_t) {
@@ -621,10 +644,12 @@ int fxBeyond(int id, Fx& f) {
       const V3 d = vnorm(vcross(n, fabsf(n.y) < .9f ? V3{0, 1, 0} : V3{1, 0, 0}));
       const float off = r0 * (.15f + .2f * float(k)), ang = A * PI * .5f * (.5f + .5f * sinf(t * .6f + float(k) * 1.9f));
       const V3 o = vadd(C, vmul(n, off));
+      const float band = r0 * .25f;   // the paper bends over a short band instead of snapping at the crease
       mapv(m, [&](V3 p, size_t) {
         const V3 x = vsub(p, o);
-        if (vdot(x, n) <= 0) return p;
-        return vadd(o, rotAxis(x, d, ang)); });
+        const float h = vdot(x, n);
+        if (h <= 0) return p;
+        return vadd(o, rotAxis(x, d, ang * transition::smooth(0.f, band, h))); });
     }
   } break;
   case 89: {  // Phyllotaxis: vertices unravel onto a golden-angle Fibonacci sphere (sunflower order)
@@ -673,7 +698,11 @@ int fxBeyond(int id, Fx& f) {
   } break;
   case 92: {  // Indra's pearls: points are inverted through four slowly orbiting spheres (a Kleinian
               // group), up to three times each, scattering the object into nested pearls.
-    const float r0 = meanRadius(m, C), u = clampf(fabsf(A) * .8f, 0, 1) * (.55f + .45f * sinf(t * .35f));
+    // The word length changes every 8 s; the pearls breathe out to the original form around each
+    // change (u -> 0) so the switch is invisible.
+    const float ph8 = fractf(std::max(0.f, t) * .125f) * 8.f;
+    const float env = transition::smooth(0.f, .8f, ph8) * (1.f - transition::smooth(7.2f, 8.f, ph8));
+    const float r0 = meanRadius(m, C), u = clampf(fabsf(A) * .8f, 0, 1) * (.55f + .45f * sinf(t * .35f)) * env;
     static const V3 tet[4] = {{1, 1, 1}, {1, -1, -1}, {-1, 1, -1}, {-1, -1, 1}};
     V3 cen[4];
     const float rs = r0 * .62f;

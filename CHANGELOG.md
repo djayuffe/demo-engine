@@ -1,3 +1,17 @@
+# Audit: strict GLSL, compressed audio, seamless beyond effects — 2026-11-08
+
+- Fixed Hold Infinity failing to start on strict GLSL compilers (Mesa, and likely other non-Apple drivers). The Atlas/point-field shader used `packed`, a reserved GLSL word, as a parameter name and returned an `int` from a `float` function. Both are fixed, and all 31 scenes now compile and render under Mesa llvmpipe.
+- The MP3 tracks in the default playlist need libsndfile, which `build_mac.sh` did not install, so on a fresh Mac they were skipped with misleading "not a tracker module" errors. `build_mac.sh` and the README now install `libsndfile`, and a build without it prints one clear "built without libsndfile" line per skipped file. With libsndfile all 8 playlist tracks load.
+- Beyond effects made seamless, measured as the largest per-frame vertex jump at 60 fps over 60 s on a unit torus:
+  - Penrose Stairs (risers and the flight seam are now steep ramps): 0.43 -> 0.056.
+  - Gravitational Wave (ring-down continues the chirp's phase, and each chirp fades in): 0.32 -> 0.098.
+  - Origami (bends over a short band instead of snapping at the crease): 1.41 -> 0.072.
+  - Dzhanibekov Flip (eases back to rest before its 36 s loop, with a fixed quaternion hemisphere): loop jump 0.49 -> none; worst frame now 0.069, the flip itself.
+  - Indra Pearls breathes back to the original form around each word-length change.
+  - Droste Spiral and Indra Pearls stay discontinuous by nature: a log-polar fold and a nearest-sphere Kleinian map. The edges they stretch are cut, so the seams are not drawn.
+- Sanitizer audit: geometry, infinity, rhythm and audio tests, Impossible Wireframe (auto mode, the beyond recipes, the black-hole background) and Hold Infinity (with libsndfile decoding) all run clean under AddressSanitizer and UndefinedBehaviorSanitizer.
+- Effect profile on a 19,200-edge torus: median 268 us per effect; the beyond effects sit between 0.1 and 1.3 ms, inside the range of the existing effects (the slowest, Nearest Bridge, takes 2.3 ms).
+
 # Unified cinematic polish — 2026-11-08
 
 - Add color-preserving warm halation and a restrained single-sample prismatic lens ghost to the shared wireframe and Hold Infinity HDR compositors.

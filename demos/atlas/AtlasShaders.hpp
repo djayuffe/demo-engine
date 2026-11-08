@@ -221,7 +221,7 @@ vec4 tangent(vec4 o, vec3 v) {
 float hitSphere(vec4 o, vec4 d, vec4 c, float C, bool bound) {
   float A = -lor(o, c), B = -lor(d, c);
   if (bound && A <= C)
-    return 0;
+    return 0.;
   float aa = A + B, cc = A - B, disc = C * C - aa * cc;
   if (disc < 0)
     return 1e10;
@@ -240,8 +240,8 @@ float hitSphere(vec4 o, vec4 d, vec4 c, float C, bool bound) {
   }
   return best;
 }
-float sphere(vec4 o, vec4 d, vec4 packed, bool bound) {
-  return hitSphere(o, d, lift(packed.xyz), cosh(packed.w), bound);
+float sphere(vec4 o, vec4 d, vec4 sphereData, bool bound) {
+  return hitSphere(o, d, lift(sphereData.xyz), cosh(sphereData.w), bound);
 }
 vec4 primitive(int i) {
   float f = float(i), phi = f * 2.39996323;
