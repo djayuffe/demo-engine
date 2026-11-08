@@ -1,3 +1,17 @@
+# Build script — 2026-11-08
+
+- `build_mac.sh` rewritten. Changes:
+  - Ninja, plus ccache when installed. A no-op rebuild takes 0.1 s.
+  - Homebrew is listed once and missing packages are installed in one batch, instead of a slow `brew list` per package.
+  - The Xcode tools are checked before anything is installed, with a warning under Rosetta.
+  - Configure output goes to `build/configure.log`; only warnings and key lines are shown, and the full log on failure.
+  - Tests run in parallel.
+  - New options: `--demo infinity|wireframe|hello|ripple`, `--no-tests` (builds only that demo), `--debug`, `--profile`, `--lto`, `-j`, `--no-deps`, `-v`, `--help`.
+  - A build directory made with another generator is recreated automatically.
+  - Strict argument checks, timing, and bash 3.2 compatible (the macOS system bash).
+- New CMake option `IW_ENABLE_LTO`: interprocedural optimisation for Release when the toolchain supports it.
+- CI installs ninja and libsndfile and configures macOS with Ninja, so the MP3/FLAC/OGG path is compiled in CI.
+
 # Audit: strict GLSL, compressed audio, seamless beyond effects — 2026-11-08
 
 - Fixed Hold Infinity failing to start on strict GLSL compilers (Mesa, and likely other non-Apple drivers). The Atlas/point-field shader used `packed`, a reserved GLSL word, as a parameter name and returned an `int` from a `float` function. Both are fixed, and all 31 scenes now compile and render under Mesa llvmpipe.

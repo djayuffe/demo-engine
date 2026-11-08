@@ -91,6 +91,20 @@ make run-hello                            # the minimal demo
 make run                                  # the native optical and Atlas demo
 ```
 
+`build_mac.sh` options (`./build_mac.sh --help`):
+
+| Option | Effect |
+|---|---|
+| `-r`, `--run` | launch the demo after the build; arguments after `--` go to the demo |
+| `-d`, `--demo NAME` | `infinity` (default), `wireframe`, `hello` or `ripple` |
+| `--no-tests` | build only that demo and skip the tests (fastest edit-run loop) |
+| `--debug` / `--profile` | Debug or RelWithDebInfo build, in `build-debug/` or `build-profile/` |
+| `--lto` | link-time optimisation for Release (slower link) |
+| `-c`, `--clean` | wipe the build directory first |
+| `-j N`, `--no-deps`, `-v` | job count, skip the Homebrew check, verbose configure and compile |
+
+The script checks the Xcode tools and warns under Rosetta. It installs any missing Homebrew packages in one batch: cmake, ninja, pkg-config, glfw, sdl2, libopenmpt and libsndfile. It builds with Ninja, and with ccache when that is installed. A build directory made with another generator is recreated automatically.
+
 ### Start every version
 
 Run these from the repository root after `make`. Each `make run-*` command also

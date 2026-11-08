@@ -11,9 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: brew install cmake glfw sdl2 libopenmpt pkg-config
+        run: brew install cmake ninja glfw sdl2 libopenmpt libsndfile pkg-config
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DIW_BUILD_TESTS=ON -DIW_WARNINGS_AS_ERRORS=ON
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DIW_BUILD_TESTS=ON -DIW_WARNINGS_AS_ERRORS=ON
       - name: Build
         run: cmake --build build --parallel
       - name: Test
@@ -58,7 +58,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++ ninja-build libglfw3-dev libgl-dev libgl1-mesa-dev libsdl2-dev libopenmpt-dev pkg-config
+          sudo apt-get install -y cmake g++ ninja-build libglfw3-dev libgl-dev libgl1-mesa-dev libsdl2-dev libopenmpt-dev libsndfile1-dev pkg-config
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DIW_BUILD_TESTS=ON -DIW_WARNINGS_AS_ERRORS=ON
       - name: Build
