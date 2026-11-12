@@ -103,9 +103,8 @@ public:
   bool postEnabled() const { return postEnabled_; }
   // 0..1 strength of the signature post look (art background, wild warps, lensing...). Default 1.
   void setFxAmount(float a) { fxAmount_ = std::clamp(a, 0.f, 1.f); }
-  // Wire look: 0 = the default electric palette, 1 = golden glimmer (no depth test, so orbit clouds
-  // accumulate light additively; gold twinkle in wire.frag; gold cross glints in post.frag).
-  void setWireStyle(int s) { wireStyle_ = std::clamp(s, 0, 1); }
+  // Wire look: 0 = electric, 1 = golden glimmer (additive/no depth), 2 = PulseGrid pastel circuitry.
+  void setWireStyle(int s) { wireStyle_ = std::clamp(s, 0, 2); }
   void setBeatDrive(const rhythm::Drive& beat) { beat_ = beat; }
   void setGpuWave(const float wave[4]) { std::copy(wave, wave + 4, gpuWave_); }
   void setGpuEffect(const GpuDeformation& effect) { gpuEffect_ = effect; }
@@ -186,7 +185,7 @@ private:
   bool postEnabled_ = true;
   float fxAmount_ = 1.f;
   int wireStyle_ = 0;
-  int uStyle_ = -1, uPostGold_ = -1, uPostBgStyle_ = -1, uPostPtr_ = -1, uPostPulse_ = -1, uPostDepth_ = -1, uPostGloss_ = -1, uPostCut_ = -1;
+  int uStyle_ = -1, uPostGold_ = -1, uPostClean_ = -1, uPostBgStyle_ = -1, uPostPtr_ = -1, uPostPulse_ = -1, uPostDepth_ = -1, uPostGloss_ = -1, uPostCut_ = -1;
   // Art pass (procedural background) at half resolution, see shaders/art.frag.
   ArtPass art_;
   int uPostArt_ = -1, uPostArtOn_ = -1;

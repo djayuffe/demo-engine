@@ -463,7 +463,7 @@ int main() {
   {
     const Mesh3 a = geo::pulseGrid(1.001f), sameTick = geo::pulseGrid(1.019f), nextTick = geo::pulseGrid(1.041f);
     mesh(a, "PulseGrid model");
-    req(a.v.size() > 2000 && a.e.size() > 2000, "PulseGrid retains layered geometric detail");
+    req(a.v.size() > 1500 && a.e.size() > 2000, "PulseGrid retains layered geometric detail");
     req(a.v.size() == sameTick.v.size() && a.e.size() == sameTick.e.size() &&
             std::equal(a.v.begin(), a.v.end(), sameTick.v.begin(), [](V3 x, V3 y) {
               return x.x == y.x && x.y == y.y && x.z == y.z;
@@ -970,8 +970,16 @@ int main() {
       req(all.find("sin(uTime*3.2)") == std::string::npos, "post.frag no hard-coded 3.2 Hz beat");
       // --no-post bypass path must exist (ACES tone-map + early return)
       req(all.find("uBypass") != std::string::npos, "post.frag declares uBypass");
+      req(all.find("uClean") != std::string::npos && all.find("1.0-calm") != std::string::npos,
+          "post.frag retains clean-composition warp suppression");
       req(all.find("vec3 halation=") != std::string::npos && all.find("vec3 lensGhost=") != std::string::npos,
           "post.frag retains cinematic halation and lens depth");
+    }
+    {
+      std::ifstream f(shadersDir / "wire.frag");
+      std::string all((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+      req(all.find("if(uStyle==2)") != std::string::npos && all.find("PulseGrid") != std::string::npos,
+          "wire.frag retains the PulseGrid material style");
     }
   }
   // --window WxH parsing: the shared parseWindowSpec (include/WindowSpec.hpp)

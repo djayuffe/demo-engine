@@ -136,6 +136,11 @@ Any live Atlas scene can be selected directly:
 ./build/impossible_wireframe --scene 73       # native PulseGrid model
 ```
 
+PulseGrid uses a stable rounded lattice, nested breathing shells, orbit rails,
+floor reflections and expanding rhythm rings. Its dedicated emissive circuit
+material drives cyan/violet/pink seams and signal packets from the music while
+keeping post distortion restrained for a crisp silhouette.
+
 Press **Left/Right** to change scenes, **P** to pause Atlas motion and **Q** or
 **Escape** to quit. Full Atlas controls and the scene matrix are in
 [`demos/atlas/README.md`](demos/atlas/README.md).

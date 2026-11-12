@@ -185,7 +185,8 @@ public:
       const float inverse[9] = {cy, 0, -sy, sp * sy, cp, sp * cy, cp * sy, -sp, cp * cy};
       std::copy(inverse, inverse + 9, out.modelTransform);
       out.travelers = false;
-      out.fxAmount = .38f;
+      out.fxAmount = .12f;
+      out.wireStyle = 2;
     }
     out.scale =
         1.f + .11f * std::sin(float(f.effectTime) * .41f + float(scene) * .37f) + .07f * f.sync.pulse; // breathing size cycle
@@ -203,7 +204,7 @@ public:
       out.travelers = false;
       out.scale *= .8f;
     } // golden orbit clouds: dense right out to the rim
-    if (scene == 73) out.scale *= 1.50f;
+    if (scene == 73) out.scale *= 1.35f;
     auto& si = scenes_.info(scene);
     out.ticker = describeScene(scene, si.name, si.provenance, recipeName, f.bpm, creditFor(f.musicPath));
     return true;

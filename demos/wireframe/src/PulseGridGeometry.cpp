@@ -101,11 +101,11 @@ Mesh3 pulseGrid(float seconds) {
   const float envelope = std::pow(1.f - std::fmod(beat, 1.f), 3.f);
   const V3 cubeCenter{0.f, .20f, 0.f};
 
-  latticeCube(b, 14, 1.13f * (1.f + envelope * .10f), .17f, t, cubeCenter);
+  latticeCube(b, 11, 1.13f * (1.f + envelope * .10f), .17f, t, cubeCenter);
   for (int shell = 0; shell < 3; ++shell) {
     const float phase = .5f + .5f * std::sin(beat * 2.f * pi - float(shell) * 1.7f);
     const float size = .42f + float(shell) * .19f + phase * .055f;
-    latticeCube(b, 4, size, .07f, t + float(shell) * .08f, cubeCenter);
+    latticeCube(b, 3, size, .07f, t + float(shell) * .08f, cubeCenter);
   }
 
   for (int i = 0; i < 3; ++i) {

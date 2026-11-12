@@ -24,6 +24,9 @@ uniform float uFxAmount;
 // 1 while a golden-glimmer scene is on: gold-tinted streaks plus vertical streaks (cross glints),
 // a quieter art background and a warm grade.
 uniform float uGold;
+// Clean-composition scenes retain bloom/background/gloss but disable spatial
+// warps and transition smears that would destroy deliberate model silhouettes.
+uniform float uClean;
 uniform sampler2D uArt;   // the art pass (half resolution), see art.frag
 uniform float uArtOn;
 // Selected background style (0 = classic). Styled backgrounds keep their own palette: the hue drift,
@@ -57,7 +60,7 @@ void main(){
   // smear it into an unrecognizable smudge. Compute this BEFORE the warps so
   // they can be gated off.
   float hasLogo=max(step(.5,uHasLogo)*clamp(uLogoVis,0.,1.),1.0-clamp(uFxAmount,0.,1.));
-  float calm=max(hasLogo,clamp(uGold,0.,1.));   // warps and colour grading off: logo card or golden scene
+  float calm=max(hasLogo,max(clamp(uGold,0.,1.),clamp(uClean,0.,1.)));
 
   // --- Screen-space UV warps (applied to the scene sample) -------------------
   // These displace the sampling UV. They look great on a wireframe-on-black
@@ -96,9 +99,9 @@ void main(){
     suv=clamp(suv,0.0,1.0); }
   // The wires are the middle depth plane: they slide a little with the pointer, between the background
   // (which moves per layer) and the depth motes in front.
-  suv=clamp(suv-uPointer*.014*(1.0-hasLogo),0.0,1.0);
+  suv=clamp(suv-uPointer*.014*(1.0-calm),0.0,1.0);
   // 4) Chromatic aberration (sample R/B at offset UVs, driven by pulse).
-  float cIn=uCut.x*(1.0-hasLogo),cOut=uCut.y*(1.0-hasLogo);
+  float cIn=uCut.x*(1.0-calm),cOut=uCut.y*(1.0-calm);
   vec2 ca=(suv-.5)*((.002+.006*beat)*(1.0-calm)+.03*cIn);          // entry: chromatic split that snaps back
   vec3 scene=vec3(texture(uScene,suv+ca).r,texture(uScene,suv).g,texture(uScene,suv-ca).b);
   // EXIT: the picture rushes toward the viewer -- a radial zoom blur that grows over the last beat.

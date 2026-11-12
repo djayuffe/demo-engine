@@ -16,7 +16,7 @@ uniform float uTime;
 uniform vec3 uColor;
 uniform float uMusicLevel;
 uniform float uGain;   // density compensation for additive blending (C++: wireGainFor)
-uniform int uStyle;    // 0 = electric palette, 1 = golden glimmer
+uniform int uStyle;    // 0 = electric palette, 1 = golden glimmer, 2 = PulseGrid pastel circuitry
 
 vec3 palette(float t){
   return .50+.50*cos(6.2831853*(vec3(.03,.31,.62)+t));
@@ -54,6 +54,28 @@ void main(){
     vec3 gold=mix(vec3(1.0,.50,.10),vec3(1.0,.80,.36),h.z);
     vec3 col=gold*(.80+.75*sheen+.40*music)*(.55+.45*vDepth)+vec3(1.0,.94,.72)*twinkle*5.0;
     FragColor=vec4(col*uGain*2.4*edge,1.0);
+    return;
+  }
+  if(uStyle==2){
+    // PulseGrid keeps the supplied effect's cool C64-derived pastels while
+    // using continuous phase blends rather than abrupt palette indices.
+    vec3 blue=vec3(.34,.42,1.00),cyan=vec3(.23,1.00,1.00);
+    vec3 green=vec3(.47,1.00,.52),pink=vec3(1.00,.18,.76);
+    float phase=.5+.5*sin(dot(p,vec3(.73,1.11,.47))*2.4+uTime*.62);
+    float accent=.5+.5*sin(dot(p,vec3(-.31,.58,1.0))*4.7-uTime*.91);
+    vec3 color=mix(blue,cyan,phase);
+    color=mix(color,mix(green,pink,accent),.26+.18*music);
+    float floorMask=1.-smoothstep(-1.42,-1.24,p.y);
+    vec3 floorColor=mix(vec3(.025,.08,.15),cyan,.22+.25*phase);
+    color=mix(color,floorColor,floorMask);
+    float wave=pow(.5+.5*sin(length(p.xz)*8.5-uTime*4.1),10.);
+    float seam=pow(.5+.5*sin(dot(p,vec3(1.7,-1.1,.9))*7.0-uTime*2.2),14.);
+    float pk=packet(clamp(gAlong,0.,1.),gEdge,uTime,music);
+    color*=.98+.58*music+.42*phase;
+    color+=green*wave*(.16+.30*music)*(1.-floorMask*.25);
+    color+=mix(cyan,pink,accent)*seam*(.12+.34*music)*(1.-floorMask*.65);
+    color+=mix(vec3(.90,.96,1.),pink,accent)*pk*.82*vDepth;
+    FragColor=vec4(color*uGain*2.65*edge*(.68+.32*vDepth),1.0);
     return;
   }
 
