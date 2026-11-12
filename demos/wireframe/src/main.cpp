@@ -13,7 +13,7 @@
 #include <cstdlib>
 #include <tuple>
 namespace {
-constexpr const char* kVersion = "v5.1";
+constexpr const char* kVersion = "v5.2";
 
 class WireframeDemo final : public de::Demo {
 public:
@@ -47,7 +47,7 @@ public:
   }
   std::string usage() const override {
     return "  --cpu-effects   Use CPU deformation reference path\n"
-           "  --scene N       Start on scene N in manual mode (0-72; Space returns to auto)\n"
+           "  --scene N       Start on scene N in manual mode (0-73; Space returns to auto)\n"
            "  --recipe N      Start in recipe mode with curated recipe N (0-37)\n"
            "Keys: Left/Right cycle scenes, Space back to auto, R recipe mode,\n"
            "      Up/Down cycle recipe, P re-roll mutation,\n"
@@ -156,7 +156,9 @@ public:
         break;
       }
     // The golden orbit clouds (57-58) are never warped in auto mode: their motion is the attractor's own morph.
-    if ((scene == 57 || scene == 58) && !recipeMode_ && !haveRecipe_)
+    if (scene == 73 && !recipeMode_ && !haveRecipe_)
+      recipeName = "Native pulse geometry";
+    else if ((scene == 57 || scene == 58) && !recipeMode_ && !haveRecipe_)
       recipeName = "Golden glimmer";
     else if (pureForm && !recipeMode_ && !haveRecipe_)
       recipeName = "Pure form";
@@ -174,6 +176,17 @@ public:
       out.memory = look.memory;
       std::copy(look.look, look.look + 5, out.look);
     }
+    if (scene == 73) {
+      // PulseGrid owns its cube/orbit motion and its floor must remain a floor.
+      // Cancel the generic show's object spin while retaining camera drift.
+      const float yaw = float(f.effectTime) * .17f;
+      const float pitch = .27f * std::sin(float(f.effectTime) * .11f);
+      const float cy = std::cos(yaw), sy = std::sin(yaw), cp = std::cos(pitch), sp = std::sin(pitch);
+      const float inverse[9] = {cy, 0, -sy, sp * sy, cp, sp * cy, cp * sy, -sp, cp * cy};
+      std::copy(inverse, inverse + 9, out.modelTransform);
+      out.travelers = false;
+      out.fxAmount = .38f;
+    }
     out.scale =
         1.f + .11f * std::sin(float(f.effectTime) * .41f + float(scene) * .37f) + .07f * f.sync.pulse; // breathing size cycle
     out.lineWidth = 1.f + f.sync.pulse;
@@ -190,6 +203,7 @@ public:
       out.travelers = false;
       out.scale *= .8f;
     } // golden orbit clouds: dense right out to the rim
+    if (scene == 73) out.scale *= 1.50f;
     auto& si = scenes_.info(scene);
     out.ticker = describeScene(scene, si.name, si.provenance, recipeName, f.bpm, creditFor(f.musicPath));
     return true;

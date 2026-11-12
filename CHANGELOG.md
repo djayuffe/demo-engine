@@ -1,3 +1,10 @@
+# Native PulseGrid model — 2026-11-12
+
+- Add selectable wireframe scene 73, a native geometric interpretation of the supplied PurpleTwilight-attributed PulseGrid effect; the wireframe show now contains 74 models.
+- Build a rounded 3D lattice cube, three independently breathing inner shells, three orbital rails, a receding floor grid, expanding beat rings and a geometric pulse rail at the source effect's 25 Hz visual cadence.
+- Keep the designed model free of automatic mesh mutation, cancel the generic object spin so its floor remains stable, and use a new per-frame post-strength control to preserve its silhouette while retaining optional manual recipes plus the engine's music response, HDR bloom, backgrounds and gloss.
+- Record the supplied archive's SHA-256 and port boundary without redistributing its browser, SID, font, binary-data or embedded archive assets.
+
 # Build script — 2026-11-08
 
 - `build_mac.sh` rewritten. Changes:

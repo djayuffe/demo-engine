@@ -696,6 +696,7 @@ int run(Demo& demo, int argc, char** argv) {
     r.setMemory(frame.memory);
     r.setLook(frame.look);
     r.setCut(frame.cutIn, frame.cutOut);
+    r.setFxAmount(cfg.fxAmount * frame.fxAmount);
     if (cfg.customRendering) {
       std::string error;
       if (!demo.draw(fi, error)) {

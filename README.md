@@ -119,6 +119,7 @@ make run-quantum          # supplied quantum twist lattice, native GPU scene 27
 make run-black-hole       # ray-lensed black hole + 131K GPU physics particles, scene 28
 make run-hyperfractal     # supplied quantum hyperfractal, native GPU scene 29
 make run-wireframe        # Impossible Wireframe show
+make run-pulsegrid        # supplied PulseGrid composition, native wireframe scene 73
 make run-hello            # minimal engine example
 make run-ripple           # adaptive GPU-tessellation example
 make run-atlas-reference  # CPU Atlas four-panel image -> build/atlas-reference.ppm
@@ -132,6 +133,7 @@ Any live Atlas scene can be selected directly:
 ./build/hold_infinity --infinity-scene 25  # archived three-view study (explicit launch only)
 ./build/hold_infinity --infinity-scene 26  # spectral parametric point field
 ./build/hold_infinity --infinity-scene 21 --atlas-reduced-motion
+./build/impossible_wireframe --scene 73       # native PulseGrid model
 ```
 
 Press **Left/Right** to change scenes, **P** to pause Atlas motion and **Q** or

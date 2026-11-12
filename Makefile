@@ -13,6 +13,7 @@
 #   make run-quantum # launch the Majorana quantum twist lattice
 #   make run-black-hole # launch the fractal black-hole ray field
 #   make run-hyperfractal # launch the 4D quantum hyperfractal
+#   make run-pulsegrid # launch the native PulseGrid wireframe model
 #   make run-silicon# the wireframe demo with Silicon Dancer by Drozerix
 #   make run-hello  # build + launch the minimal hello demo
 #   make run-ripple # build + launch the GPU-tessellated ripple demo
@@ -54,7 +55,7 @@ CMAKE_FLAGS := -DCMAKE_BUILD_TYPE=$(TYPE) -DIW_BUILD_TESTS=ON $(CMAKE_EXTRA)
 # the build-type / generator case.)
 STAMP := $(BUILD_DIR)/.stamp
 
-.PHONY: all configure build test run run-atlas run-aviation run-mobius run-quantum run-black-hole run-hyperfractal run-atlas-reference run-atlas-advanced run-wireframe run-silicon run-hello run-ripple run-pulse clean reconfigure diag help stamp
+.PHONY: all configure build test run run-atlas run-aviation run-mobius run-quantum run-black-hole run-hyperfractal run-atlas-reference run-atlas-advanced run-wireframe run-pulsegrid run-silicon run-hello run-ripple run-pulse clean reconfigure diag help stamp
 
 all: build
 
@@ -128,6 +129,9 @@ run-atlas-advanced: build
 run-wireframe: build
 	$(WIREFRAME)
 
+run-pulsegrid: build
+	$(WIREFRAME) --scene 73
+
 run-silicon: build
 	$(BIN) --music demos/wireframe/assets/music/drozerix_-_silicon_dancer.mod
 
@@ -180,6 +184,7 @@ help:
 	@echo "  run-atlas-reference Generate the four-panel CPU Atlas reference image"
 	@echo "  run-atlas-advanced  Generate the advanced CPU Atlas reference image"
 	@echo "  run-wireframe   Build + launch the previous wireframe show"
+	@echo "  run-pulsegrid   Build + launch the native PulseGrid model (scene 73)"
 	@echo "  run-hello       Build + launch the minimal hello demo"
 	@echo "  run-ripple      Build + launch the GPU-tessellated ripple demo"
 	@echo "  run-pulse       Build + launch Hold Infinity with the CC0 Pulse track"

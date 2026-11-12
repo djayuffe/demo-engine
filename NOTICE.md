@@ -46,3 +46,5 @@ for source/download URLs, licensing links, author credits and SHA-256 checksums.
 The Cynic Project: https://cynicmusic.com/ and https://pixelsphere.org/.
 
 For a consolidated licensing map, see [LICENSES.md](LICENSES.md). Supplied cosmic and parametric effects are credited in [cosmic source records](demos/cosmic/SOURCE.md) and [aviation source records](demos/aviation/SOURCE.md).
+
+The native PulseGrid model is derived from a user-supplied PurpleTwilight-attributed browser effect. Its archive hash, inspected components, port boundary and licensing status are recorded in [demos/wireframe/SOURCE_PULSEGRID.md](demos/wireframe/SOURCE_PULSEGRID.md). No supplied audio, font, binary data or browser source is redistributed.

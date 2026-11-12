@@ -11,6 +11,7 @@ The root [LICENSE](LICENSE) contains the MIT license for original engine code an
 | DMT Atlas supplied reference code and derivatives | No explicit license in supplied archive; [source record](demos/atlas/SOURCE.md) |
 | Supplied cosmic effects and derivatives | No explicit license in supplied archives; [source record](demos/cosmic/SOURCE.md) |
 | Supplied parametric point-field effect | See [source record](demos/aviation/SOURCE.md) |
+| Supplied PulseGrid visual composition and native derivative | No explicit license in supplied archive; [source record](demos/wireframe/SOURCE_PULSEGRID.md) |
 | Bundled music | Per-track CC BY 4.0, public-domain or CC0 designations in [music credits](demos/wireframe/assets/music/README.md) |
 | Vendored stb headers | Embedded public-domain / MIT terms in `thirdparty/` |
 | External build/runtime dependencies | Their respective upstream licenses; not relicensed by this project |

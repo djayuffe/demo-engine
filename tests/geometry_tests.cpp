@@ -2,6 +2,7 @@
 #include "Geometry.hpp"
 #include "AdvancedGeometry.hpp"
 #include "ImpossibleGeometry.hpp"
+#include "PulseGridGeometry.hpp"
 #include "VertexWeld.hpp"
 #include "Image.hpp"
 #include "Scene.hpp"
@@ -441,7 +442,7 @@ int main() {
   // B18: scene-table consistency
   {
     SceneSystem ss;
-    req(ss.count() == 73, "scene count 73");
+    req(ss.count() == 74, "scene count 74");
     for (int i = 0; i < ss.count(); ++i) {
       auto& si = ss.info(i);
       req(si.id == i, "scene id==index");
@@ -457,6 +458,21 @@ int main() {
     req(SceneSystem::tickFor(ss.info(6), 99.0) == 0, "static scene tick=0");
     // B7: dynamic scene tick advances with time (scene 2 = 6 Hz, use 0.2s = 1.2 ticks)
     req(SceneSystem::tickFor(ss.info(2), 0.2) > SceneSystem::tickFor(ss.info(2), 0.0), "dynamic tick advances");
+  }
+  // Supplied PulseGrid port: fixed 25 Hz cadence, real depth layers and valid topology.
+  {
+    const Mesh3 a = geo::pulseGrid(1.001f), sameTick = geo::pulseGrid(1.019f), nextTick = geo::pulseGrid(1.041f);
+    mesh(a, "PulseGrid model");
+    req(a.v.size() > 2000 && a.e.size() > 2000, "PulseGrid retains layered geometric detail");
+    req(a.v.size() == sameTick.v.size() && a.e.size() == sameTick.e.size() &&
+            std::equal(a.v.begin(), a.v.end(), sameTick.v.begin(), [](V3 x, V3 y) {
+              return x.x == y.x && x.y == y.y && x.z == y.z;
+            }),
+        "PulseGrid holds within a 25 Hz source tick");
+    req(std::equal(a.v.begin(), a.v.end(), nextTick.v.begin(), [](V3 x, V3 y) {
+          return x.x == y.x && x.y == y.y && x.z == y.z;
+        }) == false,
+        "PulseGrid advances on the next source tick");
   }
   // Impossible-geometry scenes 59..72: valid, finite, duplicate-free, deterministic, edge-budgeted at several times
   {

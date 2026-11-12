@@ -2,12 +2,13 @@
 #include "AdvancedGeometry.hpp"
 #include "ShowpieceGeometry.hpp"
 #include "ImpossibleGeometry.hpp"
+#include "PulseGridGeometry.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 namespace {
-constexpr std::array<SceneInfo, 73> S{
+constexpr std::array<SceneInfo, 74> S{
     {{0, "600-cell projection", true, 60, "exact 600-cell + 4D projection"},
      {1, "600-cell slice", true, 30, "exact face/hyperplane intersection"},
      {2, "Gyroid", true, 6, "numerical implicit"},
@@ -81,7 +82,8 @@ constexpr std::array<SceneInfo, 73> S{
      {69, "Geodesic lightning", true, 20, "rays in a mutating conformal metric, d/ds(n dx/ds)=grad n"},
      {70, "Time-dilation cathedral", true, 24, "local clock field slows bays near a moving mass"},
      {71, "Discrete-space crystal", true, 12, "lattice with dynamic bonds and wormholes, spring-relaxed"},
-     {72, "Conflict geometry", true, 12, "contours of f1-f2 for two disagreeing implicit worlds"}}};
+     {72, "Conflict geometry", true, 12, "contours of f1-f2 for two disagreeing implicit worlds"},
+     {73, "PulseGrid", true, 25, "PurpleTwilight supplied effect: rounded pulse lattice + orbital rails"}}};
 }
 SceneSystem::SceneSystem() : c600_(geo::cell600()), c120_(geo::cell120Vertices()) {}
 const SceneInfo& SceneSystem::info(int id) const {
@@ -164,6 +166,7 @@ Mesh3 SceneSystem::build(int id, uint64_t tick, uint64_t seed) const {
     case 70: m = geo::timeDilationCathedral(t); break;
     case 71: m = geo::discreteSpaceCrystal(t); break;
     case 72: m = geo::conflictGeometry(t); break;
+    case 73: m = geo::pulseGrid(t); break;
     case 57:
     case 58: {
       // The renderer spins every scene about y at 0.17 rad/s; these clouds are flat-ish, so cancel the spin
