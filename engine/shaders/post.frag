@@ -76,7 +76,13 @@ void main(){
     return;
   }
   vec2 px=1.0/max(uResolution,vec2(1));
-  vec2 baseUv=uC64>.5?(floor(uv*vec2(320.,200.))+.5)/vec2(320.,200.):uv;
+  // Cropped PAL display raster: a 320x200 VIC-II active screen sits inside a
+  // 384x272 visible frame. Keeping the border separate is essential—the C64
+  // did not simply stretch its bitmap over the whole television picture.
+  vec2 c64Raster=uv*vec2(384.,272.);
+  vec2 c64ActiveUv=(c64Raster-vec2(32.,36.))/vec2(320.,200.);
+  vec2 c64Sample=(floor(clamp(c64ActiveUv,0.,1.)*vec2(320.,200.))+.5)/vec2(320.,200.);
+  vec2 baseUv=uC64>.5?c64Sample:uv;
   vec2 p=(baseUv*2.-1.)*vec2(uResolution.x/max(uResolution.y,1.),1.);
   float beat=uBeatDrive.x;
   float mlev=uMusicLevel;
@@ -280,9 +286,25 @@ void main(){
   if(uC64>.5){
     ivec2 logical=ivec2(floor(baseUv*vec2(320.,200.)));
     hdr=nearestC64(clamp(hdr*1.55+bayer4(logical)*.10,0.,1.));
-    // Classic VIC-II screen blue replaces modern true black. The final image
-    // still contains only colours from the hardware's fixed 16-entry palette.
+    // Power-on defaults: blue screen (colour 6) inside a light-blue border
+    // (colour 14). Up to this point every pixel is a literal VIC-II colour.
     if(dot(hdr,hdr)<1e-6)hdr=c64Color(6);
+    float activeScreen=step(32.,c64Raster.x)*step(c64Raster.x,352.)*
+                       step(36.,c64Raster.y)*step(c64Raster.y,236.);
+    hdr=mix(c64Color(14),hdr,activeScreen);
+
+    // PAL CRT presentation. The beam is brightest through the centre of each
+    // raster line and falls off at its edges; alternating line phase produces
+    // the tiny red/blue chroma displacement characteristic of PAL decoding.
+    // This happens after VIC-II palette lookup, as it would on a real display.
+    float beamPhase=fract(c64Raster.y);
+    float scanline=.70+.30*pow(sin(3.14159265*beamPhase),.42);
+    float palPhase=(logical.y&1)==0?1.:-1.;
+    vec3 delayed=hdr.gbr;
+    hdr=mix(hdr,delayed,.012+.006*palPhase)*scanline;
+    // Very mild horizontal phosphor persistence softens only the beam, never
+    // the underlying logical pixels or their hard 320-column boundaries.
+    hdr=mix(hdr,(hdr+vec3(hdr.g,hdr.b,hdr.r))*.5,.018);
   }
   // Final touch: triangular-PDF dither (+-1 LSB) so the slow dark gradients of the background styles
   // (nebula gas, synthwave sky) quantise to 8 bits without visible banding.

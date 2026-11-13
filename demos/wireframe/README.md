@@ -41,7 +41,7 @@ Each feature below is a separate, independently degradable layer. If a shader fa
 | 59-66 | **Impossible relationships** | Noncommutative lattice, holonomy sphere, motion-only sculpture, atomic collision field, relational gravity, data-collision sculpture, a self-refuting solver and contradictory silhouettes |
 | 67-72 | **Curved and conflicting worlds** | Hyperbolic city, spherical universe, geodesic lightning, time-dilation cathedral, discrete-space crystal and conflict geometry |
 | 73 | **PulseGrid Reactor** | Original standalone 3D reactor with a rounded chassis, sculpted counter-rotating core, six coiled power buses, orbital gimbals, floor waves and heartbeat rail; evolved from the supplied PurpleTwilight-attributed composition; [source record](SOURCE_PULSEGRID.md) |
-| 74 | **C64 PulseGrid 3D** | PAL 50 Hz block reactor with a voxel core, eight-sided coils, extruded C64 pixel lettering, 320×200 rasterization, ordered dithering and the fixed VIC-II 16-colour palette |
+| 74 | **C64 PulseGrid 3D** | PAL 50 Hz block reactor with a voxel core, eight-sided coils and extruded C64 pixel lettering; a hard-sampled 320×200 screen inside a 384×272 bordered raster adds ordered dithering, the fixed VIC-II palette, beam scanlines and alternating PAL chroma phase |
 
 Expensive scenes are cached and rebuilt only at their own update rate (for example the 600-cell at 60 Hz, the discovered object at 1/8 Hz), not at the display refresh. `data/object_catalog.csv` records provenance for every object. Select a scene with Left/Right or `--scene N`; Space returns to automatic beat and bar sequencing.
 

@@ -992,8 +992,10 @@ int main() {
       req(all.find("uClean") != std::string::npos && all.find("1.0-calm") != std::string::npos,
           "post.frag retains clean-composition warp suppression");
       req(all.find("uC64") != std::string::npos && all.find("vec2(320.,200.)") != std::string::npos &&
-              all.find("nearestC64") != std::string::npos && all.find("bayer4") != std::string::npos,
-          "post.frag retains the 320x200 dithered C64 palette pipeline");
+              all.find("vec2(384.,272.)") != std::string::npos && all.find("nearestC64") != std::string::npos &&
+              all.find("bayer4") != std::string::npos && all.find("scanline") != std::string::npos &&
+              all.find("palPhase") != std::string::npos,
+          "post.frag retains the bordered 320x200 C64 palette and PAL scanline pipeline");
       req(all.find("vec3 halation=") != std::string::npos && all.find("vec3 lensGhost=") != std::string::npos,
           "post.frag retains cinematic halation and lens depth");
     }

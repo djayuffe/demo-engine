@@ -1,6 +1,7 @@
 # Native PulseGrid model — 2026-11-12
 
 - Add scene 74, C64 PulseGrid 3D: a distinct PAL 50 Hz voxel model with a block core, eight-sided power coils, extruded C64 pixel lettering, 320×200 logical raster sampling, Bayer dithering, and output restricted to the canonical VIC-II 16-colour palette.
+- Deepen its VIC-II/PAL presentation with a separate 384×272 cropped display raster, 320×200 active screen, power-on blue/light-blue screen and border colours, beam-shaped scanlines, alternating-line PAL chroma phase and subtle phosphor persistence.
 
 - Add selectable wireframe scene 73, a native geometric interpretation of the supplied PurpleTwilight-attributed PulseGrid effect; the wireframe show now contains 74 models.
 - Build a rounded 3D lattice cube, three independently breathing inner shells, three orbital rails, a receding floor grid, expanding beat rings and a geometric pulse rail at the source effect's 25 Hz visual cadence.
