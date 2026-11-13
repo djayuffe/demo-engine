@@ -43,20 +43,27 @@ uniform sampler2D uBloom;
 #include "lib/common.glsl"
 #include "lib/depth_layers.glsl"
 
-vec3 c64Color(int i){
-  if(i==0)return vec3(0);                    if(i==1)return vec3(1);
-  if(i==2)return vec3(104,55,43)/255.;       if(i==3)return vec3(112,164,178)/255.;
-  if(i==4)return vec3(111,61,134)/255.;      if(i==5)return vec3(88,141,67)/255.;
-  if(i==6)return vec3(53,40,121)/255.;       if(i==7)return vec3(184,199,111)/255.;
-  if(i==8)return vec3(111,79,37)/255.;       if(i==9)return vec3(67,57,0)/255.;
-  if(i==10)return vec3(154,103,89)/255.;     if(i==11)return vec3(68)/255.;
-  if(i==12)return vec3(108)/255.;            if(i==13)return vec3(154,210,132)/255.;
-  if(i==14)return vec3(108,94,181)/255.;     return vec3(149)/255.;
+const vec3 C64_PALETTE[16]=vec3[16](
+  vec3(0),vec3(1),vec3(129,51,56)/255.,vec3(117,206,200)/255.,
+  vec3(142,60,151)/255.,vec3(86,172,77)/255.,vec3(46,44,155)/255.,vec3(237,241,113)/255.,
+  vec3(142,80,41)/255.,vec3(85,56,0)/255.,vec3(196,108,113)/255.,vec3(74)/255.,
+  vec3(123)/255.,vec3(169,255,159)/255.,vec3(112,109,235)/255.,vec3(178)/255.);
+const float C64_LUMA[16]=float[16](0.,1.,.2937,.7008,.3721,.5312,.2245,.8832,
+                                            .3690,.2286,.5290,.2902,.4824,.8562,.4873,.6980);
+vec3 c64Color(int i){return C64_PALETTE[clamp(i,0,15)];}
+vec3 rgbToPal(vec3 c){
+  return vec3(dot(c,vec3(.299,.587,.114)),dot(c,vec3(-.14713,-.28886,.436)),dot(c,vec3(.615,-.51499,-.10001)));
+}
+vec3 palToRgb(vec3 c){
+  return vec3(c.x+1.13983*c.z,c.x-.39465*c.y-.58060*c.z,c.x+2.03211*c.y);
 }
 vec3 nearestC64(vec3 c){
   vec3 best=c64Color(0);float distanceBest=1e9;
+  float targetLuma=dot(c,vec3(.299,.587,.114));
   for(int i=0;i<16;i++){
-    vec3 candidate=c64Color(i),delta=c-candidate;float distanceNow=dot(delta,delta);
+    vec3 candidate=c64Color(i),delta=c-candidate;
+    float luma=targetLuma-C64_LUMA[i];
+    float distanceNow=dot(delta,delta)*.45+luma*luma*1.55;
     if(distanceNow<distanceBest){distanceBest=distanceNow;best=candidate;}
   }
   return best;
@@ -84,6 +91,9 @@ void main(){
   float tubeMask=step(0.,tubeUv.x)*step(tubeUv.x,1.)*step(0.,tubeUv.y)*step(tubeUv.y,1.);
   vec2 c64Raster=tubeUv*vec2(384.,272.);
   vec2 c64ActiveUv=(c64Raster-vec2(32.,36.))/vec2(320.,200.);
+  float c64Line=floor(c64Raster.y);
+  float timebase=(hash(vec2(c64Line,floor(uTime*50.)))-.5)*.22;
+  c64ActiveUv.x+=timebase/320.;
   vec2 c64Max=vec2(1.)-1./vec2(320.,200.);
   vec2 c64Sample=(floor(clamp(c64ActiveUv,vec2(0.),c64Max)*vec2(320.,200.))+.5)/vec2(320.,200.);
   vec2 baseUv=uC64>.5?c64Sample:uv;
@@ -144,9 +154,12 @@ void main(){
     // luma bandwidth. Logical pixel edges remain hard; only the electrical
     // signal has the slight horizontal softness of a PAL connection.
     vec2 compositeTap=vec2(1./320.,0.);
-    vec3 composite=(texture(uScene,clamp(suv-compositeTap,0.,1.)).rgb+
-                    scene*2.+texture(uScene,clamp(suv+compositeTap,0.,1.)).rgb)*.25;
-    scene=mix(scene,composite,.16);
+    vec3 left=texture(uScene,clamp(suv-compositeTap,0.,1.)).rgb;
+    vec3 right=texture(uScene,clamp(suv+compositeTap,0.,1.)).rgb;
+    vec3 centerPal=rgbToPal(scene),sidePal=rgbToPal((left+right)*.5);
+    centerPal.x=mix(centerPal.x,sidePal.x,.18);   // luma retains most horizontal detail
+    centerPal.yz=mix(centerPal.yz,sidePal.yz,.62); // PAL chroma bandwidth is much lower
+    scene=max(palToRgb(centerPal),0.);
   }
   // EXIT: the picture rushes toward the viewer -- a radial zoom blur that grows over the last beat.
   if(cOut>.01){
@@ -320,11 +333,17 @@ void main(){
     // the tiny red/blue chroma displacement characteristic of PAL decoding.
     // This happens after VIC-II palette lookup, as it would on a real display.
     float beamPhase=fract(c64Raster.y);
-    float scanline=(.68+.04*beat)+(.32-.04*beat)*pow(sin(3.14159265*beamPhase),.42);
+    float beamShape=exp(-pow((beamPhase-.5)/(.29+.025*beat),2.));
+    float scanline=.55+.45*beamShape;
     int rasterLine=int(floor(c64Raster.y));
     float palPhase=(rasterLine&1)==0?1.:-1.;
-    vec3 delayed=hdr.gbr;
-    hdr=mix(hdr,delayed,.012+.006*palPhase)*scanline;
+    vec3 displayPal=rgbToPal(hdr);
+    float phaseError=palPhase*(.014+.008*mlev);
+    float cp=cos(phaseError),sp=sin(phaseError);
+    displayPal.yz=mat2(cp,-sp,sp,cp)*displayPal.yz;
+    float dotCrawl=sin((c64Raster.x*.5+c64Raster.y+floor(uTime*50.))*3.14159265);
+    displayPal.x+=dotCrawl*.010*(.35+.65*mlev);
+    hdr=clamp(palToRgb(displayPal),0.,1.25)*scanline;
     // Very mild horizontal phosphor persistence softens only the beam, never
     // the underlying logical pixels or their hard 320-column boundaries.
     hdr=mix(hdr,(hdr+vec3(hdr.g,hdr.b,hdr.r))*.5,.018);

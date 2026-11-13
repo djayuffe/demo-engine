@@ -995,7 +995,9 @@ int main() {
               all.find("vec2(384.,272.)") != std::string::npos && all.find("nearestC64") != std::string::npos &&
               all.find("bayer4") != std::string::npos && all.find("scanline") != std::string::npos &&
               all.find("palPhase") != std::string::npos && all.find("rasterBar") != std::string::npos &&
-              all.find("shadowMask") != std::string::npos && all.find("compositeTap") != std::string::npos,
+              all.find("shadowMask") != std::string::npos && all.find("compositeTap") != std::string::npos &&
+              all.find("rgbToPal") != std::string::npos && all.find("timebase") != std::string::npos &&
+              all.find("dotCrawl") != std::string::npos && all.find("237,241,113") != std::string::npos,
           "post.frag retains the GPU VIC-II palette, raster-bar and PAL CRT pipeline");
       req(all.find("vec3 halation=") != std::string::npos && all.find("vec3 lensGhost=") != std::string::npos,
           "post.frag retains cinematic halation and lens depth");

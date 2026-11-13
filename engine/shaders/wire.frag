@@ -21,16 +21,12 @@ uniform int uStyle;    // 0 = electric, 1 = gold, 2 = PulseGrid, 3 = C64 16-colo
 vec3 palette(float t){
   return .50+.50*cos(6.2831853*(vec3(.03,.31,.62)+t));
 }
-vec3 c64Palette(int i){
-  if(i==0)return vec3(0);                    if(i==1)return vec3(1);
-  if(i==2)return vec3(104,55,43)/255.;       if(i==3)return vec3(112,164,178)/255.;
-  if(i==4)return vec3(111,61,134)/255.;      if(i==5)return vec3(88,141,67)/255.;
-  if(i==6)return vec3(53,40,121)/255.;       if(i==7)return vec3(184,199,111)/255.;
-  if(i==8)return vec3(111,79,37)/255.;       if(i==9)return vec3(67,57,0)/255.;
-  if(i==10)return vec3(154,103,89)/255.;     if(i==11)return vec3(68)/255.;
-  if(i==12)return vec3(108)/255.;            if(i==13)return vec3(154,210,132)/255.;
-  if(i==14)return vec3(108,94,181)/255.;     return vec3(149)/255.;
-}
+const vec3 C64_PALETTE[16]=vec3[16](
+  vec3(0),vec3(1),vec3(129,51,56)/255.,vec3(117,206,200)/255.,
+  vec3(142,60,151)/255.,vec3(86,172,77)/255.,vec3(46,44,155)/255.,vec3(237,241,113)/255.,
+  vec3(142,80,41)/255.,vec3(85,56,0)/255.,vec3(196,108,113)/255.,vec3(74)/255.,
+  vec3(123)/255.,vec3(169,255,159)/255.,vec3(112,109,235)/255.,vec3(178)/255.);
+vec3 c64Palette(int i){return C64_PALETTE[clamp(i,0,15)];}
 
 float lightSheet(vec3 p,vec3 n,float phase,float width){
   float d=dot(p,normalize(n))+sin(phase)*.46;
