@@ -79,9 +79,13 @@ void main(){
   // Cropped PAL display raster: a 320x200 VIC-II active screen sits inside a
   // 384x272 visible frame. Keeping the border separate is essential—the C64
   // did not simply stretch its bitmap over the whole television picture.
-  vec2 c64Raster=uv*vec2(384.,272.);
+  vec2 tubeP=uv*2.-1.;
+  vec2 tubeUv=.5+.5*tubeP*(1.+.028*dot(tubeP,tubeP));
+  float tubeMask=step(0.,tubeUv.x)*step(tubeUv.x,1.)*step(0.,tubeUv.y)*step(tubeUv.y,1.);
+  vec2 c64Raster=tubeUv*vec2(384.,272.);
   vec2 c64ActiveUv=(c64Raster-vec2(32.,36.))/vec2(320.,200.);
-  vec2 c64Sample=(floor(clamp(c64ActiveUv,0.,1.)*vec2(320.,200.))+.5)/vec2(320.,200.);
+  vec2 c64Max=vec2(1.)-1./vec2(320.,200.);
+  vec2 c64Sample=(floor(clamp(c64ActiveUv,vec2(0.),c64Max)*vec2(320.,200.))+.5)/vec2(320.,200.);
   vec2 baseUv=uC64>.5?c64Sample:uv;
   vec2 p=(baseUv*2.-1.)*vec2(uResolution.x/max(uResolution.y,1.),1.);
   float beat=uBeatDrive.x;
@@ -135,6 +139,15 @@ void main(){
   float cIn=uCut.x*(1.0-calm),cOut=uCut.y*(1.0-calm);
   vec2 ca=(suv-.5)*((.002+.006*beat)*(1.0-calm)+.03*cIn);          // entry: chromatic split that snaps back
   vec3 scene=vec3(texture(uScene,suv+ca).r,texture(uScene,suv).g,texture(uScene,suv-ca).b);
+  if(uC64>.5){
+    // Two extra GPU texture taps approximate the VIC-II's composite-video
+    // luma bandwidth. Logical pixel edges remain hard; only the electrical
+    // signal has the slight horizontal softness of a PAL connection.
+    vec2 compositeTap=vec2(1./320.,0.);
+    vec3 composite=(texture(uScene,clamp(suv-compositeTap,0.,1.)).rgb+
+                    scene*2.+texture(uScene,clamp(suv+compositeTap,0.,1.)).rgb)*.25;
+    scene=mix(scene,composite,.16);
+  }
   // EXIT: the picture rushes toward the viewer -- a radial zoom blur that grows over the last beat.
   if(cOut>.01){
     vec3 zb=vec3(0.);
@@ -293,18 +306,35 @@ void main(){
                        step(36.,c64Raster.y)*step(c64Raster.y,236.);
     hdr=mix(c64Color(14),hdr,activeScreen);
 
+    // GPU raster bars live in the border just as they did in C64 demos: the
+    // colour register is changed as the beam advances down the display. Music
+    // and the shared beat envelope control brightness, not geometry or CPU work.
+    int barPalette[8]=int[8](2,8,10,7,13,3,14,4);
+    float barPhase=fract(c64Raster.y/72.-uTime*(.18+.08*mlev));
+    float rasterBar=pow(max(0.,1.-abs(barPhase-.5)*4.),2.)*(.20+.45*beat+.18*mlev);
+    int barIndex=(int(floor(c64Raster.y/6.))+int(floor(uTime*10.)))&7;
+    hdr=mix(hdr,c64Color(barPalette[barIndex]),(1.-activeScreen)*rasterBar);
+
     // PAL CRT presentation. The beam is brightest through the centre of each
     // raster line and falls off at its edges; alternating line phase produces
     // the tiny red/blue chroma displacement characteristic of PAL decoding.
     // This happens after VIC-II palette lookup, as it would on a real display.
     float beamPhase=fract(c64Raster.y);
-    float scanline=.70+.30*pow(sin(3.14159265*beamPhase),.42);
-    float palPhase=(logical.y&1)==0?1.:-1.;
+    float scanline=(.68+.04*beat)+(.32-.04*beat)*pow(sin(3.14159265*beamPhase),.42);
+    int rasterLine=int(floor(c64Raster.y));
+    float palPhase=(rasterLine&1)==0?1.:-1.;
     vec3 delayed=hdr.gbr;
     hdr=mix(hdr,delayed,.012+.006*palPhase)*scanline;
     // Very mild horizontal phosphor persistence softens only the beam, never
     // the underlying logical pixels or their hard 320-column boundaries.
     hdr=mix(hdr,(hdr+vec3(hdr.g,hdr.b,hdr.r))*.5,.018);
+    float hot=smoothstep(.58,.96,max(hdr.r,max(hdr.g,hdr.b)));
+    hdr+=c64Color(3)*hot*(.018+.038*beat); // phosphor flare on bright raster hits
+    float maskCell=mod(floor(gl_FragCoord.x),3.);
+    vec3 shadowMask=maskCell<1.?vec3(1.,.93,.90):maskCell<2.?vec3(.92,1.,.92):vec3(.90,.94,1.);
+    hdr*=mix(vec3(1.),shadowMask,.16);
+    float tubeVignette=1.-.18*pow(clamp(max(abs(tubeP.x),abs(tubeP.y)),0.,1.),4.);
+    hdr*=tubeVignette*tubeMask;
   }
   // Final touch: triangular-PDF dither (+-1 LSB) so the slow dark gradients of the background styles
   // (nebula gas, synthwave sky) quantise to 8 bits without visible banding.

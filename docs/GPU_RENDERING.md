@@ -97,6 +97,22 @@ existing full reference renderer, and `--validate-ants` to compare every GPU tra
 pixel against CPU rasterization. Validation intentionally reads pixels back; normal
 playback does not. Traffic profiling reports GPU splats and CPU texture uploads.
 
+## VIC-II / PAL display layer
+
+`--c64-layer` is a full-screen fragment-shader stage; it does not rebuild scene
+geometry or read pixels back to the CPU. The GPU performs curved-tube sampling,
+320x200 logical-pixel addressing, 16-colour nearest-palette lookup, ordered
+dithering, two-tap composite-video softness, beat-driven border raster bars,
+beam scanlines, alternating PAL chroma phase, phosphor flare, RGB shadow mask
+and tube vignette. `X` toggles the layer live. Scene 74 also selects a discrete
+C64 wire material, but the global layer preserves every other scene's material.
+
+On the Apple M1 Pro, identical 180-frame scene-73 runs at native `--quality 1`
+measured 12.221 ms GPU time without the layer and 14.037 ms with it. CPU work
+remained effectively unchanged (0.052 vs 0.056 ms/frame), confirming the display
+simulation is GPU-resident. The layer cost was 1.816 ms while remaining below a
+16.67 ms 60 Hz frame budget in that run.
+
 ## Measured CPU work and transfer savings
 
 On this Apple M1 Pro, two alternating-order 180-frame repeats produced:
