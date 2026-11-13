@@ -95,7 +95,7 @@ struct Frame {
   float look[5]={0,0,0,0,0};
   float cutIn=0.f, cutOut=0.f;                    // scene transition envelopes (Transition.hpp): entry flash / exit rush
   float fxAmount=1.f;           // 0..1 per-frame multiplier for the demo's configured signature post strength
-  int wireStyle=0;             // 0 = electric, 1 = golden glimmer, 2 = PulseGrid pastel circuitry
+  int wireStyle=0;             // 0 = electric, 1 = gold, 2 = PulseGrid, 3 = authentic C64 raster palette
   std::string ticker;          // text for the ticker band; empty = nothing
 };
 

@@ -16,10 +16,20 @@ uniform float uTime;
 uniform vec3 uColor;
 uniform float uMusicLevel;
 uniform float uGain;   // density compensation for additive blending (C++: wireGainFor)
-uniform int uStyle;    // 0 = electric palette, 1 = golden glimmer, 2 = PulseGrid pastel circuitry
+uniform int uStyle;    // 0 = electric, 1 = gold, 2 = PulseGrid, 3 = C64 16-colour raster
 
 vec3 palette(float t){
   return .50+.50*cos(6.2831853*(vec3(.03,.31,.62)+t));
+}
+vec3 c64Palette(int i){
+  if(i==0)return vec3(0);                    if(i==1)return vec3(1);
+  if(i==2)return vec3(104,55,43)/255.;       if(i==3)return vec3(112,164,178)/255.;
+  if(i==4)return vec3(111,61,134)/255.;      if(i==5)return vec3(88,141,67)/255.;
+  if(i==6)return vec3(53,40,121)/255.;       if(i==7)return vec3(184,199,111)/255.;
+  if(i==8)return vec3(111,79,37)/255.;       if(i==9)return vec3(67,57,0)/255.;
+  if(i==10)return vec3(154,103,89)/255.;     if(i==11)return vec3(68)/255.;
+  if(i==12)return vec3(108)/255.;            if(i==13)return vec3(154,210,132)/255.;
+  if(i==14)return vec3(108,94,181)/255.;     return vec3(149)/255.;
 }
 
 float lightSheet(vec3 p,vec3 n,float phase,float width){
@@ -76,6 +86,19 @@ void main(){
     color+=mix(cyan,pink,accent)*seam*(.12+.34*music)*(1.-floorMask*.65);
     color+=mix(vec3(.90,.96,1.),pink,accent)*pk*.82*vDepth;
     FragColor=vec4(color*uGain*2.65*edge*(.68+.32*vDepth),1.0);
+    return;
+  }
+  if(uStyle==3){
+    // Discrete colour-RAM cells and stepped cycling: no interpolated modern
+    // rainbow. Values come from the canonical 16-colour C64 palette above.
+    ivec3 cell=ivec3(floor((p+vec3(3.))*4.));
+    int phase=int(floor(uTime*8.))+cell.x+cell.y*3+cell.z*5;
+    int bright[8]=int[8](3,14,13,7,10,15,1,4);
+    vec3 color=c64Palette(bright[(phase%8+8)%8]);
+    float raster=step(.055,fract(gAlong*40.+float(cell.x+cell.y)));
+    float pk=packet(clamp(gAlong,0.,1.),gEdge,floor(uTime*50.)/50.,music);
+    color=mix(color,c64Palette(1),pk*.72);
+    FragColor=vec4(color*uGain*3.10*edge*(.68+.32*vDepth)*raster,1.0);
     return;
   }
 

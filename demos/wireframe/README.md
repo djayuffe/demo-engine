@@ -2,7 +2,7 @@
 
 ![Impossible Wireframe: 600-cell over the UBER logo](docs/screenshots/1-logo-hold-600cell.jpg)
 
-**A real-time wireframe demoscene in C++20 and OpenGL 4.1 Core** for macOS, Linux and Windows. It renders 74 mathematically unusual and supplied-reference objects, from exact 4D polychora to minimal surfaces, strange attractors, procedurally discovered shapes and the native PulseGrid model. A CPU/GPU effect engine warps them, an HDR post pass composites them over a timed logo show and a procedural art background, and tracker or PCM music drives the motion.
+**A real-time wireframe demoscene in C++20 and OpenGL 4.1 Core** for macOS, Linux and Windows. It renders 75 mathematically unusual and supplied-reference objects, from exact 4D polychora to minimal surfaces, strange attractors, procedurally discovered shapes and two native PulseGrid models. A CPU/GPU effect engine warps them, an HDR post pass composites them over a timed logo show and a procedural art background, and tracker or PCM music drives the motion.
 
 Copyright (c) 2026 Ulf Bertilsson. MIT licensed except for the supplied-source boundaries recorded in [LICENSES.md](../../LICENSES.md). Demo version: **v5.2** (the demo's v4.x history is in the original repository).
 Topics: `wireframe` `demoscene` `opengl` `glfw` `cpp20` `4d-geometry` `procedural-geometry` `shaders` `libopenmpt` `tracker-music` `creative-coding` `macos`
@@ -24,7 +24,7 @@ The window opens on the logo show; press Right to step through scenes, T to togg
 ## Feature guide
 Each feature below is a separate, independently degradable layer. If a shader fails to compile or the logo pack is missing, the app drops that layer instead of crashing.
 
-### 1. Scenes: 74 wireframe objects
+### 1. Scenes: 75 wireframe objects
 | Ids | Family | What it is |
 |---|---|---|
 | 0, 1, 9 | 4D polychora | Exact 600-cell projection, exact 600-cell face-plane slice, and the dual-derived 120-cell projection, all rotated in 4D and projected to 3D |
@@ -41,6 +41,7 @@ Each feature below is a separate, independently degradable layer. If a shader fa
 | 59-66 | **Impossible relationships** | Noncommutative lattice, holonomy sphere, motion-only sculpture, atomic collision field, relational gravity, data-collision sculpture, a self-refuting solver and contradictory silhouettes |
 | 67-72 | **Curved and conflicting worlds** | Hyperbolic city, spherical universe, geodesic lightning, time-dilation cathedral, discrete-space crystal and conflict geometry |
 | 73 | **PulseGrid Reactor** | Original standalone 3D reactor with a rounded chassis, sculpted counter-rotating core, six coiled power buses, orbital gimbals, floor waves and heartbeat rail; evolved from the supplied PurpleTwilight-attributed composition; [source record](SOURCE_PULSEGRID.md) |
+| 74 | **C64 PulseGrid 3D** | PAL 50 Hz block reactor with a voxel core, eight-sided coils, extruded C64 pixel lettering, 320×200 rasterization, ordered dithering and the fixed VIC-II 16-colour palette |
 
 Expensive scenes are cached and rebuilt only at their own update rate (for example the 600-cell at 60 Hz, the discovered object at 1/8 Hz), not at the display refresh. `data/object_catalog.csv` records provenance for every object. Select a scene with Left/Right or `--scene N`; Space returns to automatic beat and bar sequencing.
 
@@ -163,7 +164,7 @@ From the repository root: `make run` (see the [root README](../../README.md#buil
 ## Tests and CI
 `make test` builds and runs `geometry_tests` (about 8 s). Project targets compile with `-Wall -Wextra -Wpedantic -Werror` (`/W4 /WX` on MSVC). The suite checks:
 - canonical V/E/F counts for the tesseract, 16-cell, 24-cell and 600-cell, and V/E for the 120-cell;
-- every procedural family and all 74 scenes for finite vertices, valid indices, no self or duplicate edges;
+- every procedural family and all 75 scenes for finite vertices, valid indices, no self or duplicate edges;
 - every effect recipe (scenes 0, 1, 2, 5, 11, 26 and every 8th, times all recipes) for mesh validity;
 - timeline beat and bar math, the `--window` parser, the scroller code strip and shader conventions.
 

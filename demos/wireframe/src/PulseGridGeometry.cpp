@@ -149,6 +149,66 @@ void conduits(Builder& b, float t, float envelope, V3 center) {
   }
 }
 
+void boxFrame(Builder& b, V3 center, V3 half, float t, V3 modelCenter) {
+  std::array<uint32_t, 8> ids{};
+  for (unsigned i = 0; i < 8; ++i) {
+    V3 p{center.x + ((i & 1) ? half.x : -half.x),
+         center.y + ((i & 2) ? half.y : -half.y),
+         center.z + ((i & 4) ? half.z : -half.z)};
+    ids[i] = b.add(modelPoint(p, t, modelCenter));
+  }
+  for (unsigned i = 0; i < 8; ++i)
+    for (unsigned bit : {1u, 2u, 4u})
+      if ((i & bit) == 0) b.edge(ids[i], ids[i | bit]);
+}
+
+void c64Conduits(Builder& b, float t, float envelope, V3 center) {
+  const std::array<V3, 6> axes{{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}};
+  for (size_t face = 0; face < axes.size(); ++face) {
+    const V3 n = axes[face];
+    const V3 u = std::abs(n.x) > .5f ? V3{0, 1, 0} : V3{1, 0, 0};
+    const V3 v = std::abs(n.z) > .5f ? V3{0, 1, 0} : V3{0, 0, 1};
+    b.segment(modelPoint({n.x * .34f, n.y * .34f, n.z * .34f}, t, center),
+              modelPoint({n.x * 1.02f, n.y * 1.02f, n.z * 1.02f}, t, center));
+    uint32_t priorFirst = 0;
+    for (unsigned coil = 0; coil < 4; ++coil) {
+      const float along = .40f + .19f * float(coil);
+      const float radius = (.095f + .018f * envelope) * (coil == 3 ? 1.35f : 1.f);
+      uint32_t first = 0, previous = 0;
+      for (unsigned i = 0; i < 8; ++i) {
+        const float a = 2.f * pi * float(i) / 8.f + (face & 1 ? pi / 8.f : 0.f);
+        V3 p{n.x * along + radius * (u.x * std::cos(a) + v.x * std::sin(a)),
+             n.y * along + radius * (u.y * std::cos(a) + v.y * std::sin(a)),
+             n.z * along + radius * (u.z * std::cos(a) + v.z * std::sin(a))};
+        const uint32_t id = b.add(modelPoint(p, t, center));
+        if (i == 0) first = id;
+        else b.edge(previous, id);
+        if (coil && (i & 1u) == 0) b.edge(priorFirst + i, id);
+        previous = id;
+      }
+      b.edge(previous, first);
+      priorFirst = first;
+    }
+  }
+}
+
+void c64Label(Builder& b, float t, V3 center) {
+  constexpr std::array<std::array<uint8_t, 7>, 3> glyphs{{
+      {{14, 17, 16, 16, 16, 17, 14}}, // C
+      {{14, 16, 16, 30, 17, 17, 14}}, // 6
+      {{18, 18, 18, 31, 2, 2, 2}}     // 4
+  }};
+  constexpr float pixel = .075f;
+  for (unsigned glyph = 0; glyph < glyphs.size(); ++glyph)
+    for (unsigned row = 0; row < 7; ++row)
+      for (unsigned col = 0; col < 5; ++col)
+        if ((glyphs[glyph][row] >> (4 - col)) & 1u) {
+          const float x = (float(glyph) * 6.f + float(col) - 8.f) * pixel;
+          const float y = (.5f - float(row)) * pixel;
+          boxFrame(b, {x, y, 1.105f}, {pixel * .43f, pixel * .43f, .035f}, t, center);
+        }
+}
+
 void ring(Builder& b, float radius, float y, float tiltX, float tiltZ, float phase, unsigned samples = 144) {
   uint32_t first = 0, previous = 0;
   for (unsigned i = 0; i < samples; ++i) {
@@ -203,6 +263,43 @@ Mesh3 pulseGrid(float seconds) {
     const float x0 = (float(i) / float(pulse.size() - 1) * 2.f - 1.f) * 1.55f;
     const float x1 = (float(i + 1) / float(pulse.size() - 1) * 2.f - 1.f) * 1.55f;
     b.segment({x0, -1.17f + pulse[i] * .42f, 1.42f}, {x1, -1.17f + pulse[i + 1] * .42f, 1.42f});
+  }
+  return b.mesh;
+}
+
+Mesh3 c64PulseGrid(float seconds) {
+  Builder b;
+  // PAL C64: one geometry state per 50 Hz video frame. The block animation is
+  // intentionally stepped; interpolation would erase the raster-era character.
+  const float t = std::floor(std::max(0.f, seconds) * 50.f) / 50.f;
+  const float beat = t * 138.f / 60.f;
+  const float envelope = std::pow(1.f - std::fmod(beat, 1.f), 3.f);
+  const V3 center{0.f, .14f, 0.f};
+
+  latticeCube(b, 4, 1.10f * (1.f + .045f * envelope), .055f, t, center);
+  const float block = .17f + .035f * envelope;
+  boxFrame(b, {0, 0, 0}, {block, block, block}, t, center);
+  for (const V3 p : std::array<V3, 6>{{{.34f, 0, 0}, {-.34f, 0, 0}, {0, .34f, 0},
+                                       {0, -.34f, 0}, {0, 0, .34f}, {0, 0, -.34f}}})
+    boxFrame(b, p, {block * .72f, block * .72f, block * .72f}, t, center);
+  c64Conduits(b, t, envelope, center);
+  c64Label(b, t, center);
+
+  for (int i = 0; i < 3; ++i)
+    ring(b, 1.46f + float(i) * .18f + envelope * .025f, .14f,
+         .16f + float(i) * .48f, -.38f + float(i) * .37f,
+         t * (.18f + float(i) * .025f) + float(i) * 2.1f, 64);
+
+  constexpr int grid = 8;
+  constexpr float extent = 2.65f;
+  for (int i = -grid; i <= grid; ++i) {
+    const float q = extent * float(i) / float(grid);
+    b.segment({-extent, -1.43f, q}, {extent, -1.43f, q});
+    b.segment({q, -1.43f, -extent}, {q, -1.43f, extent});
+  }
+  for (int wave = 0; wave < 2; ++wave) {
+    const float travel = std::fmod(beat * .38f + float(wave) * .5f, 1.f);
+    ring(b, .30f + travel * 2.1f, -1.415f, 0.f, 0.f, 0.f, 64);
   }
   return b.mesh;
 }

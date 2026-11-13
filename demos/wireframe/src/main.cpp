@@ -47,7 +47,7 @@ public:
   }
   std::string usage() const override {
     return "  --cpu-effects   Use CPU deformation reference path\n"
-           "  --scene N       Start on scene N in manual mode (0-73; Space returns to auto)\n"
+           "  --scene N       Start on scene N in manual mode (0-74; Space returns to auto)\n"
            "  --recipe N      Start in recipe mode with curated recipe N (0-37)\n"
            "Keys: Left/Right cycle scenes, Space back to auto, R recipe mode,\n"
            "      Up/Down cycle recipe, P re-roll mutation,\n"
@@ -156,8 +156,8 @@ public:
         break;
       }
     // The golden orbit clouds (57-58) are never warped in auto mode: their motion is the attractor's own morph.
-    if (scene == 73 && !recipeMode_ && !haveRecipe_)
-      recipeName = "Native pulse geometry";
+    if ((scene == 73 || scene == 74) && !recipeMode_ && !haveRecipe_)
+      recipeName = scene == 74 ? "C64 raster geometry" : "Native pulse geometry";
     else if ((scene == 57 || scene == 58) && !recipeMode_ && !haveRecipe_)
       recipeName = "Golden glimmer";
     else if (pureForm && !recipeMode_ && !haveRecipe_)
@@ -176,7 +176,7 @@ public:
       out.memory = look.memory;
       std::copy(look.look, look.look + 5, out.look);
     }
-    if (scene == 73) {
+    if (scene == 73 || scene == 74) {
       // PulseGrid owns its cube/orbit motion and its floor must remain a floor.
       // Cancel the generic show's object spin while retaining camera drift.
       const float yaw = float(f.effectTime) * .17f;
@@ -186,11 +186,12 @@ public:
       std::copy(inverse, inverse + 9, out.modelTransform);
       out.travelers = false;
       out.fxAmount = .12f;
-      out.wireStyle = 2;
+      out.wireStyle = scene == 74 ? 3 : 2;
     }
     out.scale =
         1.f + .11f * std::sin(float(f.effectTime) * .41f + float(scene) * .37f) + .07f * f.sync.pulse; // breathing size cycle
     out.lineWidth = 1.f + f.sync.pulse;
+    if (scene == 74) out.lineWidth *= 2.15f; // one readable VIC-II logical pixel after 320x200 sampling
     {   // scene flow: exit rush toward the camera, entry grow-in from 80% and a thicker stroke on the downbeat
       const transition::Cut cut = transition::at(f.sync.barIndex, f.sync.barPhase, 2, manual_ < 0, f.time - sceneChangedAt_,
                                                  60.0 / std::max(1.0, double(f.bpm)));
@@ -204,7 +205,7 @@ public:
       out.travelers = false;
       out.scale *= .8f;
     } // golden orbit clouds: dense right out to the rim
-    if (scene == 73) out.scale *= 1.35f;
+    if (scene == 73 || scene == 74) out.scale *= 1.35f;
     auto& si = scenes_.info(scene);
     out.ticker = describeScene(scene, si.name, si.provenance, recipeName, f.bpm, creditFor(f.musicPath));
     return true;

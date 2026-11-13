@@ -442,7 +442,7 @@ int main() {
   // B18: scene-table consistency
   {
     SceneSystem ss;
-    req(ss.count() == 74, "scene count 74");
+    req(ss.count() == 75, "scene count 75");
     for (int i = 0; i < ss.count(); ++i) {
       auto& si = ss.info(i);
       req(si.id == i, "scene id==index");
@@ -458,6 +458,18 @@ int main() {
     req(SceneSystem::tickFor(ss.info(6), 99.0) == 0, "static scene tick=0");
     // B7: dynamic scene tick advances with time (scene 2 = 6 Hz, use 0.2s = 1.2 ticks)
     req(SceneSystem::tickFor(ss.info(2), 0.2) > SceneSystem::tickFor(ss.info(2), 0.0), "dynamic tick advances");
+  }
+  // C64 version is independently constructed and advances at PAL 50 Hz.
+  {
+    const Mesh3 a = geo::c64PulseGrid(1.001f), sameTick = geo::c64PulseGrid(1.019f), nextTick = geo::c64PulseGrid(1.021f);
+    mesh(a, "C64 PulseGrid 3D model");
+    req(a.v.size() > 700 && a.e.size() > 900, "C64 PulseGrid retains complete voxel and PETSCII geometry");
+    req(a.v.size() == sameTick.v.size() && std::equal(a.v.begin(), a.v.end(), sameTick.v.begin(), [](V3 x, V3 y) {
+          return x.x == y.x && x.y == y.y && x.z == y.z;
+        }), "C64 PulseGrid holds within a 50 Hz PAL frame");
+    req(!std::equal(a.v.begin(), a.v.end(), nextTick.v.begin(), [](V3 x, V3 y) {
+          return x.x == y.x && x.y == y.y && x.z == y.z;
+        }), "C64 PulseGrid advances on the next PAL frame");
   }
   // Standalone PulseGrid Reactor: fixed 25 Hz cadence, a true central body,
   // real depth layers and valid topology.
@@ -979,6 +991,9 @@ int main() {
       req(all.find("uBypass") != std::string::npos, "post.frag declares uBypass");
       req(all.find("uClean") != std::string::npos && all.find("1.0-calm") != std::string::npos,
           "post.frag retains clean-composition warp suppression");
+      req(all.find("uC64") != std::string::npos && all.find("vec2(320.,200.)") != std::string::npos &&
+              all.find("nearestC64") != std::string::npos && all.find("bayer4") != std::string::npos,
+          "post.frag retains the 320x200 dithered C64 palette pipeline");
       req(all.find("vec3 halation=") != std::string::npos && all.find("vec3 lensGhost=") != std::string::npos,
           "post.frag retains cinematic halation and lens depth");
     }
@@ -987,6 +1002,8 @@ int main() {
       std::string all((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
       req(all.find("if(uStyle==2)") != std::string::npos && all.find("PulseGrid") != std::string::npos,
           "wire.frag retains the PulseGrid material style");
+      req(all.find("if(uStyle==3)") != std::string::npos && all.find("c64Palette") != std::string::npos,
+          "wire.frag retains the discrete C64 colour-RAM style");
     }
   }
   // --window WxH parsing: the shared parseWindowSpec (include/WindowSpec.hpp)

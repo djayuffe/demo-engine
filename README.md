@@ -120,6 +120,7 @@ make run-black-hole       # ray-lensed black hole + 131K GPU physics particles, 
 make run-hyperfractal     # supplied quantum hyperfractal, native GPU scene 29
 make run-wireframe        # Impossible Wireframe show
 make run-pulsegrid        # supplied PulseGrid composition, native wireframe scene 73
+make run-c64-pulsegrid    # 320x200 PAL/C64 3D voxel version, scene 74
 make run-hello            # minimal engine example
 make run-ripple           # adaptive GPU-tessellation example
 make run-atlas-reference  # CPU Atlas four-panel image -> build/atlas-reference.ppm
@@ -134,6 +135,7 @@ Any live Atlas scene can be selected directly:
 ./build/hold_infinity --infinity-scene 26  # spectral parametric point field
 ./build/hold_infinity --infinity-scene 21 --atlas-reduced-motion
 ./build/impossible_wireframe --scene 73       # native PulseGrid model
+./build/impossible_wireframe --scene 74       # C64 16-colour 3D version
 ```
 
 PulseGrid Reactor is a standalone 3D object with a rounded chassis, sculpted
@@ -163,6 +165,7 @@ for compatible wires; use `--gpu-info` to inspect the selected path and live lim
 | **Effects library** | 93 CPU vertex warpers (including 16 "unknown" 4D, hyperbolic, attractor and growth effects and 13 "beyond" physics and paradox effects: Dzhanibekov flip, gravitational-wave chirp, magnetosphere, time crystal, Droste recursion, Indra pearls and more), 38 curated recipes, deterministic mutation, a 60,000-edge budget, fast sort-based duplicate removal, undo on failure | `engine/src/Effects.cpp` |
 | **Geometry kit** | `Mesh3`/`Polytope4`, cube, sphere, torus, 4D polytopes and projection, validation | `engine/src/Geometry.cpp` |
 | **Wire styles** | `Frame::wireStyle`: 0 = electric palette, 1 = golden glimmer (additive point-cloud accumulation, gold twinkle and cross glints, warps and grading off) | `wire.frag`, `post.frag` |
+| **C64 raster** | Scene 74 snaps the post pass to 320×200, applies 4×4 Bayer dithering and quantizes every output pixel to the canonical VIC-II 16-colour palette | `PulseGridGeometry.cpp`, `wire.frag`, `post.frag` |
 | **Input** | Per-frame key state with rising-edge `pressed()` | `de::Input` |
 | **CLI** | `--bpm --music --logos --window --fullscreen --quality --no-post --no-ticker --screenshot --frames --version --help`, extendable by the demo | `Engine.cpp` |
 | **Asset search** | Config-relative paths resolved from the CWD, the executable directory and every ancestor | `Engine.cpp` |

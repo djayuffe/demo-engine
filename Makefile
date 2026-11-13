@@ -55,7 +55,7 @@ CMAKE_FLAGS := -DCMAKE_BUILD_TYPE=$(TYPE) -DIW_BUILD_TESTS=ON $(CMAKE_EXTRA)
 # the build-type / generator case.)
 STAMP := $(BUILD_DIR)/.stamp
 
-.PHONY: all configure build test run run-atlas run-aviation run-mobius run-quantum run-black-hole run-hyperfractal run-atlas-reference run-atlas-advanced run-wireframe run-pulsegrid run-silicon run-hello run-ripple run-pulse clean reconfigure diag help stamp
+.PHONY: all configure build test run run-atlas run-aviation run-mobius run-quantum run-black-hole run-hyperfractal run-atlas-reference run-atlas-advanced run-wireframe run-pulsegrid run-c64-pulsegrid run-silicon run-hello run-ripple run-pulse clean reconfigure diag help stamp
 
 all: build
 
@@ -132,6 +132,9 @@ run-wireframe: build
 run-pulsegrid: build
 	$(WIREFRAME) --scene 73
 
+run-c64-pulsegrid: build
+	$(WIREFRAME) --scene 74
+
 run-silicon: build
 	$(BIN) --music demos/wireframe/assets/music/drozerix_-_silicon_dancer.mod
 
@@ -185,6 +188,7 @@ help:
 	@echo "  run-atlas-advanced  Generate the advanced CPU Atlas reference image"
 	@echo "  run-wireframe   Build + launch the previous wireframe show"
 	@echo "  run-pulsegrid   Build + launch the native PulseGrid model (scene 73)"
+	@echo "  run-c64-pulsegrid Build + launch the PAL/C64 3D model (scene 74)"
 	@echo "  run-hello       Build + launch the minimal hello demo"
 	@echo "  run-ripple      Build + launch the GPU-tessellated ripple demo"
 	@echo "  run-pulse       Build + launch Hold Infinity with the CC0 Pulse track"

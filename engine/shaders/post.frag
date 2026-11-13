@@ -27,6 +27,7 @@ uniform float uGold;
 // Clean-composition scenes retain bloom/background/gloss but disable spatial
 // warps and transition smears that would destroy deliberate model silhouettes.
 uniform float uClean;
+uniform float uC64;
 uniform sampler2D uArt;   // the art pass (half resolution), see art.frag
 uniform float uArtOn;
 // Selected background style (0 = classic). Styled backgrounds keep their own palette: the hue drift,
@@ -42,6 +43,29 @@ uniform sampler2D uBloom;
 #include "lib/common.glsl"
 #include "lib/depth_layers.glsl"
 
+vec3 c64Color(int i){
+  if(i==0)return vec3(0);                    if(i==1)return vec3(1);
+  if(i==2)return vec3(104,55,43)/255.;       if(i==3)return vec3(112,164,178)/255.;
+  if(i==4)return vec3(111,61,134)/255.;      if(i==5)return vec3(88,141,67)/255.;
+  if(i==6)return vec3(53,40,121)/255.;       if(i==7)return vec3(184,199,111)/255.;
+  if(i==8)return vec3(111,79,37)/255.;       if(i==9)return vec3(67,57,0)/255.;
+  if(i==10)return vec3(154,103,89)/255.;     if(i==11)return vec3(68)/255.;
+  if(i==12)return vec3(108)/255.;            if(i==13)return vec3(154,210,132)/255.;
+  if(i==14)return vec3(108,94,181)/255.;     return vec3(149)/255.;
+}
+vec3 nearestC64(vec3 c){
+  vec3 best=c64Color(0);float distanceBest=1e9;
+  for(int i=0;i<16;i++){
+    vec3 candidate=c64Color(i),delta=c-candidate;float distanceNow=dot(delta,delta);
+    if(distanceNow<distanceBest){distanceBest=distanceNow;best=candidate;}
+  }
+  return best;
+}
+float bayer4(ivec2 p){
+  const float matrix[16]=float[16](0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5);
+  return matrix[(p.x&3)+(p.y&3)*4]/16.-.5;
+}
+
 void main(){
   // --no-post fast path: sample the captured frame, ACES tone-map it (the buffer
   // is HDR float, so it needs SOME tone map to be visible), output. Skips every
@@ -52,7 +76,8 @@ void main(){
     return;
   }
   vec2 px=1.0/max(uResolution,vec2(1));
-  vec2 p=(uv*2.-1.)*vec2(uResolution.x/max(uResolution.y,1.),1.);
+  vec2 baseUv=uC64>.5?(floor(uv*vec2(320.,200.))+.5)/vec2(320.,200.):uv;
+  vec2 p=(baseUv*2.-1.)*vec2(uResolution.x/max(uResolution.y,1.),1.);
   float beat=uBeatDrive.x;
   float mlev=uMusicLevel;
   // 1.0 when a logo backdrop is in uScene (logo mode): the logo is a real
@@ -66,7 +91,7 @@ void main(){
   // These displace the sampling UV. They look great on a wireframe-on-black
   // but destroy a photographic logo, so every warp is multiplied by
   // (1.0-hasLogo) — a no-op in logo mode.
-  vec2 suv=uv;
+  vec2 suv=baseUv;
    // 1) Gravitational lensing: true 1/r^2 central magnification.
    // Clamp the displaced UV to [0,1] — near the center the magnification can
    // push it well outside the buffer, which would sample clamped black borders.
@@ -145,7 +170,7 @@ void main(){
   rays*=mix(pal(uTime*.05),vec3(1.3,.9,.4),uGold)*.05*(.5+mlev+beat);   // rainbow rays, or gold in the golden scenes
   // Procedural background + art layer: art.frag renders it at half resolution into uArt, and the
   // renderer skips that pass while a logo card covers the screen (uArtOn = 0).
-  vec3 bg=uArtOn>.5?texture(uArt,uv).rgb:vec3(.0015,.003,.013);
+  vec3 bg=uArtOn>.5?texture(uArt,baseUv).rgb:vec3(.0015,.003,.013);
 
   // In logo mode the scene already contains the logo backdrop, so skip the
   // procedural background (it would wash out the picture) and use a lower
@@ -252,9 +277,16 @@ void main(){
   hdr=mix(hdr,hdr*vec3(1.10,1.0,.80),.55*uGold);   // warm grade for the golden scenes
   hdr=(hdr-.5)*1.075+.5;
   hdr=pow(max(hdr,0.),vec3(mix(.86,1.0,hasLogo)));
+  if(uC64>.5){
+    ivec2 logical=ivec2(floor(baseUv*vec2(320.,200.)));
+    hdr=nearestC64(clamp(hdr*1.55+bayer4(logical)*.10,0.,1.));
+    // Classic VIC-II screen blue replaces modern true black. The final image
+    // still contains only colours from the hardware's fixed 16-entry palette.
+    if(dot(hdr,hdr)<1e-6)hdr=c64Color(6);
+  }
   // Final touch: triangular-PDF dither (+-1 LSB) so the slow dark gradients of the background styles
   // (nebula gas, synthwave sky) quantise to 8 bits without visible banding.
   vec2 dq=gl_FragCoord.xy+fract(uTime*7.31)*64.;
-  hdr+=(hash(dq)+hash(dq+37.7)-1.0)/255.0;
+  if(uC64<.5)hdr+=(hash(dq)+hash(dq+37.7)-1.0)/255.0;
   FragColor=vec4(hdr,1);
 }
