@@ -79,6 +79,76 @@ void latticeCube(Builder& b, unsigned divisions, float half, float bevel, float 
     }
 }
 
+V3 modelPoint(V3 p, float t, V3 center) {
+  p = cubeRotation(p, t);
+  return {p.x + center.x, p.y + center.y, p.z + center.z};
+}
+
+// A faceted, four-lobed reactor heart. Latitude/longitude loops make it read
+// as a solid object from every camera angle, while the lobes visibly contract
+// and release on the beat instead of merely scaling the whole scene.
+void pulseCore(Builder& b, float t, float envelope, V3 center) {
+  constexpr unsigned rings = 9, slices = 24;
+  std::array<std::array<uint32_t, slices>, rings> ids{};
+  for (unsigned y = 0; y < rings; ++y) {
+    const float v = float(y) / float(rings - 1);
+    const float latitude = (v - .5f) * pi;
+    for (unsigned x = 0; x < slices; ++x) {
+      const float longitude = 2.f * pi * float(x) / float(slices);
+      const float ribs = .045f * std::cos(latitude * 6.f - t * 2.1f);
+      const float lobes = .075f * std::cos(longitude * 4.f + t * 1.7f) * std::pow(std::cos(latitude), 2.f);
+      const float radius = .34f * (1.f + .16f * envelope) + ribs + lobes;
+      V3 p{radius * std::cos(latitude) * std::cos(longitude),
+           radius * 1.12f * std::sin(latitude),
+           radius * std::cos(latitude) * std::sin(longitude)};
+      // The core counter-rotates inside the chassis, giving the model an
+      // independently articulated centre rather than nested copies of a cube.
+      p = rotateY(rotateZ(p, -t * .67f), t * .91f);
+      ids[y][x] = b.add(modelPoint(p, t, center));
+    }
+  }
+  for (unsigned y = 0; y < rings; ++y)
+    for (unsigned x = 0; x < slices; ++x) {
+      b.edge(ids[y][x], ids[y][(x + 1) % slices]);
+      if (y + 1 < rings) b.edge(ids[y][x], ids[y + 1][x]);
+    }
+}
+
+// Six radial bus bars bind the core to the chassis. Repeating coils and a
+// larger terminal ring provide depth cues and give the sculpture a machine-like
+// silhouette instead of reading as unrelated concentric effects.
+void conduits(Builder& b, float t, float envelope, V3 center) {
+  constexpr unsigned coilSamples = 18;
+  const std::array<V3, 6> axes{{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}};
+  for (size_t face = 0; face < axes.size(); ++face) {
+    const V3 n = axes[face];
+    const V3 u = std::abs(n.x) > .5f ? V3{0, 1, 0} : V3{1, 0, 0};
+    const V3 v = std::abs(n.z) > .5f ? V3{0, 1, 0} : V3{0, 0, 1};
+    const float inner = .40f, outer = 1.04f;
+    b.segment(modelPoint({n.x * inner, n.y * inner, n.z * inner}, t, center),
+              modelPoint({n.x * outer, n.y * outer, n.z * outer}, t, center));
+    uint32_t previousFirst = 0;
+    for (unsigned coil = 0; coil < 5; ++coil) {
+      const float along = inner + (outer - inner) * float(coil) / 4.f;
+      const float coilRadius = (.075f + .018f * envelope) * (coil == 4 ? 1.42f : 1.f);
+      uint32_t first = 0, previous = 0;
+      for (unsigned i = 0; i < coilSamples; ++i) {
+        const float a = 2.f * pi * float(i) / float(coilSamples) + t * (face % 2 ? -.8f : .8f);
+        V3 p{n.x * along + coilRadius * (u.x * std::cos(a) + v.x * std::sin(a)),
+             n.y * along + coilRadius * (u.y * std::cos(a) + v.y * std::sin(a)),
+             n.z * along + coilRadius * (u.z * std::cos(a) + v.z * std::sin(a))};
+        const uint32_t id = b.add(modelPoint(p, t, center));
+        if (i == 0) first = id;
+        else b.edge(previous, id);
+        if (coil > 0 && i % 3 == 0) b.edge(previousFirst + i, id);
+        previous = id;
+      }
+      b.edge(previous, first);
+      previousFirst = first;
+    }
+  }
+}
+
 void ring(Builder& b, float radius, float y, float tiltX, float tiltZ, float phase, unsigned samples = 144) {
   uint32_t first = 0, previous = 0;
   for (unsigned i = 0; i < samples; ++i) {
@@ -101,12 +171,11 @@ Mesh3 pulseGrid(float seconds) {
   const float envelope = std::pow(1.f - std::fmod(beat, 1.f), 3.f);
   const V3 cubeCenter{0.f, .20f, 0.f};
 
-  latticeCube(b, 11, 1.13f * (1.f + envelope * .10f), .17f, t, cubeCenter);
-  for (int shell = 0; shell < 3; ++shell) {
-    const float phase = .5f + .5f * std::sin(beat * 2.f * pi - float(shell) * 1.7f);
-    const float size = .42f + float(shell) * .19f + phase * .055f;
-    latticeCube(b, 3, size, .07f, t + float(shell) * .08f, cubeCenter);
-  }
+  // The PulseGrid Reactor is one coherent model: chassis, heart and power
+  // buses all share the same transform, while the heart articulates within it.
+  latticeCube(b, 6, 1.13f * (1.f + envelope * .055f), .20f, t, cubeCenter);
+  pulseCore(b, t, envelope, cubeCenter);
+  conduits(b, t, envelope, cubeCenter);
 
   for (int i = 0; i < 3; ++i) {
     const float radius = 1.52f + float(i) * .19f + envelope * .035f;

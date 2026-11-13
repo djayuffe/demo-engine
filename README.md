@@ -136,7 +136,8 @@ Any live Atlas scene can be selected directly:
 ./build/impossible_wireframe --scene 73       # native PulseGrid model
 ```
 
-PulseGrid uses a stable rounded lattice, nested breathing shells, orbit rails,
+PulseGrid Reactor is a standalone 3D object with a rounded chassis, sculpted
+counter-rotating heart, six coiled power buses and orbital gimbals, supported by
 floor reflections and expanding rhythm rings. Its dedicated emissive circuit
 material drives cyan/violet/pink seams and signal packets from the music while
 keeping post distortion restrained for a crisp silhouette.

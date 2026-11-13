@@ -4,6 +4,7 @@
 - Build a rounded 3D lattice cube, three independently breathing inner shells, three orbital rails, a receding floor grid, expanding beat rings and a geometric pulse rail at the source effect's 25 Hz visual cadence.
 - Keep the designed model free of automatic mesh mutation, cancel the generic object spin so its floor remains stable, and use a new per-frame post-strength control to preserve its silhouette while retaining optional manual recipes plus the engine's music response, HDR bloom, backgrounds and gloss.
 - Refine its silhouette with a clearer lattice and a dedicated emissive cyan/violet/pink circuit material whose seams, packets and radial waves respond to the beat without distorting the model.
+- Evolve scene 73 into the standalone PulseGrid Reactor: a sparse structural chassis around a sculpted counter-rotating pulse core, joined to six coiled face terminals and surrounded by articulated energy gimbals.
 - Record the supplied archive's SHA-256 and port boundary without redistributing its browser, SID, font, binary-data or embedded archive assets.
 
 # Build script — 2026-11-08

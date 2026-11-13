@@ -40,7 +40,7 @@ Each feature below is a separate, independently degradable layer. If a shader fa
 | 57-58 | **Golden orbits** | Ported from [uber256-lab](https://github.com/djayuffe/uber256-lab): GALAXY (de Jong attractor) and CLIFF (Clifford attractor) as glowing 3D orbit clouds with a golden glimmer. Never warped in auto mode; their own parameters morph |
 | 59-66 | **Impossible relationships** | Noncommutative lattice, holonomy sphere, motion-only sculpture, atomic collision field, relational gravity, data-collision sculpture, a self-refuting solver and contradictory silhouettes |
 | 67-72 | **Curved and conflicting worlds** | Hyperbolic city, spherical universe, geodesic lightning, time-dilation cathedral, discrete-space crystal and conflict geometry |
-| 73 | **PulseGrid** | Native rounded lattice cube, pulse shells, orbital rails, floor waves and geometric heartbeat rail derived from the supplied PurpleTwilight-attributed effect; [source record](SOURCE_PULSEGRID.md) |
+| 73 | **PulseGrid Reactor** | Original standalone 3D reactor with a rounded chassis, sculpted counter-rotating core, six coiled power buses, orbital gimbals, floor waves and heartbeat rail; evolved from the supplied PurpleTwilight-attributed composition; [source record](SOURCE_PULSEGRID.md) |
 
 Expensive scenes are cached and rebuilt only at their own update rate (for example the 600-cell at 60 Hz, the discovered object at 1/8 Hz), not at the display refresh. `data/object_catalog.csv` records provenance for every object. Select a scene with Left/Right or `--scene N`; Space returns to automatic beat and bar sequencing.
 

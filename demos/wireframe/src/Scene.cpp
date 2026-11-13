@@ -83,7 +83,7 @@ constexpr std::array<SceneInfo, 74> S{
      {70, "Time-dilation cathedral", true, 24, "local clock field slows bays near a moving mass"},
      {71, "Discrete-space crystal", true, 12, "lattice with dynamic bonds and wormholes, spring-relaxed"},
      {72, "Conflict geometry", true, 12, "contours of f1-f2 for two disagreeing implicit worlds"},
-     {73, "PulseGrid", true, 25, "PurpleTwilight supplied effect: rounded pulse lattice + orbital rails"}}};
+     {73, "PulseGrid Reactor", true, 25, "Original 3D reactor model evolved from the supplied PulseGrid composition"}}};
 }
 SceneSystem::SceneSystem() : c600_(geo::cell600()), c120_(geo::cell120Vertices()) {}
 const SceneInfo& SceneSystem::info(int id) const {

@@ -459,11 +459,18 @@ int main() {
     // B7: dynamic scene tick advances with time (scene 2 = 6 Hz, use 0.2s = 1.2 ticks)
     req(SceneSystem::tickFor(ss.info(2), 0.2) > SceneSystem::tickFor(ss.info(2), 0.0), "dynamic tick advances");
   }
-  // Supplied PulseGrid port: fixed 25 Hz cadence, real depth layers and valid topology.
+  // Standalone PulseGrid Reactor: fixed 25 Hz cadence, a true central body,
+  // real depth layers and valid topology.
   {
     const Mesh3 a = geo::pulseGrid(1.001f), sameTick = geo::pulseGrid(1.019f), nextTick = geo::pulseGrid(1.041f);
     mesh(a, "PulseGrid model");
-    req(a.v.size() > 1500 && a.e.size() > 2000, "PulseGrid retains layered geometric detail");
+    req(a.v.size() > 1500 && a.e.size() > 2000, "PulseGrid Reactor retains layered geometric detail");
+    const size_t coreVertices = std::count_if(a.v.begin(), a.v.end(), [](V3 p) {
+      const float y = p.y - .20f;
+      const float radius = std::sqrt(p.x * p.x + y * y + p.z * p.z);
+      return radius > .22f && radius < .52f;
+    });
+    req(coreVertices > 180, "PulseGrid Reactor has a substantial independent 3D core");
     req(a.v.size() == sameTick.v.size() && a.e.size() == sameTick.e.size() &&
             std::equal(a.v.begin(), a.v.end(), sameTick.v.begin(), [](V3 x, V3 y) {
               return x.x == y.x && x.y == y.y && x.z == y.z;
