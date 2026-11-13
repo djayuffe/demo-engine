@@ -47,6 +47,7 @@ struct Config {
   bool customRendering=false;          // Demo::draw owns the framebuffer; engine still supplies audio, ticker, capture
   bool logoShow=true;                  // false = never draw logo cards even if found
   float fxAmount=1.f;                  // 0..1 strength of the signature post look (art, warps, lensing)
+  bool c64Layer=false;                 // start every shared-renderer scene through the VIC-II/PAL display layer
 };
 
 // Everything the engine knows about the current frame.
@@ -124,7 +125,7 @@ public:
 
 // Parses the command line, opens the window and runs until the user quits.
 // Returns a process exit code. Engine options: --bpm --music --no-ticker --no-post --quality
-// --logos --window --fullscreen --screenshot --frames --version --help.
+// --logos --window --fullscreen --c64-layer --screenshot --frames --version --help.
 int run(Demo& demo, int argc, char** argv);
 
 }  // namespace de

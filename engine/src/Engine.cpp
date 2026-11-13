@@ -109,6 +109,7 @@ int run(Demo& demo, int argc, char** argv) {
   bool hud = false, helpOverlay = false, hints = true;
   bool captureNow = false;   // key C: save the next frame as demo-<date>-<time>.png
   bool noTicker = false, noPost = false, silent = false;
+  bool c64Layer = cfg.c64Layer;
   double quality = 1.0;
   bool qualityGiven = false;
   int winW = 0, winH = 0;
@@ -145,6 +146,8 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --silent        Disable audio playback; use the BPM clock\n"
                  "  --no-ticker     Start with the text ticker off (toggle with T)\n"
                  "  --no-post       Skip the screen-space FX post pass (faster; debugging)\n"
+                 "  --c64-layer     Apply the VIC-II/PAL raster layer to every scene (X toggles)\n"
+                 "  --no-c64-layer  Disable a demo's default VIC-II/PAL layer\n"
                  "  --no-background Start with the procedural background off (toggle with B)\n"
                  "  --background-style S  auto|classic|synthwave|nebula|mandala|blackhole|hyperspace|fractal (cycle with V)\n"
                  "  --parallax F    Effects parallax gain 0-3: wires + depth motes (default 1.6; cycle with G)\n"
@@ -171,7 +174,7 @@ int run(Demo& demo, int argc, char** argv) {
                  "  --version       Print version and exit\n"
                  "  -h, --help      Show this help\n"
                  "%s"
-                 "Keys: E beat pulse, F beat flash, U music pause, [/] volume, T ticker, B background, V background style, D depth layer, O gloss, F1-F12 background objects, G effects parallax, K background parallax, S next track, C capture PNG, H controls, I status, J beat source, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
+                 "Keys: E beat pulse, F beat flash, U music pause, [/] volume, T ticker, B background, V background style, D depth layer, O gloss, X C64 layer, F1-F12 background objects, G effects parallax, K background parallax, S next track, C capture PNG, H controls, I status, J beat source, mouse steers the backgrounds (click = shockwave), L logo cards, Esc quits\n",
                  cfg.title.c_str(), cfg.version.c_str(), cfg.binaryName.c_str(), cfg.defaultBpm, demo.usage().c_str());
   };
   for (int i = 1; i < argc; i++) {
@@ -207,6 +210,10 @@ int run(Demo& demo, int argc, char** argv) {
       noTicker = true;
     else if (arg == "--no-post")
       noPost = true;
+    else if (arg == "--c64-layer")
+      c64Layer = true;
+    else if (arg == "--no-c64-layer")
+      c64Layer = false;
     else if (arg == "--silent") silent = true;
     else if (arg == "--quality" && i + 1 < argc) {
       double v = 0;
@@ -391,6 +398,7 @@ int run(Demo& demo, int argc, char** argv) {
   // Default: cap the HDR target to a pixel budget (Retina/4K); an explicit --quality means "exactly this".
   r.setMaxHdrPixels(qualityGiven ? 0.0 : rscale::kDefaultBudget);
   r.setPostEnabled(!noPost);
+  r.setC64Layer(c64Layer);
   r.setShowBackground(!so.noBackground);
   r.setBackgroundStyle(so.bgStyle);
   r.setShowDepth(!so.noDepth);
@@ -547,6 +555,11 @@ int run(Demo& demo, int argc, char** argv) {
       r.setShowBackground(!r.showBackground());
       std::fprintf(stdout, "background: %s\n", r.showBackground() ? "on" : "off");
     }
+    if (input.pressed(Key::X)) {
+      r.setC64Layer(!r.c64Layer());
+      notify(r.c64Layer() ? "C64 VIC-II LAYER ON" : "C64 VIC-II LAYER OFF");
+      std::fprintf(stdout, "C64 VIC-II layer: %s\n", r.c64Layer() ? "on" : "off");
+    }
     {   // pointer: smoothed -1..1 (y up) + click shockwave; drives the backgrounds and the depth layer
       const double now = so.fixedStep > 0 ? 1.0 + frameCount * so.fixedStep : glfwGetTime();
       const float dt = float(std::clamp(now - ptrT, 0.0, .1));
@@ -586,7 +599,7 @@ int run(Demo& demo, int argc, char** argv) {
     if (input.pressed(Key::H)) {
       helpOverlay = !helpOverlay;
       std::fprintf(stdout,
-                   "keys: B background  V style  D depth  O gloss  G fx parallax  K bg parallax  S next track (Shift: previous)  L logos  T ticker  C capture PNG  H help  Esc quit\n"
+                   "keys: B background  V style  D depth  O gloss  X C64 layer  G fx parallax  K bg parallax  S next track (Shift: previous)  L logos  T ticker  C capture PNG  H help  Esc quit\n"
                    "      E pulse  F flash  U pause  [/] volume  J beat source  I status\n"
                    "      mouse = steer depth, click = shockwave\n");
     }
@@ -725,7 +738,7 @@ int run(Demo& demo, int argc, char** argv) {
           "[ / ] VOLUME   E PULSE   F FLASH\n"
           "T TICKER   C SAVE PNG";
       if (!cfg.customRendering) controls +=
-          "\nB BACKGROUND   V STYLE   D DEPTH   O GLOSS\n"
+          "\nB BACKGROUND   V STYLE   D DEPTH   O GLOSS   X C64 LAYER\n"
           "G / K PARALLAX   L LOGOS   F1-F12 OBJECTS\n"
           "MOUSE STEERS / CLICK SHOCKWAVE";
       const std::string usage = demo.usage();

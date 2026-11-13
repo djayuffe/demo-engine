@@ -105,6 +105,10 @@ public:
   void setFxAmount(float a) { fxAmount_ = std::clamp(a, 0.f, 1.f); }
   // Wire look: 0 = electric, 1 = gold, 2 = PulseGrid circuitry, 3 = C64 16-colour raster.
   void setWireStyle(int s) { wireStyle_ = std::clamp(s, 0, 3); }
+  // Independent full-frame VIC-II/PAL presentation. Unlike wireStyle 3 this
+  // preserves the scene's own 3D material, so it can wrap every model.
+  void setC64Layer(bool on) { c64Layer_ = on; }
+  bool c64Layer() const { return c64Layer_; }
   void setBeatDrive(const rhythm::Drive& beat) { beat_ = beat; }
   void setGpuWave(const float wave[4]) { std::copy(wave, wave + 4, gpuWave_); }
   void setGpuEffect(const GpuDeformation& effect) { gpuEffect_ = effect; }
@@ -185,6 +189,7 @@ private:
   bool postEnabled_ = true;
   float fxAmount_ = 1.f;
   int wireStyle_ = 0;
+  bool c64Layer_ = false;
   int uStyle_ = -1, uPostGold_ = -1, uPostClean_ = -1, uPostC64_ = -1, uPostBgStyle_ = -1, uPostPtr_ = -1, uPostPulse_ = -1, uPostDepth_ = -1, uPostGloss_ = -1, uPostCut_ = -1;
   // Art pass (procedural background) at half resolution, see shaders/art.frag.
   ArtPass art_;

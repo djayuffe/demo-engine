@@ -802,8 +802,8 @@ bool Renderer::finishLogoFrame(float time, int width, int height, int /*sceneInd
   if (uPostLogoVis_ >= 0) glUniform1f(uPostLogoVis_, logoVis_);
   if (uPostFx_ >= 0) glUniform1f(uPostFx_, fxAmount_);
   if (uPostGold_ >= 0) glUniform1f(uPostGold_, wireStyle_ == 1 ? 1.f : 0.f);
-  if (uPostClean_ >= 0) glUniform1f(uPostClean_, wireStyle_ >= 2 ? 1.f : 0.f);
-  if (uPostC64_ >= 0) glUniform1f(uPostC64_, wireStyle_ == 3 ? 1.f : 0.f);
+  if (uPostClean_ >= 0) glUniform1f(uPostClean_, wireStyle_ >= 2 || c64Layer_ ? 1.f : 0.f);
+  if (uPostC64_ >= 0) glUniform1f(uPostC64_, wireStyle_ == 3 || c64Layer_ ? 1.f : 0.f);
   if (uPostBgStyle_ >= 0) glUniform1f(uPostBgStyle_, float(styleFade_.shown));
   if (uPostPtr_ >= 0) glUniform2f(uPostPtr_, ptrX_, ptrY_);
   if (uPostPulse_ >= 0) glUniform1f(uPostPulse_, ptrPulse_);

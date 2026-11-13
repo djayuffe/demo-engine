@@ -119,6 +119,7 @@ make run-quantum          # supplied quantum twist lattice, native GPU scene 27
 make run-black-hole       # ray-lensed black hole + 131K GPU physics particles, scene 28
 make run-hyperfractal     # supplied quantum hyperfractal, native GPU scene 29
 make run-wireframe        # Impossible Wireframe show
+make run-c64-layer        # every wireframe scene through the global VIC-II/PAL layer
 make run-pulsegrid        # supplied PulseGrid composition, native wireframe scene 73
 make run-c64-pulsegrid    # 320x200 PAL/C64 3D voxel version, scene 74
 make run-hello            # minimal engine example
@@ -136,6 +137,7 @@ Any live Atlas scene can be selected directly:
 ./build/hold_infinity --infinity-scene 21 --atlas-reduced-motion
 ./build/impossible_wireframe --scene 73       # native PulseGrid model
 ./build/impossible_wireframe --scene 74       # C64 16-colour 3D version
+./build/impossible_wireframe --c64-layer      # apply C64 presentation to every scene; X toggles live
 ```
 
 PulseGrid Reactor is a standalone 3D object with a rounded chassis, sculpted
@@ -165,9 +167,9 @@ for compatible wires; use `--gpu-info` to inspect the selected path and live lim
 | **Effects library** | 93 CPU vertex warpers (including 16 "unknown" 4D, hyperbolic, attractor and growth effects and 13 "beyond" physics and paradox effects: Dzhanibekov flip, gravitational-wave chirp, magnetosphere, time crystal, Droste recursion, Indra pearls and more), 38 curated recipes, deterministic mutation, a 60,000-edge budget, fast sort-based duplicate removal, undo on failure | `engine/src/Effects.cpp` |
 | **Geometry kit** | `Mesh3`/`Polytope4`, cube, sphere, torus, 4D polytopes and projection, validation | `engine/src/Geometry.cpp` |
 | **Wire styles** | `Frame::wireStyle`: 0 = electric palette, 1 = golden glimmer (additive point-cloud accumulation, gold twinkle and cross glints, warps and grading off) | `wire.frag`, `post.frag` |
-| **C64 VIC-II/PAL** | Scene 74 places a hard-sampled 320×200 active screen inside a 384×272 cropped PAL raster, applies 4×4 Bayer dithering, the canonical VIC-II 16-colour palette, authentic blue/light-blue screen and border colours, beam scanlines and alternating-line PAL chroma phase | `PulseGridGeometry.cpp`, `wire.frag`, `post.frag` |
+| **C64 VIC-II/PAL layer** | Independent engine-wide layer, enabled with `--c64-layer` or toggled with X. It preserves each scene's own 3D material, then presents it through a hard-sampled 320×200 active screen inside a 384×272 cropped PAL raster with Bayer dithering, the VIC-II palette, blue/light-blue screen and border, beam scanlines and PAL chroma phase. Scene 74 enables the same layer automatically with its C64 wire material | `Renderer`, `post.frag` |
 | **Input** | Per-frame key state with rising-edge `pressed()` | `de::Input` |
-| **CLI** | `--bpm --music --logos --window --fullscreen --quality --no-post --no-ticker --screenshot --frames --version --help`, extendable by the demo | `Engine.cpp` |
+| **CLI** | `--bpm --music --logos --window --fullscreen --quality --no-post --c64-layer --no-ticker --screenshot --frames --version --help`, extendable by the demo | `Engine.cpp` |
 | **Asset search** | Config-relative paths resolved from the CWD, the executable directory and every ancestor | `Engine.cpp` |
 
 ## Writing a demo

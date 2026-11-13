@@ -1,5 +1,6 @@
 # Native PulseGrid model — 2026-11-12
 
+- Promote the C64 presentation to an independent engine-wide layer: `--c64-layer` applies it to every shared-renderer scene without replacing that scene's 3D wire material, `--no-c64-layer` overrides demo defaults, and X toggles it live. Scene 74 continues to select it automatically.
 - Add scene 74, C64 PulseGrid 3D: a distinct PAL 50 Hz voxel model with a block core, eight-sided power coils, extruded C64 pixel lettering, 320×200 logical raster sampling, Bayer dithering, and output restricted to the canonical VIC-II 16-colour palette.
 - Deepen its VIC-II/PAL presentation with a separate 384×272 cropped display raster, 320×200 active screen, power-on blue/light-blue screen and border colours, beam-shaped scanlines, alternating-line PAL chroma phase and subtle phosphor persistence.
 

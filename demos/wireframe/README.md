@@ -144,7 +144,7 @@ SDL2 and libopenmpt play the default soundtrack, *Stars* by cs127 (CC BY 4.0, se
 ### Command line
 | Option | Meaning |
 |---|---|
-| `--scene N` | Start on scene N (0-58) in manual mode |
+| `--scene N` | Start on scene N (0-74) in manual mode |
 | `--recipe N` | Start in recipe mode with curated recipe N (0-37) |
 | `--bpm N` | Tempo; default is the module's own tempo (Stars: 125), else 132. Also syncs the post-pass beat pulse |
 | `--music PATH` | Play a tracker module or wav |
@@ -153,6 +153,7 @@ SDL2 and libopenmpt play the default soundtrack, *Stars* by cs127 (CC BY 4.0, se
 | `--fullscreen` | Full-screen on the primary monitor (overrides `--window`) |
 | `--quality F` | Render the HDR target at F of the screen resolution (0.25-1.0) |
 | `--no-post` | Skip the screen-space FX (tone-map only); fastest |
+| `--c64-layer` | Apply the independent VIC-II/PAL presentation to every scene; X toggles it live |
 | `--no-scroller` | Start with the ticker off |
 | `--screenshot PATH` | Save a PNG |
 | `--frames N` | Exit after N frames; with `--screenshot`, capture on frame N |
